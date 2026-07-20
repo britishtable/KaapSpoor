@@ -1,0 +1,14 @@
+The data in this directory is extracted from the Mountain Meanders wiki
+(https://sites.google.com/site/mountainmeanderswiki/Home) and is licensed under
+
+    Creative Commons Attribution-ShareAlike 2.5 South Africa (CC BY-SA 2.5 ZA)
+
+Full licence text: https://creativecommons.org/licenses/by-sa/2.5/za/legalcode
+
+You are free to share and adapt this material, including commercially, provided you:
+
+  - Attribute Mountain Meanders as the source, and
+  - Distribute any derivative work under this same licence.
+
+This licence applies to the contents of this `data/` directory only. The scraper and
+application code in this repository are licensed separately under the MIT licence.

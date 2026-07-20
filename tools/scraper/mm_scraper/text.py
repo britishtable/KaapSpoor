@@ -40,7 +40,10 @@ def page_title(soup: BeautifulSoup) -> str:
 
 def body_lines(soup: BeautifulSoup) -> list[str]:
     """Visible content lines with chrome and footer removed."""
-    for tag in soup(["script", "style", "noscript", "nav", "header", "footer"]):
+    # <head>/<title> included, or the document title becomes the first body line.
+    for tag in soup(
+        ["head", "title", "script", "style", "noscript", "nav", "header", "footer"]
+    ):
         tag.decompose()
 
     lines = []

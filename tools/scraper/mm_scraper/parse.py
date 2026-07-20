@@ -9,14 +9,57 @@ from bs4 import BeautifulSoup
 from .nav import PageRef
 from .text import body_lines, page_title, split_sections
 
-OSM_RE = re.compile(r"openstreetmap\.org/#map=(\d+)/(-?\d+\.?\d*)/(-?\d+\.?\d*)")
+# Usually openstreetmap.org/#map=z/lat/lon, but one page puts a ?mlat=&mlon=
+# marker query ahead of the fragment.
+OSM_RE = re.compile(
+    r"openstreetmap\.org/(?:\?[^\"'\s#]*)?#map=(\d+)/(-?\d+\.?\d*)/(-?\d+\.?\d*)"
+)
 DECK_RE = re.compile(r"presentation/d/([\w-]{20,})")
 ATTACH_RE = re.compile(r'https?://[^"\'<>\s]+\.(?:gpx|kml|pdf)', re.I)
 DRIVE_FILE_RE = re.compile(r'https://drive\.google\.com/file/d/[\w-]{20,}[^"\'<>\s]*')
-GRADE_RE = re.compile(
-    r"\b(?:grade\s*[:\-]?\s*)([A-F](?:\s*[/-]\s*[A-F])?|\d{1,2}[a-dA-D]?)\b", re.I
+# A grade value: letter (B, B+, C/D) or number (3, 1/2).
+_VALUE = r"[A-F][+-]?(?:\s*/\s*[A-F][+-]?)?|\d{1,2}(?:\s*/\s*\d{1,2})?"
+# The wiki writes grades on either side of the word: "Grade 3" but also "'B' grade".
+# `grade\b` matters — without it "graded" matches as "grade" + "d".
+# Two forms, searched in this order. "Grade 3" is unambiguous, so it wins over
+# the trailing form, which would otherwise read the article in "a Grade 3" as A.
+# `grade\b` stops "graded" matching; the value's own \b stops "the grade" -> "e".
+GRADE_AFTER_RE = re.compile(rf"grade\b[:\s-]*['\"]?\b({_VALUE})\b", re.I)
+GRADE_BEFORE_RE = re.compile(
+    rf"(?<![\w'])['\"]?\b({_VALUE})\b['\"]?[\s-]+grade\b", re.I
 )
+# The site's own field is "Grade & stars"; also seen as "Grade"/"Grading"/"Difficulty".
+GRADE_LABEL_RE = re.compile(r"^(grade|grading|difficulty)\b", re.I)
 SITE_IMG = "sitesv-images-rt"
+
+
+def _clean_cell(node) -> str:
+    """Cell text with the site's stray nbsp/replacement characters removed."""
+    text = node.get_text(" ", strip=True)
+    for junk in ("\xa0", "�", "​"):
+        text = text.replace(junk, " ")
+    return " ".join(text.split())
+
+
+def _stats(soup: BeautifulSoup) -> dict[str, str]:
+    """Key/value rows from the "Key Statistics" gadget.
+
+    Google Sites stores these embedded tables HTML-escaped inside a `data-code`
+    attribute, so they never appear in the rendered DOM and a plain text walk of
+    the page cannot see them. ~145 pages carry Grade, Height gain and Time here.
+    """
+    stats: dict[str, str] = {}
+    for div in soup.find_all(attrs={"data-code": True}):
+        inner = BeautifulSoup(div["data-code"], "lxml")
+        for row in inner.find_all("tr"):
+            cells = row.find_all("td")
+            if len(cells) != 2:
+                continue  # header rows span both columns
+            key = _clean_cell(cells[0]).rstrip(":").strip()
+            value = _clean_cell(cells[1])
+            if key and value:
+                stats.setdefault(key, value)
+    return stats
 
 
 def _coords(html: str) -> dict | None:
@@ -26,13 +69,26 @@ def _coords(html: str) -> dict | None:
     return {"zoom": int(m.group(1)), "lat": float(m.group(2)), "lon": float(m.group(3))}
 
 
-def _grade(sections: dict[str, str], full_text: str) -> str | None:
-    """Raw grade string, never normalised."""
-    for key in ("Grade", "Grading", "Difficulty"):
-        if key in sections:
-            return sections[key].split("\n")[0].strip() or None
-    m = GRADE_RE.search(full_text)
-    return m.group(0).strip() if m else None
+def _grade(
+    sections: dict[str, str], full_text: str, stats: dict[str, str]
+) -> tuple[str | None, str | None]:
+    """Raw grade string, never normalised.
+
+    A labelled field is trusted; prose is a fallback. Prose grades are noisy —
+    roughly a third of "... grade ..." mentions describe one pitch rather than
+    the route — so `grade_source` records which path produced the value.
+    """
+    for key, value in {**stats, **sections}.items():
+        if GRADE_LABEL_RE.match(key):
+            # "Grade & stars" values read "3 ***"; keep the whole raw string.
+            cleaned = " ".join(value.split())
+            if cleaned:
+                return cleaned, "label"
+    for pattern in (GRADE_AFTER_RE, GRADE_BEFORE_RE):
+        m = pattern.search(full_text)
+        if m:
+            return m.group(1).strip(), "prose"
+    return None, None
 
 
 def _related(soup: BeautifulSoup, own_path: str) -> list[str]:
@@ -71,10 +127,12 @@ def parse_page(html: str, ref: PageRef) -> dict:
     title = page_title(soup)
     related = _related(soup, ref.path)
     photos = _photos(soup, html)
+    stats = _stats(soup)
 
     # body_lines() mutates the tree, so extract link/image data before it runs.
     lines = body_lines(soup)
     sections, full_text = split_sections(lines, title)
+    grade, grade_source = _grade(sections, full_text, stats)
 
     return {
         "slug": ref.slug,
@@ -83,8 +141,10 @@ def parse_page(html: str, ref: PageRef) -> dict:
         "area": list(ref.area),
         "depth": ref.depth,
         "coords": _coords(html),
-        "grade": _grade(sections, full_text),
+        "grade": grade,
+        "grade_source": grade_source,
         "sections": sections,
+        "stats": stats,
         "description": full_text,
         "related": related,
         "attachments": _attachments(html),
