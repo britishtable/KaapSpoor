@@ -19,8 +19,11 @@ which is MIT.
 ## Notes
 
 - `photos` holds **references only** — deck ids and inline image URLs. Phase 0
-  deliberately downloads no image bytes; see the Phase 0 design spec for the sizing
-  measurements behind that decision.
+  deliberately downloads no image bytes; `photo-inventory.json` has the measured totals.
+- **`photos.inline_urls` go stale.** The `sitesv-images-rt` URLs are signed and expire
+  within about an hour, after which they return `403` — the signature cannot be
+  reconstructed. A later photo pass must re-crawl each page for fresh URLs rather than
+  reading them from `routes.json`. Deck ids do not expire, so decks are safe to defer.
 - `grade` is the **raw string** from the page. It is not normalised — the wiki is
   inconsistent and normalising would lose information.
 - Regenerate with `python -m mm_scraper.cli` from `tools/scraper/`.
