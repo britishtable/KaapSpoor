@@ -20,6 +20,11 @@ which is MIT.
 
 - `photos` holds **references only** — deck ids and inline image URLs. Phase 0
   deliberately downloads no image bytes; `photo-inventory.json` has the measured totals.
+- **Repo tier decided: WebP 640px q70 (~230 MB projected).** Originals total ~1.14 GB,
+  over the 1 GB GitHub Pages limit that must also hold the PMTiles extract. 640px leaves
+  the most headroom and photos are secondary for this app. The three WebP projections
+  scale the spec's per-photo samples, so confirm against a real compression run before
+  the photo pass commits.
 - **`photos.inline_urls` go stale.** The `sitesv-images-rt` URLs are signed and expire
   within about an hour, after which they return `403` — the signature cannot be
   reconstructed. A later photo pass must re-crawl each page for fresh URLs rather than
