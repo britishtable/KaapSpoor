@@ -1,14 +1,18 @@
-import { openDB, type IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { JournalEntry } from '../data/types';
 
 const DB_NAME = 'kaapspoor';
 const STORE = 'journal';
 
-let dbPromise: Promise<IDBPDatabase> | null = null;
+interface KaapSpoorDB extends DBSchema {
+  journal: { key: string; value: JournalEntry };
+}
 
-function db(): Promise<IDBPDatabase> {
+let dbPromise: Promise<IDBPDatabase<KaapSpoorDB>> | null = null;
+
+function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 1, {
+    dbPromise = openDB<KaapSpoorDB>(DB_NAME, 1, {
       upgrade(database) {
         if (!database.objectStoreNames.contains(STORE)) {
           database.createObjectStore(STORE, { keyPath: 'routeId' });
