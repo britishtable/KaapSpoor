@@ -32,6 +32,18 @@ describe('buildAreaTree', () => {
     const aw = tm.children.find((n) => n.key === 'atlantic-west')!;
     expect(aw.routes.map((r) => r.id)).toEqual(['a', 'b']);
   });
+  it('collapses different casings of the same area into one node', () => {
+    const mixed = [
+      entry('a', ['Table-Mountain', 'atlantic-west']),
+      entry('b', ['table-mountain', 'Atlantic-West'])
+    ];
+    const tree = buildAreaTree(mixed);
+    expect(tree).toHaveLength(1);
+    expect(tree[0].key).toBe('table-mountain');
+    expect(tree[0].children).toHaveLength(1);
+    expect(tree[0].children[0].key).toBe('atlantic-west');
+    expect(tree[0].children[0].routes.map((r) => r.id)).toEqual(['a', 'b']);
+  });
 });
 
 describe('areaProgress', () => {
