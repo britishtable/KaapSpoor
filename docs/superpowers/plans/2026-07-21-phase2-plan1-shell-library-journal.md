@@ -211,13 +211,19 @@ describe('slugify', () => {
 });
 
 describe('routeId', () => {
-  it('joins the area path and slug deterministically', () => {
+  it('slugifies each segment and joins them with a double hyphen', () => {
     expect(routeId(['Table-Mountain', 'atlantic-west'], 'kasteelspoort'))
-      .toBe('table-mountain-atlantic-west-kasteelspoort');
+      .toBe('table-mountain--atlantic-west--kasteelspoort');
   });
   it('disambiguates identical slugs in different areas', () => {
     const a = routeId(['cape-country', 'Winelands', 'jonkershoek'], 'klipspringer');
     const b = routeId(['cape-country', 'overberg'], 'klipspringer');
+    expect(a).not.toBe(b);
+  });
+  it('does not collide across a shared hyphen boundary', () => {
+    // Both flatten to the same string under a naive single-hyphen join.
+    const a = routeId(['table-mountain', 'atlantic'], 'west-kasteelspoort');
+    const b = routeId(['Table-Mountain', 'atlantic-west'], 'kasteelspoort');
     expect(a).not.toBe(b);
   });
 });
@@ -273,7 +279,12 @@ export function slugify(s: string): string {
 }
 
 export function routeId(area: string[], slug: string): string {
-  return slugify([...area, slug].join('-'));
+  // Slugify each segment, then join with '--'. A slugified segment can never
+  // contain '--' (slugify collapses runs of non-alphanumerics to a single '-'),
+  // so distinct (area, slug) inputs cannot collide across a shared hyphen
+  // boundary. This id is the journal's persistence key and must survive
+  // re-crawls, so collision-freedom matters more than pretty URLs.
+  return [...area, slug].map(slugify).join('--');
 }
 ```
 
@@ -338,7 +349,7 @@ describe('statValue', () => {
 
 describe('transform', () => {
   it('emits one index entry per route with a stable id', () => {
-    expect(transform(raw).index.map((e) => e.id)).toEqual(['tm-aw-kasteelspoort', 'tm-aw-other']);
+    expect(transform(raw).index.map((e) => e.id)).toEqual(['tm--aw--kasteelspoort', 'tm--aw--other']);
   });
   it('carries time and height gain out of the stats table', () => {
     const e = transform(raw).index[0];
@@ -351,7 +362,7 @@ describe('transform', () => {
     expect(index[1].isFullEntry).toBe(false);
   });
   it('resolves related site paths to route ids and drops non-routes', () => {
-    expect(transform(raw).content[0].related).toEqual([{ id: 'tm-aw-other', title: 'Other' }]);
+    expect(transform(raw).content[0].related).toEqual([{ id: 'tm--aw--other', title: 'Other' }]);
   });
   it('counts photos without downloading any', () => {
     expect(transform(raw).content[0].photoCount).toBe(3);
