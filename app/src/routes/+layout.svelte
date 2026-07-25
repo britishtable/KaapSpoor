@@ -3,7 +3,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { hydrate } from '$lib/journal/store';
-  let { children } = $props();
+  import type { LayoutProps } from './$types';
+  let { children }: LayoutProps = $props();
   onMount(() => { hydrate(); });
 </script>
 

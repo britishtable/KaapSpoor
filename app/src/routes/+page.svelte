@@ -4,7 +4,8 @@
   import { journal } from '$lib/journal/store';
   import AreaTree from '$lib/components/AreaTree.svelte';
   import Filters from '$lib/components/Filters.svelte';
-  let { data } = $props();
+  import type { PageData } from './$types';
+  let { data }: { data: PageData } = $props();
   let opts = $state<FilterOptions>({ query: '', status: 'all', located: 'all' });
   let doneIds = $derived(new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId)));
   let tree = $derived(buildAreaTree(filterEntries(data.entries, opts, doneIds)));

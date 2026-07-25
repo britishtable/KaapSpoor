@@ -12,6 +12,7 @@ const entries: RouteIndexEntry[] = [
 describe('library page', () => {
   it('renders the area tree from loaded entries', () => {
     render(Page, { data: { entries } });
+    expect(screen.getByRole('heading', { name: /KaapSpoor/i })).toBeTruthy();
     expect(screen.getByText('Table Mountain')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Blind Gully/ })).toBeTruthy();
   });
