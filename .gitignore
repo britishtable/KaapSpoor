@@ -5,3 +5,7 @@ node_modules/
 dist/
 .env
 .env.local
+app/node_modules/
+app/.svelte-kit/
+app/build/
+app/static/data/
