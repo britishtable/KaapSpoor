@@ -15,8 +15,6 @@ interface RawRoute {
 }
 export interface RawDataset { routes: RawRoute[]; [k: string]: unknown; }
 
-const ORIGIN = 'https://sites.google.com';
-
 export function statValue(stats: Record<string, string>, name: string): string | null {
   const hit = Object.entries(stats).find(([k]) => k.toLowerCase() === name.toLowerCase());
   return hit ? hit[1] : null;
@@ -24,9 +22,17 @@ export function statValue(stats: Record<string, string>, name: string): string |
 
 export function transform(raw: RawDataset): { index: RouteIndexEntry[]; content: RouteContent[] } {
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
-  const pathToId = new Map<string, string>();
-  for (const r of raw.routes) pathToId.set(r.url.replace(ORIGIN, ''), idFor(r));
-  const titleById = new Map(raw.routes.map((r) => [idFor(r), r.title]));
+  // The source's `related` field is the full site nav (every page links to
+  // every other), so it is useless as relations. Instead relate routes that
+  // share the same area path — "other routes in this sub-area".
+  const areaKey = (area: string[]) => JSON.stringify(area);
+  const siblings = new Map<string, { id: string; title: string }[]>();
+  for (const r of raw.routes) {
+    const key = areaKey(r.area);
+    const list = siblings.get(key) ?? [];
+    list.push({ id: idFor(r), title: r.title });
+    siblings.set(key, list);
+  }
 
   const index: RouteIndexEntry[] = [];
   const content: RouteContent[] = [];
@@ -40,10 +46,9 @@ export function transform(raw: RawDataset): { index: RouteIndexEntry[]; content:
       isFullEntry: Object.keys(r.stats).length > 0 || r.grade_source === 'label'
     };
     index.push(entry);
-    const related = r.related
-      .map((p) => pathToId.get(p))
-      .filter((rid): rid is string => !!rid && rid !== id)
-      .map((rid) => ({ id: rid, title: titleById.get(rid) ?? rid }));
+    const related = (siblings.get(areaKey(r.area)) ?? [])
+      .filter((s) => s.id !== id)
+      .sort((a, b) => a.title.localeCompare(b.title));
     content.push({
       ...entry, sections: r.sections, description: r.description,
       related, attachments: r.attachments,

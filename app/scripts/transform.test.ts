@@ -44,8 +44,9 @@ describe('transform', () => {
     expect(index[0].isFullEntry).toBe(true);
     expect(index[1].isFullEntry).toBe(false);
   });
-  it('resolves related site paths to route ids and drops non-routes', () => {
-    expect(transform(raw).content[0].related).toEqual([{ id: 'tm--aw--other', title: 'Other' }]);
+  it('relates other routes sharing the same area path, excluding itself', () => {
+    const kast = transform(raw).content.find((c) => c.id === 'tm--aw--kasteelspoort')!;
+    expect(kast.related).toEqual([{ id: 'tm--aw--other', title: 'Other' }]);
   });
   it('counts photos without downloading any', () => {
     expect(transform(raw).content[0].photoCount).toBe(3);
