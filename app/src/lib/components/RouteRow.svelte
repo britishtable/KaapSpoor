@@ -4,7 +4,7 @@
   let { route, done }: { route: RouteIndexEntry; done: boolean } = $props();
 </script>
 
-<a class="row" href="{base}/route/{route.id}">
+<a class="row" href="{base}/route/{route.id}" data-testid="route-link">
   <span class="title">{route.title}</span>
   {#if route.grade}<span class="grade">{route.grade.split(' ')[0]}</span>{/if}
   {#if !route.coords}<span class="glyph" aria-label="no location" title="No location recorded">◌</span>{/if}

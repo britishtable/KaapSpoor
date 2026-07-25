@@ -9,3 +9,5 @@ app/node_modules/
 app/.svelte-kit/
 app/build/
 app/static/data/
+app/test-results/
+app/playwright-report/
