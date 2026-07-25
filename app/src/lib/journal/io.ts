@@ -29,6 +29,9 @@ export function parse(json: string): JournalEntry[] {
   } catch {
     throw new Error('Not valid JSON.');
   }
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Not a KaapSpoor journal export.');
+  }
   const obj = data as { version?: unknown; entries?: unknown };
   if (obj.version !== 1 || !Array.isArray(obj.entries)) {
     throw new Error('Not a KaapSpoor journal export.');
@@ -36,7 +39,11 @@ export function parse(json: string): JournalEntry[] {
   if (!obj.entries.every(isEntry)) {
     throw new Error('Journal contains a malformed entry.');
   }
-  return obj.entries as JournalEntry[];
+  // Normalize to exactly the JournalEntry shape so junk fields from a
+  // hand-edited or foreign file never reach IndexedDB.
+  return (obj.entries as JournalEntry[]).map((e) => ({
+    routeId: e.routeId, done: e.done, date: e.date, notes: e.notes
+  }));
 }
 
 export function merge(

@@ -18,6 +18,13 @@ describe('serialize / parse round-trip', () => {
   it('rejects invalid JSON text', () => {
     expect(() => parse('not json')).toThrow();
   });
+  it('rejects literal null with the friendly message', () => {
+    expect(() => parse('null')).toThrow('Not a KaapSpoor journal export.');
+  });
+  it('strips unknown extra fields from imported entries', () => {
+    const json = '{"version":1,"entries":[{"routeId":"r1","done":true,"date":null,"notes":"","extra":99}]}';
+    expect(parse(json)).toEqual([{ routeId: 'r1', done: true, date: null, notes: '' }]);
+  });
 });
 
 describe('merge', () => {
