@@ -1220,6 +1220,14 @@ it('shows a locator map for a located route', () => {
   expect(screen.getByTestId('locator-map')).toBeTruthy();
 });
 
+it('states the coordinates as text, not only as a map', () => {
+  // A map conveys position only to sighted users on WebGL-capable devices;
+  // the text keeps that information available to everyone.
+  const located = { ...route, coords: { lat: -33.97, lon: 18.39, zoom: 16 } };
+  render(Page, { data: { route: located } });
+  expect(screen.getByText('-33.9700, 18.3900')).toBeTruthy();
+});
+
 it('shows no locator map when the route has no coordinates', () => {
   render(Page, { data: { route } }); // route fixture has coords: null
   expect(screen.queryByTestId('locator-map')).toBeNull();
@@ -1272,14 +1280,27 @@ Expected: FAIL — no element with `data-testid="locator-map"`.
   });
 </script>
 
-<div class="locator" bind:this={container} data-testid="locator-map" aria-label="Location of {title}"></div>
+<figure class="locator-figure">
+  <div class="locator" bind:this={container} data-testid="locator-map" aria-label="Location of {title}"></div>
+  <!-- The coordinates stay visible, not merely an aria-label. A map conveys
+       position only to people who can see it and only where WebGL renders, so
+       the text carries the same information for screen-reader users, for devices
+       without WebGL, and for anyone wanting to copy the position elsewhere. -->
+  <figcaption>{coords.lat.toFixed(4)}, {coords.lon.toFixed(4)}</figcaption>
+</figure>
 
 <style>
+  .locator-figure { margin: 1rem 0; }
   .locator {
     height: 14rem;
-    margin: 1rem 0;
     border-radius: 8px;
     overflow: hidden;
+  }
+  figcaption {
+    font-size: 0.8em;
+    opacity: 0.7;
+    padding-top: 0.35rem;
+    font-variant-numeric: tabular-nums;
   }
 </style>
 ```
@@ -1302,7 +1323,7 @@ and replace the coordinates block (currently lines 19–23) with:
 - [ ] **Step 5: Run the test and watch it pass**
 
 Run: `cd app && npx vitest run src/routes/route/route-page.test.ts`
-Expected: PASS (3 tests).
+Expected: PASS (4 tests).
 
 - [ ] **Step 6: Full suite and type-check**
 
