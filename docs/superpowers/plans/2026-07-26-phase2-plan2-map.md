@@ -1518,8 +1518,18 @@ production: the hosting decision depends on the number this task produces.
 - Create: `tools/tiles/report-size.mjs`
 - Modify: `.gitignore` (ignore downloads and generated tiles)
 
+**Environment: this task runs inside WSL Ubuntu, not Windows.** GDAL, tippecanoe and jq are
+installed there, not on the Windows side. Two consequences:
+
+- Invoke the scripts through WSL, e.g.
+  `wsl -d Ubuntu -- bash -lc 'cd /mnt/c/Users/keega/Documents/KaapSpoor/.claude/worktrees/phase2-map/tools/tiles && ./build-trails.sh'`
+- **Do the heavy work in WSL's own filesystem, not under `/mnt/c`.** Cross-filesystem I/O
+  through `/mnt/c` is slow enough to dominate the build. Set `WORK=${WORK:-$HOME/kaapspoor-tiles}`
+  in both build scripts for `downloads/` and `work/`, and write only the finished `.pmtiles`
+  back into the repo. ~4 GB free is needed; WSL has ample.
+
 **Interfaces:**
-- Consumes: `bbox.json` as the single source of truth for the window; external tools `planetiler`, `gdal_contour`, `tippecanoe`.
+- Consumes: `bbox.json` as the single source of truth for the window; external tools `planetiler`, `gdal_contour`, `gdalbuildvrt`, `gdalwarp`, `tippecanoe`, `curl`, `jq` — all present in WSL.
 - Produces: `app/static/tiles/trails.pmtiles` and `app/static/tiles/contours.pmtiles`, plus a printed size report. Source-layer names **must** be `paths`, `roads`, `water`, `peaks` (trails) and `contours` (contours), because `style.ts` from Task 4 already references exactly those names.
 
 - [ ] **Step 1: Pin the window**
@@ -1645,14 +1655,32 @@ mkdir -p downloads work ../../app/static/tiles
 W=$(jq -r .west bbox.json); S=$(jq -r .south bbox.json)
 E=$(jq -r .east bbox.json); N=$(jq -r .north bbox.json)
 
-if [ ! -f downloads/dem.tif ]; then
-  echo "Place a DEM covering the bbox at downloads/dem.tif before running." >&2
-  echo "Copernicus GLO-30 or SRTM 30 m both work; see README.md." >&2
-  exit 1
-fi
+# Fetch the Copernicus GLO-30 tiles covering the bbox straight from AWS's public
+# bucket: no login, no API key, no usage cap. Tiles are named by their south-west
+# corner, one per 1x1 degree, ~34 MB each.
+BUCKET=https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com
+for lat in $(seq 35 -1 33); do
+  for lon in 017 018 019 020; do
+    name="Copernicus_DSM_COG_10_S${lat}_00_E${lon}_00_DEM"
+    if [ ! -f "downloads/${name}.tif" ]; then
+      echo "DEM tile ${name}..."
+      # Not every 1-degree cell exists (ocean-only cells are absent), so a 404
+      # is expected and must not abort the run.
+      curl -sfL -o "downloads/${name}.tif" "${BUCKET}/${name}/${name}.tif" \
+        || echo "  (absent — ocean cell, skipping)"
+    fi
+  done
+done
 
+ls downloads/Copernicus_DSM_COG_10_*.tif >/dev/null 2>&1 || {
+  echo "No DEM tiles downloaded — check network access to ${BUCKET}." >&2
+  exit 1
+}
+
+# Merge the tiles into one virtual raster, then clip to the bbox.
+gdalbuildvrt work/dem.vrt downloads/Copernicus_DSM_COG_10_*.tif
 gdalwarp -te "$W" "$S" "$E" "$N" -r bilinear \
-  downloads/dem.tif work/dem-clipped.tif
+  work/dem.vrt work/dem-clipped.tif
 
 gdal_contour -a ele -i 20 work/dem-clipped.tif work/contours.gpkg
 
@@ -1763,14 +1791,15 @@ report for whether to commit it or publish it as a release asset.
 - Java 21+ and `planetiler.jar` in this directory
   (<https://github.com/onthegomap/planetiler/releases>)
 - GDAL (`gdal_contour`, `gdalwarp`), `tippecanoe`, `curl`, `jq`
-- A DEM covering `bbox.json` at `downloads/dem.tif` — Copernicus GLO-30
-  (<https://registry.opendata.aws/copernicus-dem/>) or SRTM 30 m both work
+- No DEM to supply by hand: `build-contours.sh` downloads the Copernicus GLO-30 tiles it
+  needs from AWS's public bucket (<https://registry.opendata.aws/copernicus-dem/>) — no login,
+  no API key
 
 ## Build
 
 ```bash
 ./build-trails.sh      # downloads the region extract on first run
-./build-contours.sh    # needs downloads/dem.tif in place
+./build-contours.sh    # downloads the DEM tiles itself
 node report-size.mjs
 ```
 
