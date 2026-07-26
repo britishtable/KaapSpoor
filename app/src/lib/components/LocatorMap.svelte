@@ -2,7 +2,14 @@
   import { onMount, onDestroy } from 'svelte';
   import { base } from '$app/paths';
   // maplibre-gl v6 has no default export — import the protocol helpers by name.
-  import { addProtocol, removeProtocol, Map as MapLibreMap, Marker, AttributionControl } from 'maplibre-gl';
+  import {
+    addProtocol,
+    removeProtocol,
+    setWorkerUrl,
+    Map as MapLibreMap,
+    Marker,
+    AttributionControl
+  } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle } from '$lib/map/style';
@@ -13,6 +20,11 @@
   let map: MapLibreMap | undefined;
 
   onMount(() => {
+    // See MapView.svelte: maplibre-gl's worker script resolves relative to
+    // the bundled chunk's own URL, not its package directory, so it 404s
+    // after a Vite build unless pointed at the copy in static/ explicitly.
+    setWorkerUrl(`${base}/maplibre/maplibre-gl-worker.mjs`);
+
     const protocol = new Protocol();
     addProtocol('pmtiles', protocol.tile);
     map = new MapLibreMap({

@@ -4,6 +4,7 @@
   import {
     addProtocol,
     removeProtocol,
+    setWorkerUrl,
     Map as MapLibreMap,
     Popup,
     GeolocateControl,
@@ -25,6 +26,14 @@
   let loaded = $state(false);
 
   onMount(() => {
+    // maplibre-gl resolves its worker script relative to import.meta.url of
+    // whichever bundle chunk it ends up in, which after a Vite build is a
+    // hashed chunk URL, not the package's own dist/ directory — so the
+    // worker (and its "./maplibre-gl-shared.mjs" relative import) 404 unless
+    // both are copied into static/ and pointed at explicitly. Without this,
+    // the map never fires its 'load' event and data-map-ready never flips.
+    setWorkerUrl(`${base}/maplibre/maplibre-gl-worker.mjs`);
+
     // pmtiles:// URLs need their protocol registered before the style loads.
     const protocol = new Protocol();
     addProtocol('pmtiles', protocol.tile);
