@@ -1,8 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
 import { journal, hydrate, setEntry, toggleDone, replaceAll } from './store';
 import { clearEntries, getAllEntries } from './db';
+
+// Passthrough mock: real behaviour by default, so existing tests are unaffected.
+// One test below overrides putEntry to force a write failure.
+vi.mock('./db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./db')>();
+  return { ...actual, putEntry: vi.fn(actual.putEntry) };
+});
 
 beforeEach(async () => { await clearEntries(); await replaceAll([]); });
 
@@ -29,5 +36,26 @@ describe('journal store', () => {
     await setEntry({ routeId: 'old', done: true, date: null, notes: '' });
     await replaceAll([{ routeId: 'new', done: false, date: null, notes: 'n' }]);
     expect([...get(journal).keys()]).toEqual(['new']);
+  });
+
+  it('reflects the entry in the store before the write resolves', async () => {
+    const pending = setEntry({ routeId: 'r9', done: true, date: null, notes: '' });
+    // Deliberately not awaited yet: the store must already show the change, so a
+    // reload in this window cannot lose the toggle.
+    expect(get(journal).get('r9')?.done).toBe(true);
+    await pending;
+    expect(await getAllEntries()).toHaveLength(1);
+  });
+
+  it('rolls the store back when the write fails', async () => {
+    const db = await import('./db');
+    vi.mocked(db.putEntry).mockRejectedValueOnce(new Error('disk full'));
+
+    await expect(
+      setEntry({ routeId: 'r10', done: true, date: null, notes: '' })
+    ).rejects.toThrow('disk full');
+
+    // The optimistic update must not survive a failed write.
+    expect(get(journal).get('r10')).toBeUndefined();
   });
 });

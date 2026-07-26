@@ -14,8 +14,23 @@ export async function hydrate(): Promise<void> {
 }
 
 export async function setEntry(entry: JournalEntry): Promise<void> {
-  await putEntry(entry);
+  let previous: JournalEntry | undefined;
+  journal.subscribe((m) => (previous = m.get(entry.routeId)))();
+
+  // Update the store first: the checkbox flips optimistically on click, so the
+  // store must match it immediately or a reload in between loses the toggle.
   update((m) => m.set(entry.routeId, entry));
+
+  try {
+    await putEntry(entry);
+  } catch (err) {
+    // Roll back so the UI stops claiming a save that did not happen.
+    update((m) => {
+      if (previous) m.set(entry.routeId, previous);
+      else m.delete(entry.routeId);
+    });
+    throw err;
+  }
 }
 
 export async function toggleDone(routeId: string): Promise<void> {
