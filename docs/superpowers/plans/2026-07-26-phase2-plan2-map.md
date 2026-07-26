@@ -1764,10 +1764,17 @@ in the build, not by hand afterwards.
 # Fail the build if an archive does not carry exactly the layers style.ts expects.
 # planetiler exits 0 even when it silently falls back to a different profile, so
 # size alone cannot tell a good build from a wrong one.
+#
+# Usage: verify-layers.sh [trails|contours]
+#   trails / contours  — check just that archive. Each build script uses this, so
+#                        building one archive does not fail on the other not
+#                        existing yet (a fresh checkout has neither).
+#   no argument        — check both; the full-pipeline gate, where both must exist.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 TILES=../../app/static/tiles
+target=${1:-all}
 fail=0
 
 check() {
@@ -1790,14 +1797,22 @@ check() {
   done
 }
 
-check "$TILES/trails.pmtiles" paths roads water peaks
-check "$TILES/contours.pmtiles" contours
+if [ "$target" = all ] || [ "$target" = trails ]; then
+  check "$TILES/trails.pmtiles" paths roads water peaks
+fi
 
-# The contour lines must carry ele — style.ts weights the indexed 100 m lines on it.
-if tippecanoe-decode "$TILES/contours.pmtiles" 2>/dev/null | grep -q '"ele"'; then
-  echo "contours carry an ele attribute."
-else
-  echo "  MISSING ATTRIBUTE: ele on contours" >&2; fail=1
+if [ "$target" = all ] || [ "$target" = contours ]; then
+  check "$TILES/contours.pmtiles" contours
+  # style.ts weights the indexed 100 m lines on ele, so it must be present.
+  # grep -q exits as soon as it matches, which raises SIGPIPE upstream; under the
+  # outer `set -o pipefail` that became a false failure, so drop pipefail for
+  # just this check. A genuinely absent "ele" still fails: grep's own exit 1 is
+  # then the subshell's status, with nothing left to mask it.
+  if (set +o pipefail; tippecanoe-decode "$TILES/contours.pmtiles" 2>/dev/null | grep -q '"ele"'); then
+    echo "contours carry an ele attribute."
+  else
+    echo "  MISSING ATTRIBUTE: ele on contours" >&2; fail=1
+  fi
 fi
 
 [ "$fail" -eq 0 ] || { echo "Layer verification FAILED." >&2; exit 1; }
@@ -1805,8 +1820,12 @@ echo "Layer verification passed."
 ```
 `chmod +x tools/tiles/verify-layers.sh`
 
-Call it at the end of both build scripts, after the `cp` into `app/static/tiles/`, so a
-wrong-profile build fails loudly instead of quietly replacing a good archive.
+Call it at the end of each build script with that script's own target — 
+`./verify-layers.sh trails` in `build-trails.sh`, `./verify-layers.sh contours` in
+`build-contours.sh` — after the `cp` into `app/static/tiles/`. A wrong-profile build then
+fails loudly instead of quietly replacing a good archive, and the documented
+`./build-trails.sh && ./build-contours.sh` chain still works from an empty
+`app/static/tiles/`.
 
 If `tippecanoe-decode`'s output format does not match that grep on your version, adapt the
 extraction — but keep the property that a missing or misnamed layer makes the script exit
