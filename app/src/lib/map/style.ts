@@ -6,14 +6,17 @@ export const ATTRIBUTION_OSM = '© OpenStreetMap contributors';
 const ATTRIBUTION_OPENTOPO = `${ATTRIBUTION_OSM}, © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`;
 const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, contours from Copernicus DEM`;
 
-// Free, keyless font endpoint. Both basemaps share it so switching cannot
-// silently drop every label.
-const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+// Self-hosted glyphs. MapLibre's demotiles font server is a demo service, not
+// production infrastructure — depending on it would leave the app with an
+// external, rate-limitable dependency for every label. The glyph PBFs are
+// fetched into app/static/fonts/ by tools/tiles/fetch-fonts.sh.
+// Both basemaps share this so switching cannot silently drop every label.
+const glyphs = (base: string) => `${base}/fonts/{fontstack}/{range}.pbf`;
 
-function openTopo(): StyleSpecification {
+function openTopo(base: string): StyleSpecification {
   return {
     version: 8,
-    glyphs: GLYPHS,
+    glyphs: glyphs(base),
     sources: {
       basemap: {
         type: 'raster',
@@ -30,7 +33,7 @@ function openTopo(): StyleSpecification {
 function selfHosted(base: string): StyleSpecification {
   return {
     version: 8,
-    glyphs: GLYPHS,
+    glyphs: glyphs(base),
     sources: {
       trails: {
         type: 'vector',
@@ -96,5 +99,5 @@ function selfHosted(base: string): StyleSpecification {
 }
 
 export function buildStyle(basemap: Basemap, base: string): StyleSpecification {
-  return basemap === 'opentopo' ? openTopo() : selfHosted(base);
+  return basemap === 'opentopo' ? openTopo(base) : selfHosted(base);
 }

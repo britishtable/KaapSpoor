@@ -38,4 +38,30 @@ describe('both basemaps', () => {
   it('agree on the glyphs endpoint so labels render either way', () => {
     expect(buildStyle('opentopo', '').glyphs).toBe(buildStyle('selfhosted', '').glyphs);
   });
+  it('serve fonts from this site, not a third-party server', () => {
+    for (const bm of ['opentopo', 'selfhosted'] as const) {
+      const g = buildStyle(bm, '/KaapSpoor').glyphs ?? '';
+      expect(g).toBe('/KaapSpoor/fonts/{fontstack}/{range}.pbf');
+      expect(g).not.toContain('http');
+    }
+  });
+});
+
+describe('self-hosted source-layer contract', () => {
+  // tools/tiles/ builds the PMTiles archives to these exact layer names. A typo
+  // here breaks the map silently, so pin every one.
+  const layerFor = (id: string) =>
+    buildStyle('selfhosted', '').layers.find((l) => l.id === id) as
+      | { 'source-layer'?: string }
+      | undefined;
+
+  it.each([
+    ['water', 'water'],
+    ['contours', 'contours'],
+    ['roads', 'roads'],
+    ['paths', 'paths'],
+    ['peaks', 'peaks']
+  ])('layer %s reads source-layer %s', (id, sourceLayer) => {
+    expect(layerFor(id)?.['source-layer']).toBe(sourceLayer);
+  });
 });
