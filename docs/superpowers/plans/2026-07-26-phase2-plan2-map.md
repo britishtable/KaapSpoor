@@ -676,7 +676,16 @@ by eye in the dev server, and keep the component thin so the untested surface st
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { base } from '$app/paths';
-  import maplibregl, { Map as MapLibreMap, Popup, GeolocateControl, NavigationControl, AttributionControl } from 'maplibre-gl';
+  // maplibre-gl v6 has no default export — import the protocol helpers by name.
+  import {
+    addProtocol,
+    removeProtocol,
+    Map as MapLibreMap,
+    Popup,
+    GeolocateControl,
+    NavigationControl,
+    AttributionControl
+  } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, type Basemap } from '$lib/map/style';
@@ -694,7 +703,7 @@ by eye in the dev server, and keep the component thin so the untested surface st
   onMount(() => {
     // pmtiles:// URLs need their protocol registered before the style loads.
     const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
+    addProtocol('pmtiles', protocol.tile);
 
     map = new MapLibreMap({
       container,
@@ -787,7 +796,7 @@ by eye in the dev server, and keep the component thin so the untested surface st
 
   onDestroy(() => {
     map?.remove();
-    maplibregl.removeProtocol('pmtiles');
+    removeProtocol('pmtiles');
   });
 
   // Paint done state from the journal.
@@ -1159,7 +1168,8 @@ Expected: FAIL — no element with `data-testid="locator-map"`.
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { base } from '$app/paths';
-  import maplibregl, { Map as MapLibreMap, Marker, AttributionControl } from 'maplibre-gl';
+  // maplibre-gl v6 has no default export — import the protocol helpers by name.
+  import { addProtocol, removeProtocol, Map as MapLibreMap, Marker, AttributionControl } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle } from '$lib/map/style';
@@ -1171,7 +1181,7 @@ Expected: FAIL — no element with `data-testid="locator-map"`.
 
   onMount(() => {
     const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
+    addProtocol('pmtiles', protocol.tile);
     map = new MapLibreMap({
       container,
       style: buildStyle('opentopo', base),
@@ -1187,7 +1197,7 @@ Expected: FAIL — no element with `data-testid="locator-map"`.
 
   onDestroy(() => {
     map?.remove();
-    maplibregl.removeProtocol('pmtiles');
+    removeProtocol('pmtiles');
   });
 </script>
 
