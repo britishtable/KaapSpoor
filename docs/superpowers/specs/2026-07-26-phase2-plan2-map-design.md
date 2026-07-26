@@ -37,7 +37,14 @@ the mobile bottom sheet. Both depend on MapLibre.
   already on the route pages. Hillshade is prettier but costs several times the bytes.
 - **Trails, not roads** — with a deliberate exception. A *thin* road layer stays, because
   routes are described from their access points ("park at the top of Theresa Avenue") and
-  a map with no roads cannot answer "where do I start".
+  a map with no roads cannot answer "where do I start". Concretely: trunk, primary,
+  secondary, tertiary, residential and **unclassified**, and nothing below that — no
+  service roads, driveways, parking aisles, buildings or address points.
+  `unclassified` is included deliberately: rural farm and access roads in the Cederberg
+  and Karoo are usually tagged that way, and those are precisely the roads that reach a
+  trailhead. Residential ways are not name-filtered — unnamed streets still help you
+  orient, and the size saving would be negligible: trails is 34 MB of the 125 MB total,
+  so contours dominate and the road layer is not where the budget goes.
 - **Home becomes the map plus a synchronized panel**, not a separate route or a toggle.
   The panel/map cross-highlighting is the entire value of the design; splitting them
   loses it.

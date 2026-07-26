@@ -16,7 +16,7 @@
 - **TypeScript strict; no `any`** — including no untyped `$props()`. Annotate SvelteKit loads with generated `./$types`.
 - **Attribution is a licence obligation.** The map must show `© OpenStreetMap contributors` (plus OpenTopoMap and the DEM source while in use). Never suppress `AttributionControl`.
 - **Contours only, no hillshade.** 20 m intervals, indexed 100 m lines.
-- **Thin roads:** trunk, primary, secondary, tertiary and named residential streets only. No service roads, driveways, parking aisles, buildings or address points.
+- **Thin roads:** trunk, primary, secondary, tertiary, residential and unclassified only — nothing below that (no service roads, driveways, parking aisles, buildings or address points). `unclassified` is deliberate: rural access roads to Cederberg and Karoo trailheads are tagged that way. Residential is not name-filtered.
 - **Grades stay raw.** Never normalise or parse grade strings.
 - **Published output stays under 1 GB** (CI enforces). 4.5 MB used today; photos have a deferred ~230 MB claim.
 - **MapLibre needs WebGL, which jsdom lacks.** Never unit-test the rendered canvas — pure logic in Vitest, map behaviour in Playwright only.
