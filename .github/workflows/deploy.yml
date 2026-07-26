@@ -26,6 +26,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run check
+      - name: Fetch map tiles and fonts
+        run: |
+          mkdir -p static/tiles
+          gh release download tiles-v1 --pattern '*.pmtiles' --dir static/tiles --clobber
+          gh release download tiles-v1 --pattern 'fonts.tar.gz' --dir static --clobber
+          tar xzf static/fonts.tar.gz -C static && rm static/fonts.tar.gz
+          ls -la static/tiles static/fonts | head -20
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: npm run build
         env:
           BASE_PATH: /KaapSpoor

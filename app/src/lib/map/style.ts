@@ -2,6 +2,10 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 export type Basemap = 'opentopo' | 'selfhosted';
 
+// The basemap the app actually ships. OpenTopoMap was a staging basemap while the
+// map UX was built; shipping it would reintroduce an external dependency.
+export const SHIPPED_BASEMAP: Basemap = 'selfhosted';
+
 export const ATTRIBUTION_OSM = '© OpenStreetMap contributors';
 const ATTRIBUTION_OPENTOPO = `${ATTRIBUTION_OSM}, © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`;
 const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, contours from Copernicus DEM`;

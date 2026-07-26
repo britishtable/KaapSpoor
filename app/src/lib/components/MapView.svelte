@@ -13,13 +13,13 @@
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { buildStyle, type Basemap } from '$lib/map/style';
+  import { buildStyle, SHIPPED_BASEMAP, type Basemap } from '$lib/map/style';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
   import { selection, setHovered, setSelected } from '$lib/map/selection';
   import { journal } from '$lib/journal/store';
   import type { RouteIndexEntry } from '$lib/data/types';
 
-  let { entries, basemap = 'opentopo' as Basemap }: { entries: RouteIndexEntry[]; basemap?: Basemap } = $props();
+  let { entries, basemap = SHIPPED_BASEMAP }: { entries: RouteIndexEntry[]; basemap?: Basemap } = $props();
 
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;

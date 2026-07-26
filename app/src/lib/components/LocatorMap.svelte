@@ -12,7 +12,7 @@
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { buildStyle } from '$lib/map/style';
+  import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import type { Coords } from '$lib/data/types';
 
   let { coords, title }: { coords: Coords; title: string } = $props();
@@ -29,7 +29,7 @@
     addProtocol('pmtiles', protocol.tile);
     map = new MapLibreMap({
       container,
-      style: buildStyle('opentopo', base),
+      style: buildStyle(SHIPPED_BASEMAP, base),
       center: [coords.lon, coords.lat],
       zoom: coords.zoom,
       // Non-interactive: a scrollable map inside an article hijacks page scroll.

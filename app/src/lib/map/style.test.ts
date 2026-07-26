@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildStyle, ATTRIBUTION_OSM } from './style';
+import { buildStyle, ATTRIBUTION_OSM, SHIPPED_BASEMAP } from './style';
 
 describe('buildStyle(opentopo)', () => {
   const style = buildStyle('opentopo', '');
@@ -63,5 +63,29 @@ describe('self-hosted source-layer contract', () => {
     ['peaks', 'peaks']
   ])('layer %s reads source-layer %s', (id, sourceLayer) => {
     expect(layerFor(id)?.['source-layer']).toBe(sourceLayer);
+  });
+});
+
+describe('shipped basemap', () => {
+  it('is self-hosted, so the app depends on no external tile service', () => {
+    expect(SHIPPED_BASEMAP).toBe('selfhosted');
+  });
+  it('fetches nothing from a third party — no external tiles or fonts', () => {
+    const style = buildStyle(SHIPPED_BASEMAP, '');
+    // Check what the browser actually requests: source URLs and the glyphs
+    // endpoint. Attribution strings may legitimately contain hyperlinks, so
+    // they are deliberately excluded from this assertion.
+    const fetched = [
+      style.glyphs ?? '',
+      ...Object.values(style.sources).flatMap((s) => [
+        'url' in s ? (s.url ?? '') : '',
+        ...('tiles' in s ? (s.tiles ?? []) : [])
+      ])
+    ];
+    for (const url of fetched) {
+      expect(url).not.toMatch(/^https?:\/\//);
+    }
+    expect(fetched.join('|')).not.toContain('opentopomap.org');
+    expect(fetched.join('|')).not.toContain('demotiles.maplibre.org');
   });
 });

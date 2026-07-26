@@ -56,3 +56,13 @@ ogrinfo -al -so /vsipmtiles/app/static/tiles/trails.pmtiles              # or us
 
 OSM data is ODbL — attribution is required and already wired into the style. The DEM's
 own attribution belongs in the style's attribution string too.
+
+## Measured (record each rebuild)
+
+| Date | trails.pmtiles | contours.pmtiles | Total | Hosting |
+|---|---|---|---|---|
+| 2026-07-26 | 33.7 MB | 90.9 MB | 124.6 MB | release asset `tiles-v1` |
+
+Rebuilding: run the build scripts, then `gh release upload tiles-v1 --clobber` the new
+archives (or cut a `tiles-v2` and update the tag in `.github/workflows/deploy.yml`).
+Contours dominate the total — the 20 m interval over mountainous terrain is the cost.
