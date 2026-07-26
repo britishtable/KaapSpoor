@@ -2060,17 +2060,29 @@ Then in `.github/workflows/deploy.yml`, insert this step immediately **before** 
       - name: Fetch map tiles and fonts
         run: |
           mkdir -p static/tiles
-          gh release download tiles-v1 --pattern '*.pmtiles' --dir static/tiles --clobber
-          gh release download tiles-v1 --pattern 'fonts.tar.gz' --dir static --clobber
+          gh release download "$TILES_TAG" --pattern '*.pmtiles' --dir static/tiles --clobber
+          gh release download "$TILES_TAG" --pattern 'fonts.tar.gz' --dir static --clobber
           tar xzf static/fonts.tar.gz -C static && rm static/fonts.tar.gz
-          ls -la static/tiles static/fonts | head -20
+          # Presence is not validity: a truncated or half-uploaded asset still
+          # exists. Assert a size floor per archive, and that glyphs actually
+          # landed, so a corrupt download fails here rather than deploying a
+          # blank map — the same silent-failure class as the maplibre worker 404.
+          test "$(stat -c%s static/tiles/trails.pmtiles)"   -gt 20000000
+          test "$(stat -c%s static/tiles/contours.pmtiles)" -gt 50000000
+          test "$(find static/fonts -name '*.pbf' | wc -l)" -gt 100
+          ls -la static/tiles
+          find static/fonts -name '*.pbf' | wc -l
         env:
           GH_TOKEN: ${{ github.token }}
+          TILES_TAG: tiles-v1
 ```
 
-The `ls` is deliberate: if the download silently produced nothing, the build would otherwise
-succeed and deploy a map with no basemap — the same class of silent failure that hid the
-maplibre worker 404 until the e2e caught it.
+`TILES_TAG` is declared once. Regenerating the tiles as `tiles-v2` is then a one-line
+change; with the tag written out at each download, a partial edit would pair trails from one
+release with fonts from another and every presence check would still pass.
+
+The size floors are deliberately loose — they catch truncation and empty uploads, not a
+few percent of drift as the source data changes.
 
 - [ ] **Step 8: Record the measurement and the decision**
 
@@ -2085,7 +2097,8 @@ and note the release tag the assets live under so the next person can find them:
 | 2026-07-26 | 33.7 MB | 90.9 MB | 124.6 MB | release asset `tiles-v1` |
 
 Rebuilding: run the build scripts, then `gh release upload tiles-v1 --clobber` the new
-archives (or cut a `tiles-v2` and update the tag in `.github/workflows/deploy.yml`).
+archives. To cut a new tag instead, change `TILES_TAG` in `.github/workflows/deploy.yml` —
+it is declared once, so that is the only edit needed.
 Contours dominate the total — the 20 m interval over mountainous terrain is the cost.
 ```
 
