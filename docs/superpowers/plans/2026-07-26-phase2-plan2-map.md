@@ -364,6 +364,21 @@ describe('selection store', () => {
     setHovered(null);
     expect(get(selection).hoveredId).toBeNull();
   });
+  it('accepts null to clear the selection', () => {
+    setSelected('b');
+    setSelected(null);
+    expect(get(selection).selectedId).toBeNull();
+  });
+  it('clearSelection resets populated state, not just empty state', () => {
+    setSelected('b');
+    setHovered('a');
+    clearSelection();
+    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null });
+  });
+  it('exposes no setter, so the setters remain the only way to mutate', () => {
+    expect('set' in selection).toBe(false);
+    expect('update' in selection).toBe(false);
+  });
 });
 ```
 
@@ -376,7 +391,7 @@ Expected: FAIL — cannot resolve `./selection`.
 
 `app/src/lib/map/selection.ts`:
 ```ts
-import { writable } from 'svelte/store';
+import { writable, type Readable } from 'svelte/store';
 
 export interface SelectionState {
   hoveredId: string | null;
@@ -385,26 +400,32 @@ export interface SelectionState {
 
 const EMPTY: SelectionState = { hoveredId: null, selectedId: null };
 
-export const selection = writable<SelectionState>({ ...EMPTY });
+// Private writable; only the setters below may mutate it.
+const state = writable<SelectionState>({ ...EMPTY });
+
+// Exported read-only so the setters' invariants (notably: selecting clears the
+// hover) cannot be bypassed by a consumer calling .set() directly. `$selection`
+// auto-subscription still works — it only needs `subscribe`.
+export const selection: Readable<SelectionState> = { subscribe: state.subscribe };
 
 export function setHovered(id: string | null): void {
-  selection.update((s) => ({ ...s, hoveredId: id }));
+  state.update((s) => ({ ...s, hoveredId: id }));
 }
 
 export function setSelected(id: string | null): void {
   // Clearing hover avoids two highlights surviving a click.
-  selection.set({ hoveredId: null, selectedId: id });
+  state.set({ hoveredId: null, selectedId: id });
 }
 
 export function clearSelection(): void {
-  selection.set({ ...EMPTY });
+  state.set({ ...EMPTY });
 }
 ```
 
 - [ ] **Step 4: Run it and watch it pass**
 
 Run: `cd app && npx vitest run src/lib/map/selection.test.ts`
-Expected: PASS (5 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
