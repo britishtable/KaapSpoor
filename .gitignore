@@ -9,5 +9,6 @@ app/node_modules/
 app/.svelte-kit/
 app/build/
 app/static/data/
+app/static/maplibre/
 app/test-results/
 app/playwright-report/

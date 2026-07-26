@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build:data": "tsx scripts/transform.ts",
-    "build": "npm run build:data && vite build",
-    "dev": "npm run build:data && vite dev",
+    "copy:maplibre": "node scripts/copy-maplibre-worker.mjs",
+    "build": "npm run copy:maplibre && npm run build:data && vite build",
+    "dev": "npm run copy:maplibre && npm run build:data && vite dev",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
