@@ -126,7 +126,14 @@
   });
 
   onDestroy(() => {
-    map?.remove();
+    // If WebGL2 never initialized (e.g. no GPU context, as under jsdom in unit
+    // tests), maplibre-gl leaves `painter` unset and `remove()` throws instead
+    // of no-op'ing. Swallow that so teardown of a never-painted map is silent.
+    try {
+      map?.remove();
+    } catch {
+      /* map never finished initializing; nothing to remove */
+    }
     removeProtocol('pmtiles');
   });
 

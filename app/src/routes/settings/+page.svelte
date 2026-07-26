@@ -34,25 +34,28 @@
   }
 </script>
 
-<h1>Settings</h1>
+<div class="page">
+  <h1>Settings</h1>
 
-<section>
-  <h2>Export</h2>
-  <button onclick={exportJournal}>Export journal</button>
-</section>
+  <section>
+    <h2>Export</h2>
+    <button onclick={exportJournal}>Export journal</button>
+  </section>
 
-<section>
-  <h2>Import</h2>
-  <input type="file" accept="application/json" aria-label="Import file" onchange={onFile} />
-  <label><input type="radio" bind:group={mode} value="merge" /> Merge</label>
-  <label><input type="radio" bind:group={mode} value="replace" /> Replace</label>
-  <button onclick={applyImport} disabled={!pending}>Apply import</button>
-  {#if error}<p class="error">{error}</p>{/if}
-</section>
+  <section>
+    <h2>Import</h2>
+    <input type="file" accept="application/json" aria-label="Import file" onchange={onFile} />
+    <label><input type="radio" bind:group={mode} value="merge" /> Merge</label>
+    <label><input type="radio" bind:group={mode} value="replace" /> Replace</label>
+    <button onclick={applyImport} disabled={!pending}>Apply import</button>
+    {#if error}<p class="error">{error}</p>{/if}
+  </section>
 
-<p><a href="{base}/">Back</a></p>
+  <p><a href="{base}/">Back</a></p>
+</div>
 
 <style>
+  .page { padding: 1rem; max-width: 60rem; margin: 0 auto; }
   section { margin: 1.5rem 0; }
   .error { color: #c0392b; }
 </style>

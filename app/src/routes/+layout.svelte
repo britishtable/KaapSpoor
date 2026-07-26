@@ -14,5 +14,5 @@
 <style>
   header { padding: 0.75rem 1rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
   header a { color: inherit; }
-  main { padding: 1rem; max-width: 60rem; margin: 0 auto; }
+  main { padding: 0; max-width: none; }
 </style>

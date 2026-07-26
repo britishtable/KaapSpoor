@@ -16,4 +16,11 @@ describe('library page', () => {
     expect(screen.getByText('Table Mountain')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Blind Gully/ })).toBeTruthy();
   });
+
+  it('lists unlocated routes alongside located ones, since the map cannot show them', () => {
+    const unlocated = { ...entries[0], id: 'nowhere', title: 'Nowhere', coords: null };
+    render(Page, { data: { entries: [...entries, unlocated] } });
+    expect(screen.getByRole('link', { name: /Nowhere/ })).toBeTruthy();
+    expect(screen.getAllByLabelText('no location').length).toBe(1);
+  });
 });
