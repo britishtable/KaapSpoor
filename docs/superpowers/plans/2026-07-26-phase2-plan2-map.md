@@ -1112,15 +1112,22 @@ Expected: FAIL — `Nowhere` is not rendered, because the current page has no se
 </div>
 
 <style>
+  /* Fill whatever height the layout's <main> gives us. Never hard-code the
+     header's height: a magic number silently desyncs the moment the header
+     changes, leaving either a gap or an overflowing page. */
   .split {
     display: grid;
-    grid-template-columns: 1fr 22rem;
-    height: calc(100vh - 3.25rem);
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    height: 100%;
   }
-  .map-pane { min-width: 0; }
+  /* Both axes need the explicit zero minimum. Without min-height, MapView's
+     own min-height becomes this pane's min-content floor, which a 1fr track
+     cannot shrink below — so a short landscape screen overflows the split
+     and the page starts scrolling. */
+  .map-pane { min-width: 0; min-height: 0; }
 
   @media (max-width: 48rem) {
-    .split { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .split { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
   }
 
   /* The h1 stays for document structure and the existing test, but the map is
@@ -1136,14 +1143,41 @@ Expected: FAIL — `Nowhere` is not rendered, because the current page has no se
 </style>
 ```
 
-- [ ] **Step 5: Widen the layout so the map can fill the pane**
+- [ ] **Step 5: Let the layout give the map a real height, without a magic number**
 
-In `app/src/routes/+layout.svelte`, replace the `main` rule in the `<style>` block:
+Make the page a flex column so `<main>` simply fills the space the header leaves. This is
+what removes the need to hard-code the header's height anywhere.
+
+In `app/src/app.css`, add to the `body` rule:
 ```css
-  main { padding: 0; max-width: none; }
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* dvh, not vh: mobile browser chrome changes the viewport height. */
+  min-height: 100dvh;
+}
 ```
-The library page now owns its own spacing; the route and settings pages keep theirs
-through their own styles.
+
+In `app/src/routes/+layout.svelte`, replace the `main` rule:
+```css
+  main { flex: 1; min-height: 0; padding: 0; max-width: none; }
+```
+
+`<main>` now stretches, so the library page's `.split { height: 100% }` gets a real height
+with nothing to keep in sync. Because `body` uses `min-height` rather than `height`, the
+route and settings pages still grow and scroll normally when their content is tall.
+
+The library page now owns its own spacing. The route and settings pages lost `main`'s
+padding, so give each one a wrapper to restore it — add to **both**
+`app/src/routes/route/[id]/+page.svelte` and `app/src/routes/settings/+page.svelte`:
+```css
+  .page { padding: 1rem; max-width: 60rem; margin: 0 auto; }
+```
+and wrap each page's existing markup in `<div class="page"> … </div>`. Those two are the
+only other route pages in the app; check with
+`ls app/src/routes app/src/routes/route/\[id\] app/src/routes/settings` before assuming.
 
 - [ ] **Step 6: Run the page test and watch it pass**
 
