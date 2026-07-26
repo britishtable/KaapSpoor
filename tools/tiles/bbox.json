@@ -1,0 +1,7 @@
+{
+  "comment": "Bounding box of all located KaapSpoor routes plus ~0.2 deg margin. Single source of truth for both tile builds.",
+  "west": 17.8,
+  "south": -34.5,
+  "east": 20.9,
+  "north": -32.4
+}

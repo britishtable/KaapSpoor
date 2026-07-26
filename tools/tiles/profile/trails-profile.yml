@@ -1,0 +1,46 @@
+# Planetiler custom schema. Deliberately minimal: every class omitted here is
+# bytes we do not ship. "Thin roads" means trunk..residential only — enough to
+# find a trailhead, nothing below that (no service roads, driveways, buildings).
+schema_name: KaapSpoor trails
+schema_description: Footpaths, tracks, water, peaks and access roads only
+attribution: '&copy; OpenStreetMap contributors'
+sources:
+  osm:
+    type: osm
+    local_path: downloads/region.osm.pbf
+layers:
+  - id: paths
+    features:
+      - source: osm
+        geometry: line
+        include_when:
+          highway: [path, footway, track, steps, bridleway]
+        attributes:
+          - key: highway
+          - key: name
+          - key: sac_scale
+  - id: roads
+    features:
+      - source: osm
+        geometry: line
+        include_when:
+          highway: [trunk, primary, secondary, tertiary, residential, unclassified]
+        attributes:
+          - key: highway
+          - key: name
+  - id: water
+    features:
+      - source: osm
+        geometry: polygon
+        include_when:
+          natural: [water]
+          landuse: [reservoir]
+  - id: peaks
+    features:
+      - source: osm
+        geometry: point
+        include_when:
+          natural: [peak, saddle]
+        attributes:
+          - key: name
+          - key: ele

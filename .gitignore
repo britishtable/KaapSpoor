@@ -12,3 +12,8 @@ app/static/data/
 app/static/maplibre/
 app/test-results/
 app/playwright-report/
+
+tools/tiles/downloads/
+tools/tiles/work/
+app/static/tiles/
+app/static/fonts/
