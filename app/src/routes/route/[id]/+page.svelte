@@ -3,6 +3,7 @@
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
   import JournalControls from '$lib/components/JournalControls.svelte';
+  import LocatorMap from '$lib/components/LocatorMap.svelte';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -18,7 +19,7 @@
   <StatsStrip route={r} />
 
   {#if r.coords}
-    <p class="loc">Located at {r.coords.lat.toFixed(4)}, {r.coords.lon.toFixed(4)}.</p>
+    <LocatorMap coords={r.coords} title={r.title} />
   {:else}
     <p class="loc muted">Location not recorded.</p>
   {/if}

@@ -21,4 +21,16 @@ describe('route page', () => {
     expect(screen.getByText('Location not recorded.')).toBeTruthy();
     expect(screen.getByText('~')).toBeTruthy();
   });
+
+  it('shows a locator map for a located route', () => {
+    const located = { ...route, coords: { lat: -33.97, lon: 18.39, zoom: 16 } };
+    render(Page, { data: { route: located } });
+    expect(screen.getByTestId('locator-map')).toBeTruthy();
+  });
+
+  it('shows no locator map when the route has no coordinates', () => {
+    render(Page, { data: { route } }); // route fixture has coords: null
+    expect(screen.queryByTestId('locator-map')).toBeNull();
+    expect(screen.getByText('Location not recorded.')).toBeTruthy();
+  });
 });
