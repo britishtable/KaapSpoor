@@ -28,6 +28,14 @@ describe('route page', () => {
     expect(screen.getByTestId('locator-map')).toBeTruthy();
   });
 
+  it('states the coordinates as text, not only as a map', () => {
+    // A map conveys position only to sighted users on WebGL-capable devices;
+    // the text keeps that information available to everyone.
+    const located = { ...route, coords: { lat: -33.97, lon: 18.39, zoom: 16 } };
+    render(Page, { data: { route: located } });
+    expect(screen.getByText('-33.9700, 18.3900')).toBeTruthy();
+  });
+
   it('shows no locator map when the route has no coordinates', () => {
     render(Page, { data: { route } }); // route fixture has coords: null
     expect(screen.queryByTestId('locator-map')).toBeNull();

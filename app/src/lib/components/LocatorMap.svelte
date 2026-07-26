@@ -31,8 +31,10 @@
       // map has no painter/transform to project onto and this throws — the
       // same root cause map.remove() guards against below.
       new Marker({ color: '#c1663f' }).setLngLat([coords.lon, coords.lat]).addTo(map);
-    } catch {
-      /* map never finished initializing; nothing to place a marker on */
+    } catch (err) {
+      // jsdom has no WebGL2, so projecting a marker throws there. Log it:
+      // in a real browser this would mean a genuine failure worth seeing.
+      console.warn('LocatorMap: could not add marker', err);
     }
   });
 
@@ -49,13 +51,26 @@
   });
 </script>
 
-<div class="locator" bind:this={container} data-testid="locator-map" aria-label="Location of {title}"></div>
+<figure class="locator-figure">
+  <div class="locator" bind:this={container} data-testid="locator-map" aria-label="Location of {title}"></div>
+  <!-- The coordinates stay visible, not merely an aria-label. A map conveys
+       position only to people who can see it and only where WebGL renders, so
+       the text carries the same information for screen-reader users, for devices
+       without WebGL, and for anyone wanting to copy the position elsewhere. -->
+  <figcaption>{coords.lat.toFixed(4)}, {coords.lon.toFixed(4)}</figcaption>
+</figure>
 
 <style>
+  .locator-figure { margin: 1rem 0; }
   .locator {
     height: 14rem;
-    margin: 1rem 0;
     border-radius: 8px;
     overflow: hidden;
+  }
+  figcaption {
+    font-size: 0.8em;
+    opacity: 0.7;
+    padding-top: 0.35rem;
+    font-variant-numeric: tabular-nums;
   }
 </style>
