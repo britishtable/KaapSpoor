@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 
-from mm_scraper.text import body_lines, page_title, split_sections
+from mm_scraper.text import body_lines, page_title, redact_lines, split_sections
 
 
 def _soup(html):
@@ -70,3 +70,25 @@ def test_real_page_yields_the_expected_labelled_sections(kasteelspoort_html):
     assert set(sections) >= {"Location", "Overview", "Route Description"}
     assert sections["Location"].startswith("Park at the top of Theresa Avenue")
     assert "Pipe Track" in full_text
+
+
+def test_a_private_individuals_email_is_redacted():
+    """The wiki names a private landowner's personal address; the published
+    dataset must not carry it, while official contacts stay."""
+    lines = redact_lines(["Contact the owner fminicki@gmail.com for access."])
+    assert "fminicki@gmail.com" not in lines[0]
+    assert "[contact removed]" in lines[0]
+
+
+def test_official_and_role_contacts_are_kept():
+    kept = [
+        "Email: zizipho.mfazwe@sanparks.org",
+        "steenbras.naturereserve@capetown.gov.za",
+        "mountain-meanders@googlegroups.com",
+    ]
+    assert redact_lines(kept) == kept
+
+
+def test_redaction_applies_to_real_page_text(kasteelspoort_html):
+    lines = body_lines(_soup(kasteelspoort_html))
+    assert not any("fminicki" in line for line in lines)

@@ -25,6 +25,24 @@ FOOTER_MARKER = "licensed under a"
 
 LABEL_RE = re.compile(r"^([A-Z][A-Za-z '&/-]{2,28}):\s*(.*)$")
 
+# The wiki publishes a private landowner's personal address alongside the
+# official permit contacts. Republishing it in a bulk machine-readable dataset
+# is a different exposure from one line on one page, so it is stripped here.
+# Official and role addresses (sanparks.org, capetown.gov.za, the public
+# googlegroup) are deliberately kept — they are trip-planning information.
+REDACTED_CONTACTS = ("fminicki@gmail.com",)
+REDACTION_MARKER = "[contact removed]"
+
+
+def redact_lines(lines: list[str]) -> list[str]:
+    """Remove personal contact details that should not be republished."""
+    out = []
+    for line in lines:
+        for contact in REDACTED_CONTACTS:
+            line = re.sub(re.escape(contact), REDACTION_MARKER, line, flags=re.I)
+        out.append(line)
+    return out
+
 
 def page_title(soup: BeautifulSoup) -> str:
     """Prefer <h1>; some pages have none, so fall back to <title>."""
@@ -57,7 +75,7 @@ def body_lines(soup: BeautifulSoup) -> list[str]:
         if low in BOILERPLATE or low.startswith(BOILERPLATE_PREFIX):
             continue
         lines.append(line)
-    return lines
+    return redact_lines(lines)
 
 
 def split_sections(lines: list[str], title: str) -> tuple[dict[str, str], str]:

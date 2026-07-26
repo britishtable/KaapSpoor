@@ -31,6 +31,13 @@ which is MIT.
   reading them from `routes.json`. Deck ids do not expire, so decks are safe to defer.
 - `grade` is the **raw string** from the page. It is not normalised — the wiki is
   inconsistent and normalising would lose information.
+- **One contact detail is redacted.** A private landowner's personal email address
+  appeared in the source page for a route crossing their property; it reads
+  `[contact removed]` here. Republishing a private individual's address in a bulk
+  machine-readable dataset is a different exposure from one line on one wiki page.
+  Official and role contacts (SANParks permit addresses, the reserve's municipal
+  address, the public Google Group) are **kept** — they are trip-planning information.
+  See `REDACTED_CONTACTS` in `tools/scraper/mm_scraper/text.py`.
 - Regenerate with `python -m mm_scraper.cli` from `tools/scraper/`.
 
 Please preserve the attribution if you reuse any of this.
