@@ -762,9 +762,16 @@ by eye in the dev server, and keep the component thin so the untested surface st
       loaded = true;
 
       map.on('click', 'pins-cluster', (e) => {
-        const f = map!.queryRenderedFeatures(e.point, { layers: ['pins-cluster'] })[0];
-        const zoom = map!.getZoom();
-        map!.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: zoom + 2 });
+        // Use e.features rather than re-querying: a layer-scoped handler already
+        // carries the hit features, and indexing a possibly-empty query result
+        // would throw. tsconfig lacks noUncheckedIndexedAccess, so the type
+        // checker cannot catch that — the guard has to be explicit.
+        const f = e.features?.[0];
+        if (!f) return;
+        map!.easeTo({
+          center: (f.geometry as GeoJSON.Point).coordinates as [number, number],
+          zoom: map!.getZoom() + 2
+        });
       });
 
       map.on('click', 'pins', (e) => {
