@@ -29,12 +29,21 @@ jobs:
       - name: Fetch map tiles and fonts
         run: |
           mkdir -p static/tiles
-          gh release download tiles-v1 --pattern '*.pmtiles' --dir static/tiles --clobber
-          gh release download tiles-v1 --pattern 'fonts.tar.gz' --dir static --clobber
+          gh release download "$TILES_TAG" --pattern '*.pmtiles' --dir static/tiles --clobber
+          gh release download "$TILES_TAG" --pattern 'fonts.tar.gz' --dir static --clobber
           tar xzf static/fonts.tar.gz -C static && rm static/fonts.tar.gz
-          ls -la static/tiles static/fonts | head -20
+          # Presence is not validity: a truncated or half-uploaded asset still
+          # exists. Assert a size floor per archive, and that glyphs actually
+          # landed, so a corrupt download fails here rather than deploying a
+          # blank map — the same silent-failure class as the maplibre worker 404.
+          test "$(stat -c%s static/tiles/trails.pmtiles)"   -gt 20000000
+          test "$(stat -c%s static/tiles/contours.pmtiles)" -gt 50000000
+          test "$(find static/fonts -name '*.pbf' | wc -l)" -gt 100
+          ls -la static/tiles
+          find static/fonts -name '*.pbf' | wc -l
         env:
           GH_TOKEN: ${{ github.token }}
+          TILES_TAG: tiles-v1
       - run: npm run build
         env:
           BASE_PATH: /KaapSpoor

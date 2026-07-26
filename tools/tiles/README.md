@@ -64,5 +64,6 @@ own attribution belongs in the style's attribution string too.
 | 2026-07-26 | 33.7 MB | 90.9 MB | 124.6 MB | release asset `tiles-v1` |
 
 Rebuilding: run the build scripts, then `gh release upload tiles-v1 --clobber` the new
-archives (or cut a `tiles-v2` and update the tag in `.github/workflows/deploy.yml`).
+archives. To cut a new tag instead, change `TILES_TAG` in `.github/workflows/deploy.yml` —
+it is declared once, so that is the only edit needed.
 Contours dominate the total — the 20 m interval over mountainous terrain is the cost.
