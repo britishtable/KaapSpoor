@@ -29,15 +29,22 @@
 </div>
 
 <style>
+  /* Fill whatever height the layout's <main> gives us. Never hard-code the
+     header's height: a magic number silently desyncs the moment the header
+     changes, leaving either a gap or an overflowing page. */
   .split {
     display: grid;
-    grid-template-columns: 1fr 22rem;
-    height: calc(100vh - 3.25rem);
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    height: 100%;
   }
-  .map-pane { min-width: 0; }
+  /* Both axes need the explicit zero minimum. Without min-height, MapView's
+     own min-height becomes this pane's min-content floor, which a 1fr track
+     cannot shrink below — so a short landscape screen overflows the split
+     and the page starts scrolling. */
+  .map-pane { min-width: 0; min-height: 0; }
 
   @media (max-width: 48rem) {
-    .split { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .split { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
   }
 
   /* The h1 stays for document structure and the existing test, but the map is

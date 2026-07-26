@@ -1,1 +1,9 @@
-:root { color-scheme: light dark; } body { font-family: system-ui, sans-serif; margin: 0; }
+:root { color-scheme: light dark; }
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* dvh, not vh: mobile browser chrome changes the viewport height. */
+  min-height: 100dvh;
+}
