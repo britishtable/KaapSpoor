@@ -913,6 +913,24 @@ describe('RouteRow selection wiring', () => {
     expect(screen.getByTestId('route-link').getAttribute('aria-current')).toBe('true');
   });
 
+  it('does not claim to be current merely because it is hovered', async () => {
+    // aria-current marks a single current item; a transient hover is not that.
+    render(RouteRow, { route: located, done: false });
+    const row = screen.getByTestId('route-link');
+    await fireEvent.mouseEnter(row);
+    expect(row.getAttribute('aria-current')).toBeNull();
+    expect(row.className).toContain('hovered');
+  });
+
+  it('shows hover and selection as different states', async () => {
+    render(RouteRow, { route: located, done: false });
+    const row = screen.getByTestId('route-link');
+    await fireEvent.click(row);
+    // Selecting clears the hover, so only the selected class remains.
+    expect(row.className).toContain('selected');
+    expect(row.className).not.toContain('hovered');
+  });
+
   it('still links to the route page', () => {
     render(RouteRow, { route: located, done: false });
     expect(screen.getByTestId('route-link').getAttribute('href')).toContain('/route/a');
@@ -934,14 +952,19 @@ Replace the `<script>` block and the anchor in `app/src/lib/components/RouteRow.
   import type { RouteIndexEntry } from '../data/types';
   import { selection, setHovered, setSelected } from '../map/selection';
   let { route, done }: { route: RouteIndexEntry; done: boolean } = $props();
-  // Highlight when this row is either hovered or selected.
-  let active = $derived($selection.selectedId === route.id || $selection.hoveredId === route.id);
+  // Hover and selection mean different things and look different: hover is a
+  // transient "you are pointing at this", selection is a persistent "this is the
+  // current route". Only the selection is aria-current — that attribute marks a
+  // single current item, so hover must not claim it.
+  let hovered = $derived($selection.hoveredId === route.id);
+  let selected = $derived($selection.selectedId === route.id);
 </script>
 
 <a
   class="row"
-  class:active
-  aria-current={active ? 'true' : undefined}
+  class:hovered
+  class:selected
+  aria-current={selected ? 'true' : undefined}
   href="{base}/route/{route.id}"
   data-testid="route-link"
   onmouseenter={() => setHovered(route.id)}
@@ -955,15 +978,22 @@ Replace the `<script>` block and the anchor in `app/src/lib/components/RouteRow.
 </a>
 ```
 
-Add to the existing `<style>` block:
+Add to the existing `<style>` block. The two states must be visually distinguishable —
+that is the point of separating them:
 ```css
-  .row.active { background: color-mix(in srgb, currentColor 14%, transparent); }
+  /* Transient: follows the pointer. */
+  .row.hovered { background: color-mix(in srgb, currentColor 8%, transparent); }
+  /* Persistent: this is the current route, and it wins the stronger treatment. */
+  .row.selected {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+    box-shadow: inset 3px 0 0 0 currentColor;
+  }
 ```
 
 - [ ] **Step 4: Run it and watch it pass**
 
 Run: `cd app && npx vitest run src/lib/components/RouteRow.test.ts`
-Expected: PASS (8 tests — 3 original plus 5 new).
+Expected: PASS (10 tests — 3 original plus 7 new).
 
 - [ ] **Step 5: Commit**
 
@@ -1297,13 +1327,16 @@ test.describe('map', () => {
     await expect(page.locator('.maplibregl-ctrl-geolocate')).toBeVisible();
   });
 
-  test('hovering a panel row marks it current, proving the map/panel sync', async ({ page }) => {
+  test('hovering a panel row highlights it, proving the map/panel sync', async ({ page }) => {
     await page.goto('/');
     const row = page.getByTestId('route-link').first();
     // Hover rather than click: a click navigates away, which would end the test
-    // before the shared selection state could be observed.
+    // before the shared selection state could be observed. Assert the hovered
+    // class, not aria-current — a transient hover deliberately does not claim
+    // to be the current item.
     await row.hover();
-    await expect(row).toHaveAttribute('aria-current', 'true');
+    await expect(row).toHaveClass(/hovered/);
+    await expect(row).not.toHaveAttribute('aria-current', 'true');
   });
 
   test('a located route page shows its locator map', async ({ page }) => {
