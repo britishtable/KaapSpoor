@@ -44,6 +44,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TILES_TAG: tiles-v1
+      # e2e is the only thing that proves the map works in a real browser
+      # (npm test above is jsdom, no WebGL). It runs after the tiles/fonts are
+      # in place — its own webServer builds the site same as the deploy build
+      # below — and twice: once at base '' and once at BASE_PATH=/KaapSpoor
+      # (see playwright.subpath.config.ts), which is what production actually
+      # serves under. Every URL this branch fixed (the maplibre worker,
+      # pmtiles, fonts, in-app links) was base-path dependent, so only testing
+      # base '' would let that exact class of bug back through.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
       - run: npm run build
         env:
           BASE_PATH: /KaapSpoor

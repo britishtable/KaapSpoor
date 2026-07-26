@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test && playwright test --config=playwright.subpath.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",

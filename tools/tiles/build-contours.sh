@@ -17,13 +17,43 @@ mkdir -p "$WORK/downloads" "$WORK/work" "$REPO_TILES_DIR/../../app/static/tiles"
 W=$(jq -r .west bbox.json); S=$(jq -r .south bbox.json)
 E=$(jq -r .east bbox.json); N=$(jq -r .north bbox.json)
 
+# Copernicus DEM cells are 1x1 degree, named by their south-west corner. Derive
+# the cell range from bbox.json — the single source of truth this script must
+# not drift from — instead of hard-coding it: widening bbox.json must widen the
+# DEM fetch too, or gdalwarp pads the uncovered area with nodata and the build
+# produces a silently contour-free band that no existing check catches.
+#
+# floor(), not int()/truncation: awk's int() truncates toward zero, which for a
+# negative south/west bound (all of this bbox) rounds the wrong way.
+floor() { awk -v v="$1" 'BEGIN { i = int(v); print (v < i) ? i - 1 : i }'; }
+
+# Lower edge of each axis is simply floor(bound). Upper edge is the cell whose
+# south-west corner is just below the bound — floor(bound) too, except when
+# the bound itself falls exactly on a degree line, in which case that cell
+# only touches the bbox at a single edge and must be excluded (bound - 1).
+LAT_LO=$(floor "$S")
+LON_LO=$(floor "$W")
+if awk -v v="$N" 'BEGIN { exit !(v == int(v)) }'; then LAT_HI=$((${N%.*} - 1)); else LAT_HI=$(floor "$N"); fi
+if awk -v v="$E" 'BEGIN { exit !(v == int(v)) }'; then LON_HI=$((${E%.*} - 1)); else LON_HI=$(floor "$E"); fi
+
+LATS=$(seq "$LAT_LO" "$LAT_HI")
+LONS=$(seq "$LON_LO" "$LON_HI")
+LAT_COUNT=$(echo "$LATS" | wc -l)
+LON_COUNT=$(echo "$LONS" | wc -l)
+TOTAL_CELLS=$((LAT_COUNT * LON_COUNT))
+echo "DEM cell range for bbox.json: lat ${LAT_LO}..${LAT_HI}, lon ${LON_LO}..${LON_HI} (${TOTAL_CELLS} cells)"
+
 # Fetch the Copernicus GLO-30 tiles covering the bbox straight from AWS's public
 # bucket: no login, no API key, no usage cap. Tiles are named by their south-west
 # corner, one per 1x1 degree, ~1-40 MB each.
 BUCKET=https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com
-for lat in 35 34 33; do
-  for lon in 017 018 019 020; do
-    name="Copernicus_DSM_COG_10_S${lat}_00_E${lon}_00_DEM"
+for lat in $LATS; do
+  # Southern latitudes (negative, all of this bbox) name as S<abs>; a future
+  # bbox crossing the equator would need N<abs> for lat >= 0.
+  if [ "$lat" -lt 0 ]; then latname=$(printf "S%02d" $((-lat))); else latname=$(printf "N%02d" "$lat"); fi
+  for lon in $LONS; do
+    if [ "$lon" -lt 0 ]; then lonname=$(printf "W%03d" $((-lon))); else lonname=$(printf "E%03d" "$lon"); fi
+    name="Copernicus_DSM_COG_10_${latname}_00_${lonname}_00_DEM"
     if [ ! -f "$WORK/downloads/${name}.tif" ]; then
       echo "DEM tile ${name}..."
       # Not every 1-degree cell exists (ocean-only cells are absent), so a 404
@@ -38,7 +68,9 @@ done
 # in this bbox are a small minority; if most tiles are missing, the naming convention
 # has moved and a silent partial mosaic would leave a hole in the contours.
 GOT=$(ls "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif 2>/dev/null | wc -l)
-EXPECTED_MIN=8
+# Same 2/3 tolerance the previous hard-coded 8-of-12 encoded, now computed from
+# the derived cell count so it scales when bbox.json's coverage changes.
+EXPECTED_MIN=$((TOTAL_CELLS * 2 / 3))
 if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
   echo "Only ${GOT} DEM tiles present, expected at least ${EXPECTED_MIN}." >&2
   echo "The bucket layout or tile naming has probably changed: ${BUCKET}" >&2
