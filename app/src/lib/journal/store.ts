@@ -24,8 +24,12 @@ export async function setEntry(entry: JournalEntry): Promise<void> {
   try {
     await putEntry(entry);
   } catch (err) {
-    // Roll back so the UI stops claiming a save that did not happen.
+    // Roll back so the UI stops claiming a save that did not happen — but only
+    // if this call's value is still the current one. Two saves to the same route
+    // can overlap; if a newer one already replaced ours, rolling back would
+    // clobber it with state from before both.
     update((m) => {
+      if (m.get(entry.routeId) !== entry) return;
       if (previous) m.set(entry.routeId, previous);
       else m.delete(entry.routeId);
     });
