@@ -46,4 +46,4 @@ java -Xmx4g -jar "$PLANETILER_JAR" \
 cp "$WORK/work/trails.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/trails.pmtiles"
 echo "trails.pmtiles built."
 
-"$REPO_TILES_DIR/verify-layers.sh"
+"$REPO_TILES_DIR/verify-layers.sh" trails

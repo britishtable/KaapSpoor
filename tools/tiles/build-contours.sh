@@ -69,4 +69,4 @@ tippecanoe -o "$WORK/work/contours.pmtiles" \
 cp "$WORK/work/contours.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/contours.pmtiles"
 echo "contours.pmtiles built."
 
-"$REPO_TILES_DIR/verify-layers.sh"
+"$REPO_TILES_DIR/verify-layers.sh" contours

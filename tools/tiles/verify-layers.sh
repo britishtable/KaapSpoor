@@ -2,10 +2,17 @@
 # Fail the build if an archive does not carry exactly the layers style.ts expects.
 # planetiler exits 0 even when it silently falls back to a different profile, so
 # size alone cannot tell a good build from a wrong one.
+#
+# Usage: verify-layers.sh [trails|contours]
+#   trails / contours  — check just that archive. Each build script uses this, so
+#                        building one archive does not fail on the other not
+#                        existing yet (a fresh checkout has neither).
+#   no argument        — check both; the full-pipeline gate, where both must exist.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 TILES=../../app/static/tiles
+target=${1:-all}
 fail=0
 
 check() {
@@ -15,8 +22,10 @@ check() {
     echo "MISSING: $archive" >&2; fail=1; return
   fi
   # tippecanoe-decode prints one JSON object per tile; each feature collection
-  # inside a tile carries its layer name as a "layer" property, e.g.
-  # { "layer": "paths", "version": 2, "extent": 4096 }.
+  # inside a tile carries its layer name as a "layer" property value, e.g.
+  # { "layer": "paths", "version": 2, "extent": 4096 } — not as an object key
+  # (adapted from the brief's key-based grep, which found nothing against this
+  # tippecanoe version's actual output shape; see the report for detail).
   local found
   found=$(tippecanoe-decode "$archive" 2>/dev/null \
     | grep -o '"layer": *"[a-z_]*"' \
@@ -30,21 +39,22 @@ check() {
   done
 }
 
-check "$TILES/trails.pmtiles" paths roads water peaks
-check "$TILES/contours.pmtiles" contours
+if [ "$target" = all ] || [ "$target" = trails ]; then
+  check "$TILES/trails.pmtiles" paths roads water peaks
+fi
 
-# The contour lines must carry ele — style.ts weights the indexed 100 m lines on it.
-# NOTE: run in a subshell with pipefail off. grep -q exits as soon as it finds a
-# match, which sends tippecanoe-decode a SIGPIPE on a still-huge remaining stream;
-# under `set -o pipefail` that non-zero producer exit outranks grep's 0, so the
-# `if` sees the pipeline as failed even though the attribute was found. This
-# produced a false "MISSING ATTRIBUTE" against a contours.pmtiles that actually
-# carries ele on all 536k+ features — caught by checking against the known-good
-# archive before trusting this script.
-if (set +o pipefail; tippecanoe-decode "$TILES/contours.pmtiles" 2>/dev/null | grep -q '"ele"'); then
-  echo "contours carry an ele attribute."
-else
-  echo "  MISSING ATTRIBUTE: ele on contours" >&2; fail=1
+if [ "$target" = all ] || [ "$target" = contours ]; then
+  check "$TILES/contours.pmtiles" contours
+  # style.ts weights the indexed 100 m lines on ele, so it must be present.
+  # grep -q exits as soon as it matches, which raises SIGPIPE upstream; under the
+  # outer `set -o pipefail` that became a false failure, so drop pipefail for
+  # just this check. A genuinely absent "ele" still fails: grep's own exit 1 is
+  # then the subshell's status, with nothing left to mask it.
+  if (set +o pipefail; tippecanoe-decode "$TILES/contours.pmtiles" 2>/dev/null | grep -q '"ele"'); then
+    echo "contours carry an ele attribute."
+  else
+    echo "  MISSING ATTRIBUTE: ele on contours" >&2; fail=1
+  fi
 fi
 
 [ "$fail" -eq 0 ] || { echo "Layer verification FAILED." >&2; exit 1; }
