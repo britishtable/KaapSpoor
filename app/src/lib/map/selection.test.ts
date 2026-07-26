@@ -26,4 +26,19 @@ describe('selection store', () => {
     setHovered(null);
     expect(get(selection).hoveredId).toBeNull();
   });
+  it('accepts null to clear the selection', () => {
+    setSelected('b');
+    setSelected(null);
+    expect(get(selection).selectedId).toBeNull();
+  });
+  it('clearSelection resets populated state, not just empty state', () => {
+    setSelected('b');
+    setHovered('a');
+    clearSelection();
+    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null });
+  });
+  it('exposes no setter, so the setters remain the only way to mutate', () => {
+    expect('set' in selection).toBe(false);
+    expect('update' in selection).toBe(false);
+  });
 });
