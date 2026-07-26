@@ -9,7 +9,8 @@
     Popup,
     GeolocateControl,
     NavigationControl,
-    AttributionControl
+    AttributionControl,
+    type GeoJSONSource
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
@@ -43,6 +44,14 @@
       style: buildStyle(basemap, base),
       attributionControl: false // added explicitly below so it is never dropped
     });
+
+    // Test-only hook: WebGL pixels are not queryable from Playwright, and
+    // maplibre-gl attaches the instance nowhere else reachable from the DOM,
+    // so e2e specs that need to assert on real MapLibre state (feature-state
+    // binding, rendered pin counts) read this property off the map container.
+    // It is inert in production — nothing in the app reads it back.
+    (container as HTMLDivElement & { __maplibreMap?: MapLibreMap }).__maplibreMap = map;
+
     map.addControl(new AttributionControl({ compact: true }));
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(
@@ -58,6 +67,10 @@
       map.addSource('routes', {
         type: 'geojson',
         data: routesToGeoJSON(entries),
+        // MapLibre parseInt()s string feature ids on GeoJSON sources, so our slug
+        // ids become NaN and setFeatureState never matches. promoteId reads the id
+        // from properties instead, which is what makes done/active styling work.
+        promoteId: 'id',
         cluster: true,
         clusterRadius: 40,
         clusterMaxZoom: 13
@@ -112,13 +125,33 @@
         if (!f) return;
         const id = String(f.properties?.id);
         setSelected(id);
+
+        // title/grade come from the Mountain Meanders crawl and are untrusted
+        // text (titles already contain raw "&"; nothing currently has "<", but
+        // that is a fact about today's data, not a guarantee for the next
+        // re-crawl). Build the popup from DOM nodes instead of interpolating
+        // into setHTML's innerHTML sink, so a future "<" cannot inject markup.
+        const content = document.createElement('div');
+
+        const strong = document.createElement('strong');
+        strong.textContent = f.properties?.title ?? '';
+        content.appendChild(strong);
+        content.appendChild(document.createElement('br'));
+
+        content.appendChild(document.createTextNode(f.properties?.grade ?? ''));
+        content.appendChild(document.createElement('br'));
+
+        // A plain anchor, not a JS-driven navigation: SvelteKit's client router
+        // intercepts clicks on internal <a> hrefs anywhere in the document, so
+        // this still navigates client-side rather than doing a full page load.
+        const link = document.createElement('a');
+        link.href = `${base}/route/${id}`;
+        link.textContent = 'Open route';
+        content.appendChild(link);
+
         new Popup({ closeButton: true })
           .setLngLat((f.geometry as GeoJSON.Point).coordinates as [number, number])
-          .setHTML(
-            `<strong>${f.properties?.title ?? ''}</strong><br>` +
-              `${f.properties?.grade ?? ''}<br>` +
-              `<a href="${base}/route/${id}">Open route</a>`
-          )
+          .setDOMContent(content)
           .addTo(map!);
       });
 
@@ -146,9 +179,33 @@
     removeProtocol('pmtiles');
   });
 
+  // Bumped every time the pin source's data is replaced, so the feature-state
+  // effects below can declare an explicit dependency on "the data currently in
+  // the source" rather than relying on both effects happening to read `entries`
+  // and hoping the scheduler runs them in source order.
+  let dataVersion = $state(0);
+  // Plain, non-reactive counter backing the bump above. `dataVersion++` would
+  // read *and* write the reactive `dataVersion`, making the effect below
+  // depend on the very state it writes — every write re-triggers the effect,
+  // which writes again, forever (Svelte throws effect_update_depth_exceeded).
+  // Deriving the new value from this untracked counter instead breaks that
+  // self-dependency.
+  let dataVersionCounter = 0;
+
+  // Keep the pin source in step with the filtered entries. Without this,
+  // MapView wrote the GeoJSON once inside map.on('load') and never again, so
+  // narrowing the panel with search/filters left the map showing every pin.
+  $effect(() => {
+    const data = routesToGeoJSON(entries);
+    if (!map || !loaded) return;
+    (map.getSource('routes') as GeoJSONSource | undefined)?.setData(data);
+    dataVersion = ++dataVersionCounter;
+  });
+
   // Paint done state from the journal.
   $effect(() => {
     const done = new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId));
+    dataVersion; // re-run after the source data above is swapped
     if (!map || !loaded) return;
     for (const e of entries) {
       if (!e.coords) continue;
@@ -159,6 +216,7 @@
   // Highlight and fly when the panel selects or hovers a route.
   $effect(() => {
     const { hoveredId, selectedId } = $selection;
+    dataVersion; // re-run after the source data above is swapped
     if (!map || !loaded) return;
     const active = selectedId ?? hoveredId;
     for (const e of entries) {
