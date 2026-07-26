@@ -138,6 +138,52 @@ test.describe('map', () => {
     expect(await pinCount()).toBeGreaterThanOrEqual(1);
   });
 
+  test('fills the viewport instead of stretching to the sidebar content height', async ({
+    page
+  }) => {
+    // Regression test for a bug where body { min-height: 100dvh } (rather than
+    // height) left main's flex-basis, and therefore .split's `height: 100%`,
+    // resolving against content size instead of the viewport. With all 184
+    // routes rendered inside always-open <details>, the sidebar's full content
+    // height became the height every ancestor -- main, .split, and the map
+    // pane -- stretched to match (measured at 7180px against a 720px
+    // viewport), and the sidebar's own overflow-y: auto never engaged because
+    // its box was unbounded. This asserts the map pane stays viewport-sized,
+    // the home page itself does not scroll, and the sidebar scrolls
+    // internally instead.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error('no viewport size');
+
+    const headerHeight = await page.locator('header').evaluate((el) => el.getBoundingClientRect().height);
+    const expectedMapHeight = viewport.height - headerHeight;
+
+    const mapHeight = await page
+      .locator('[data-testid="map"]')
+      .evaluate((el) => el.getBoundingClientRect().height);
+    // Within 10% of the viewport-minus-header height -- nowhere close to the
+    // ~10x-too-tall figure the bug produced.
+    expect(mapHeight).toBeGreaterThan(expectedMapHeight * 0.9);
+    expect(mapHeight).toBeLessThan(expectedMapHeight * 1.1);
+
+    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    // A small tolerance for scrollbars/subpixel rounding, not the ~10x
+    // overflow the bug produced.
+    expect(scrollHeight).toBeLessThan(viewport.height + 20);
+
+    const sidebar = await page
+      .locator('.split aside')
+      .evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    // All 184 routes are rendered at once, so the sidebar's content is
+    // guaranteed to overflow its box -- proving it scrolls internally rather
+    // than growing the page.
+    expect(sidebar.scrollHeight).toBeGreaterThan(sidebar.clientHeight);
+  });
+
   test('clicking a pin opens a popup whose route link navigates client-side', async ({ page }) => {
     // Also covers the setHTML -> setDOMContent change: the popup must still
     // render the title/grade/link correctly when built from DOM nodes.
