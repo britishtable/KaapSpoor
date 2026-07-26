@@ -618,7 +618,7 @@ export function buildStyle(basemap: Basemap, base: string): StyleSpecification {
 - [ ] **Step 5: Run it and watch it pass**
 
 Run: `cd app && npx vitest run src/lib/map/style.test.ts`
-Expected: PASS (9 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 6: Commit**
 
