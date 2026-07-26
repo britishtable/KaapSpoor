@@ -3,14 +3,19 @@
   import type { RouteIndexEntry } from '../data/types';
   import { selection, setHovered, setSelected } from '../map/selection';
   let { route, done }: { route: RouteIndexEntry; done: boolean } = $props();
-  // Highlight when this row is either hovered or selected.
-  let active = $derived($selection.selectedId === route.id || $selection.hoveredId === route.id);
+  // Hover and selection mean different things and look different: hover is a
+  // transient "you are pointing at this", selection is a persistent "this is the
+  // current route". Only the selection is aria-current — that attribute marks a
+  // single current item, so hover must not claim it.
+  let hovered = $derived($selection.hoveredId === route.id);
+  let selected = $derived($selection.selectedId === route.id);
 </script>
 
 <a
   class="row"
-  class:active
-  aria-current={active ? 'true' : undefined}
+  class:hovered
+  class:selected
+  aria-current={selected ? 'true' : undefined}
   href="{base}/route/{route.id}"
   data-testid="route-link"
   onmouseenter={() => setHovered(route.id)}
@@ -27,7 +32,13 @@
   .row { display: flex; gap: 0.5rem; align-items: center; padding: 0.35rem 0.5rem;
     text-decoration: none; color: inherit; border-radius: 4px; }
   .row:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
-  .row.active { background: color-mix(in srgb, currentColor 14%, transparent); }
+  /* Transient: follows the pointer. */
+  .row.hovered { background: color-mix(in srgb, currentColor 8%, transparent); }
+  /* Persistent: this is the current route, and it wins the stronger treatment. */
+  .row.selected {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+    box-shadow: inset 3px 0 0 0 currentColor;
+  }
   .title { flex: 1; }
   .grade { font-variant-numeric: tabular-nums; opacity: 0.7; font-size: 0.85em; }
   .glyph { opacity: 0.75; }

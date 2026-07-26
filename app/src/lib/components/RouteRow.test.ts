@@ -54,6 +54,24 @@ describe('RouteRow selection wiring', () => {
     expect(screen.getByTestId('route-link').getAttribute('aria-current')).toBe('true');
   });
 
+  it('does not claim to be current merely because it is hovered', async () => {
+    // aria-current marks a single current item; a transient hover is not that.
+    render(RouteRow, { route: located, done: false });
+    const row = screen.getByTestId('route-link');
+    await fireEvent.mouseEnter(row);
+    expect(row.getAttribute('aria-current')).toBeNull();
+    expect(row.className).toContain('hovered');
+  });
+
+  it('shows hover and selection as different states', async () => {
+    render(RouteRow, { route: located, done: false });
+    const row = screen.getByTestId('route-link');
+    await fireEvent.click(row);
+    // Selecting clears the hover, so only the selected class remains.
+    expect(row.className).toContain('selected');
+    expect(row.className).not.toContain('hovered');
+  });
+
   it('still links to the route page', () => {
     render(RouteRow, { route: located, done: false });
     expect(screen.getByTestId('route-link').getAttribute('href')).toContain('/route/a');
