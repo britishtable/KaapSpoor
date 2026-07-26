@@ -1337,6 +1337,92 @@ git add app/src/lib/components/LocatorMap.svelte app/src/routes/route
 git commit -m "feat(app): show a locator mini-map on located route pages"
 ```
 
+### Task 9a: Copy maplibre's worker at build time (added after Task 9's findings)
+
+Writing the e2e revealed that after a Vite build maplibre-gl's worker script 404s, so the
+map **never becomes ready in production** — on the home map and the route-page locator
+alike. Every unit test and type-check passed regardless, because none of them run a real
+browser against a real build. `setWorkerUrl()` fixes the path, but the worker files must
+actually be served.
+
+Copy them from `node_modules` on every build rather than committing them. A committed copy
+is pinned to whatever version someone pasted; `maplibre-gl` is a caret range, so a routine
+`npm update` would leave a stale worker beside a newer main bundle — a breakage with no
+failing test to catch it.
+
+**Files:**
+- Create: `app/scripts/copy-maplibre-worker.mjs`
+- Modify: `app/package.json` (run it from `build` and `dev`)
+- Modify: `.gitignore` (ignore `app/static/maplibre/`)
+- Untrack: the two previously committed files under `app/static/maplibre/`
+
+- [ ] **Step 1: Write the copy script**
+
+`app/scripts/copy-maplibre-worker.mjs`:
+```js
+// maplibre-gl v6 loads its worker as a separate ESM file that Vite does not emit,
+// so the map silently never becomes ready in a built site unless these are served.
+// Copy from the installed package every build: a committed copy would drift out of
+// sync the moment maplibre-gl is updated, and nothing would fail to warn us.
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const from = resolve(here, '../node_modules/maplibre-gl/dist');
+const to = resolve(here, '../static/maplibre');
+const files = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'];
+
+mkdirSync(to, { recursive: true });
+for (const name of files) {
+  copyFileSync(resolve(from, name), resolve(to, name));
+}
+
+const { version } = JSON.parse(
+  readFileSync(resolve(here, '../node_modules/maplibre-gl/package.json'), 'utf-8')
+);
+console.log(`maplibre worker: copied ${files.length} files from maplibre-gl@${version}`);
+```
+
+- [ ] **Step 2: Run it from build and dev**
+
+In `app/package.json`, add the script and chain it ahead of the existing steps:
+```json
+  "copy:maplibre": "node scripts/copy-maplibre-worker.mjs",
+  "build": "npm run copy:maplibre && npm run build:data && vite build",
+  "dev": "npm run copy:maplibre && npm run build:data && vite dev",
+```
+
+- [ ] **Step 3: Stop tracking the vendored copies**
+
+```bash
+git rm --cached app/static/maplibre/maplibre-gl-worker.mjs app/static/maplibre/maplibre-gl-shared.mjs
+```
+and add to `.gitignore`:
+```
+app/static/maplibre/
+```
+
+- [ ] **Step 4: Verify the copy is what actually gets served**
+
+From `app/`:
+```bash
+rm -rf static/maplibre
+npm run copy:maplibre
+MSYS_NO_PATHCONV=1 BASE_PATH=/KaapSpoor npm run build
+ls build/maplibre/
+```
+Expected: the copy step prints the resolved maplibre version, and both `.mjs` files appear
+under `build/maplibre/`. Deleting the directory first proves the build regenerates it rather
+than relying on a leftover.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/scripts/copy-maplibre-worker.mjs app/package.json .gitignore
+git commit -m "build(app): copy maplibre's worker from node_modules instead of vendoring it"
+```
+
 ### Task 9: End-to-end map spec
 
 This is the only place the real map is exercised — real Chromium, real WebGL. Everything
