@@ -34,10 +34,17 @@ for lat in 35 34 33; do
   done
 done
 
-ls "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif >/dev/null 2>&1 || {
-  echo "No DEM tiles downloaded — check network access to ${BUCKET}." >&2
+# Distinguish "some cells are ocean" from "the URL scheme changed". Ocean-only cells
+# in this bbox are a small minority; if most tiles are missing, the naming convention
+# has moved and a silent partial mosaic would leave a hole in the contours.
+GOT=$(ls "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif 2>/dev/null | wc -l)
+EXPECTED_MIN=8
+if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
+  echo "Only ${GOT} DEM tiles present, expected at least ${EXPECTED_MIN}." >&2
+  echo "The bucket layout or tile naming has probably changed: ${BUCKET}" >&2
   exit 1
-}
+fi
+echo "DEM: ${GOT} tiles covering the bbox."
 
 # Merge the tiles into one virtual raster, then clip to the bbox.
 gdalbuildvrt "$WORK/work/dem.vrt" "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif
@@ -61,3 +68,5 @@ tippecanoe -o "$WORK/work/contours.pmtiles" \
 
 cp "$WORK/work/contours.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/contours.pmtiles"
 echo "contours.pmtiles built."
+
+"$REPO_TILES_DIR/verify-layers.sh"
