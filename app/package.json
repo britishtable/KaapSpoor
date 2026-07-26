@@ -19,6 +19,7 @@
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/svelte": "^5.2.0",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^26.1.1",
     "fake-indexeddb": "^6.0.0",
     "idb": "^8.0.0",

@@ -1,4 +1,5 @@
 import type { RouteIndexEntry } from '$lib/data/types';
+import type { FeatureCollection, Point } from 'geojson';
 
 export interface RoutePinProps {
   id: string;
@@ -8,7 +9,7 @@ export interface RoutePinProps {
 
 export function routesToGeoJSON(
   entries: RouteIndexEntry[]
-): GeoJSON.FeatureCollection<GeoJSON.Point, RoutePinProps> {
+): FeatureCollection<Point, RoutePinProps> {
   return {
     type: 'FeatureCollection',
     features: entries
