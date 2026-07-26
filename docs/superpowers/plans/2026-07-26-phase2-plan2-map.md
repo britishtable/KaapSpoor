@@ -1672,10 +1672,17 @@ for lat in $(seq 35 -1 33); do
   done
 done
 
-ls downloads/Copernicus_DSM_COG_10_*.tif >/dev/null 2>&1 || {
-  echo "No DEM tiles downloaded — check network access to ${BUCKET}." >&2
+# Distinguish "some cells are ocean" from "the URL scheme changed". Ocean-only cells
+# in this bbox are a small minority; if most tiles are missing, the naming convention
+# has moved and a silent partial mosaic would leave a hole in the contours.
+GOT=$(ls downloads/Copernicus_DSM_COG_10_*.tif 2>/dev/null | wc -l)
+EXPECTED_MIN=8
+if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
+  echo "Only ${GOT} DEM tiles present, expected at least ${EXPECTED_MIN}." >&2
+  echo "The bucket layout or tile naming has probably changed: ${BUCKET}" >&2
   exit 1
-}
+fi
+echo "DEM: ${GOT} tiles covering the bbox."
 
 # Merge the tiles into one virtual raster, then clip to the bbox.
 gdalbuildvrt work/dem.vrt downloads/Copernicus_DSM_COG_10_*.tif
@@ -1743,6 +1750,67 @@ works — report which source you used. Do not fall back to a remote font URL in
 style; self-hosting the fonts is the point of this step.
 
 Add `app/static/fonts/` to the git-ignore list edited in Step 2 (it is generated).
+
+- [ ] **Step 5c: Verify the archives' layers before trusting them**
+
+planetiler can build the **wrong profile and still exit 0** — that is how a `--schema` flag
+that is silently ignored produces a plausible-looking archive with OpenMapTiles layers in
+it. Byte size does not reveal that, so neither does the size report. Check the layer names
+in the build, not by hand afterwards.
+
+`tools/tiles/verify-layers.sh`:
+```bash
+#!/usr/bin/env bash
+# Fail the build if an archive does not carry exactly the layers style.ts expects.
+# planetiler exits 0 even when it silently falls back to a different profile, so
+# size alone cannot tell a good build from a wrong one.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+TILES=../../app/static/tiles
+fail=0
+
+check() {
+  local archive=$1; shift
+  local expected=("$@")
+  if [ ! -f "$archive" ]; then
+    echo "MISSING: $archive" >&2; fail=1; return
+  fi
+  # tippecanoe-decode prints one JSON object per tile; layer names appear as keys.
+  local found
+  found=$(tippecanoe-decode "$archive" 2>/dev/null \
+    | grep -o '"[a-z_]*": *{ *"type": *"FeatureCollection"' \
+    | grep -o '"[a-z_]*"' | tr -d '"' | sort -u | tr '\n' ' ')
+  echo "$(basename "$archive") layers: ${found:-<none>}"
+  for want in "${expected[@]}"; do
+    case " $found " in
+      *" $want "*) ;;
+      *) echo "  MISSING LAYER: $want" >&2; fail=1 ;;
+    esac
+  done
+}
+
+check "$TILES/trails.pmtiles" paths roads water peaks
+check "$TILES/contours.pmtiles" contours
+
+# The contour lines must carry ele — style.ts weights the indexed 100 m lines on it.
+if tippecanoe-decode "$TILES/contours.pmtiles" 2>/dev/null | grep -q '"ele"'; then
+  echo "contours carry an ele attribute."
+else
+  echo "  MISSING ATTRIBUTE: ele on contours" >&2; fail=1
+fi
+
+[ "$fail" -eq 0 ] || { echo "Layer verification FAILED." >&2; exit 1; }
+echo "Layer verification passed."
+```
+`chmod +x tools/tiles/verify-layers.sh`
+
+Call it at the end of both build scripts, after the `cp` into `app/static/tiles/`, so a
+wrong-profile build fails loudly instead of quietly replacing a good archive.
+
+If `tippecanoe-decode`'s output format does not match that grep on your version, adapt the
+extraction — but keep the property that a missing or misnamed layer makes the script exit
+non-zero. Report what you had to change.
 
 - [ ] **Step 6: Write the size report**
 

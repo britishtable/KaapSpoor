@@ -72,7 +72,7 @@ report rather than an estimate.
    omitted class (buildings, POIs, most label sets, minor road detail) is what keeps this
    small — this is why "no roads" is a size decision as much as a styling one.
    **"Thin" means concretely:** roads that get you to a trailhead — trunk, primary,
-   secondary, tertiary and named residential streets — and nothing below that. No service
+   secondary, tertiary, residential and unclassified — and nothing below that. No service
    roads, driveways, parking aisles, buildings or address points.
 2. `contours.pmtiles`: `gdal_contour` over the DEM → tippecanoe → PMTiles. 20 m intervals
    with indexed 100 m lines.
