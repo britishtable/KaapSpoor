@@ -425,7 +425,7 @@ export function clearSelection(): void {
 - [ ] **Step 4: Run it and watch it pass**
 
 Run: `cd app && npx vitest run src/lib/map/selection.test.ts`
-Expected: PASS (8 tests).
+Expected: PASS (14 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -501,6 +501,32 @@ describe('both basemaps', () => {
   it('agree on the glyphs endpoint so labels render either way', () => {
     expect(buildStyle('opentopo', '').glyphs).toBe(buildStyle('selfhosted', '').glyphs);
   });
+  it('serve fonts from this site, not a third-party server', () => {
+    for (const bm of ['opentopo', 'selfhosted'] as const) {
+      const g = buildStyle(bm, '/KaapSpoor').glyphs ?? '';
+      expect(g).toBe('/KaapSpoor/fonts/{fontstack}/{range}.pbf');
+      expect(g).not.toContain('http');
+    }
+  });
+});
+
+describe('self-hosted source-layer contract', () => {
+  // tools/tiles/ builds the PMTiles archives to these exact layer names. A typo
+  // here breaks the map silently, so pin every one.
+  const layerFor = (id: string) =>
+    buildStyle('selfhosted', '').layers.find((l) => l.id === id) as
+      | { 'source-layer'?: string }
+      | undefined;
+
+  it.each([
+    ['water', 'water'],
+    ['contours', 'contours'],
+    ['roads', 'roads'],
+    ['paths', 'paths'],
+    ['peaks', 'peaks']
+  ])('layer %s reads source-layer %s', (id, sourceLayer) => {
+    expect(layerFor(id)?.['source-layer']).toBe(sourceLayer);
+  });
 });
 ```
 
@@ -521,14 +547,17 @@ export const ATTRIBUTION_OSM = '© OpenStreetMap contributors';
 const ATTRIBUTION_OPENTOPO = `${ATTRIBUTION_OSM}, © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`;
 const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, contours from Copernicus DEM`;
 
-// Free, keyless font endpoint. Both basemaps share it so switching cannot
-// silently drop every label.
-const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+// Self-hosted glyphs. MapLibre's demotiles font server is a demo service, not
+// production infrastructure — depending on it would leave the app with an
+// external, rate-limitable dependency for every label. The glyph PBFs are
+// fetched into app/static/fonts/ by tools/tiles/fetch-fonts.sh.
+// Both basemaps share this so switching cannot silently drop every label.
+const glyphs = (base: string) => `${base}/fonts/{fontstack}/{range}.pbf`;
 
-function openTopo(): StyleSpecification {
+function openTopo(base: string): StyleSpecification {
   return {
     version: 8,
-    glyphs: GLYPHS,
+    glyphs: glyphs(base),
     sources: {
       basemap: {
         type: 'raster',
@@ -545,7 +574,7 @@ function openTopo(): StyleSpecification {
 function selfHosted(base: string): StyleSpecification {
   return {
     version: 8,
-    glyphs: GLYPHS,
+    glyphs: glyphs(base),
     sources: {
       trails: {
         type: 'vector',
@@ -611,14 +640,14 @@ function selfHosted(base: string): StyleSpecification {
 }
 
 export function buildStyle(basemap: Basemap, base: string): StyleSpecification {
-  return basemap === 'opentopo' ? openTopo() : selfHosted(base);
+  return basemap === 'opentopo' ? openTopo(base) : selfHosted(base);
 }
 ```
 
 - [ ] **Step 5: Run it and watch it pass**
 
 Run: `cd app && npx vitest run src/lib/map/style.test.ts`
-Expected: PASS (8 tests).
+Expected: PASS (14 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -1322,6 +1351,7 @@ Append to `.gitignore`:
 tools/tiles/downloads/
 tools/tiles/work/
 app/static/tiles/
+app/static/fonts/
 ```
 
 - [ ] **Step 3: Define the minimal trails profile**
@@ -1446,6 +1476,55 @@ echo "contours.pmtiles built."
 ```
 Make it executable: `chmod +x tools/tiles/build-contours.sh`
 
+- [ ] **Step 5b: Fetch self-hosted map fonts**
+
+MapLibre needs glyph PBFs to render any text. `style.ts` points at
+`{base}/fonts/{fontstack}/{range}.pbf`, so the glyphs must be in
+`app/static/fonts/`. Use a prebuilt open-licence set rather than generating them.
+
+`tools/tiles/fetch-fonts.sh`:
+```bash
+#!/usr/bin/env bash
+# Fetch glyph PBFs so map labels need no third-party font server.
+# style.ts's peaks layer asks for "Open Sans Regular"; that fontstack directory
+# name must match exactly.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+DEST=../../app/static/fonts
+STACK="Open Sans Regular"
+mkdir -p downloads "$DEST"
+
+if [ ! -f downloads/fonts.zip ]; then
+  echo "Downloading the openmaptiles font set (once)..."
+  curl -L --fail -o downloads/fonts.zip \
+    https://github.com/openmaptiles/fonts/releases/download/v2.0/fonts.zip
+fi
+
+rm -rf downloads/fonts-extracted
+mkdir -p downloads/fonts-extracted
+unzip -q downloads/fonts.zip -d downloads/fonts-extracted
+
+if [ ! -d "downloads/fonts-extracted/$STACK" ]; then
+  echo "Fontstack '$STACK' not found in the archive. Available:" >&2
+  ls downloads/fonts-extracted >&2
+  exit 1
+fi
+
+rm -rf "$DEST/$STACK"
+cp -r "downloads/fonts-extracted/$STACK" "$DEST/$STACK"
+echo "fonts installed: $(ls "$DEST/$STACK" | wc -l) range files"
+du -sh "$DEST"
+```
+Make it executable: `chmod +x tools/tiles/fetch-fonts.sh`
+
+Run it, and confirm `app/static/fonts/Open Sans Regular/0-255.pbf` exists. If that
+release URL is unavailable, any glyph set providing an `Open Sans Regular` fontstack
+works — report which source you used. Do not fall back to a remote font URL in the
+style; self-hosting the fonts is the point of this step.
+
+Add `app/static/fonts/` to the git-ignore list edited in Step 2 (it is generated).
+
 - [ ] **Step 6: Write the size report**
 
 `tools/tiles/report-size.mjs`:
@@ -1567,9 +1646,23 @@ describe('shipped basemap', () => {
   it('is self-hosted, so the app depends on no external tile service', () => {
     expect(SHIPPED_BASEMAP).toBe('selfhosted');
   });
-  it('produces a style with no third-party tile host', () => {
-    const json = JSON.stringify(buildStyle(SHIPPED_BASEMAP, ''));
-    expect(json).not.toContain('opentopomap.org');
+  it('fetches nothing from a third party — no external tiles or fonts', () => {
+    const style = buildStyle(SHIPPED_BASEMAP, '');
+    // Check what the browser actually requests: source URLs and the glyphs
+    // endpoint. Attribution strings may legitimately contain hyperlinks, so
+    // they are deliberately excluded from this assertion.
+    const fetched = [
+      style.glyphs ?? '',
+      ...Object.values(style.sources).flatMap((s) => [
+        'url' in s ? (s.url ?? '') : '',
+        ...('tiles' in s ? (s.tiles ?? []) : [])
+      ])
+    ];
+    for (const url of fetched) {
+      expect(url).not.toMatch(/^https?:\/\//);
+    }
+    expect(fetched.join('|')).not.toContain('opentopomap.org');
+    expect(fetched.join('|')).not.toContain('demotiles.maplibre.org');
   });
 });
 ```
