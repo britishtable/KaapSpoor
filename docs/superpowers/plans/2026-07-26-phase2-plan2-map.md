@@ -2011,50 +2011,64 @@ attribution string, which still contains "OpenStreetMap".
 
 - [ ] **Step 7: Make CI able to build the map**
 
-The tiles are git-ignored, so CI needs them. Apply whichever branch matches Task 10's
-measured size.
+Task 10 measured **124.6 MB** (trails 33.7 MB + contours 90.9 MB), over the 50 MB
+threshold, so the tiles ship as a **GitHub Release asset** and CI downloads them. They stay
+git-ignored: committing 125 MB of regenerating binaries would grow the repo permanently on
+every rebuild, and every clone would pay for it.
 
-**If the report said commit them** (total ≤ 50 MB): stop ignoring them and commit.
-Remove `app/static/tiles/` from `.gitignore`, then:
-```bash
-git add -f app/static/tiles/trails.pmtiles app/static/tiles/contours.pmtiles .gitignore
-```
-No workflow change is needed — the checkout already has them.
+The fonts (751 KB) are small, but they come from the same generated directory and are just
+as reproducible, so they travel with the tiles rather than being committed.
 
-**If the report said release asset** (total > 50 MB): keep them ignored, publish them once
-by hand, and teach CI to fetch them. Publish:
+Publish the assets once, from the worktree that has them:
 ```bash
+cd app/static
 gh release create tiles-v1 \
-  app/static/tiles/trails.pmtiles app/static/tiles/contours.pmtiles \
-  --title "Map tiles v1" --notes "Trails and contour PMTiles for the KaapSpoor map."
+  tiles/trails.pmtiles tiles/contours.pmtiles \
+  --title "Map tiles v1" \
+  --notes "Trails and contour PMTiles for the KaapSpoor map, plus glyphs. Built by tools/tiles/ from OSM (ODbL) and Copernicus GLO-30."
 ```
+Also attach the fonts as one archive so CI restores them in a single step:
+```bash
+cd app/static && tar czf fonts.tar.gz fonts/
+gh release upload tiles-v1 fonts.tar.gz
+rm fonts.tar.gz
+```
+
 Then in `.github/workflows/deploy.yml`, insert this step immediately **before** the
-`- run: npm run build` step:
+`- run: npm run build` step (it must precede the build, because the build's prerender reads
+`static/`):
 ```yaml
-      - name: Fetch map tiles
+      - name: Fetch map tiles and fonts
         run: |
           mkdir -p static/tiles
-          gh release download tiles-v1 --dir static/tiles --clobber
+          gh release download tiles-v1 --pattern '*.pmtiles' --dir static/tiles --clobber
+          gh release download tiles-v1 --pattern 'fonts.tar.gz' --dir static --clobber
+          tar xzf static/fonts.tar.gz -C static && rm static/fonts.tar.gz
+          ls -la static/tiles static/fonts | head -20
         env:
           GH_TOKEN: ${{ github.token }}
 ```
 
+The `ls` is deliberate: if the download silently produced nothing, the build would otherwise
+succeed and deploy a map with no basemap — the same class of silent failure that hid the
+maplibre worker 404 until the e2e caught it.
+
 - [ ] **Step 8: Record the measurement and the decision**
 
-Append a "Measured" section to `tools/tiles/README.md` recording the real numbers from
-Task 10's `report-size.mjs` run. Use this shape, with today's date and the actual sizes
-substituted — the committed file must contain real measurements, not blanks:
+Append a "Measured" section to `tools/tiles/README.md` recording Task 10's real numbers,
+and note the release tag the assets live under so the next person can find them:
 
 ```markdown
 ## Measured (record each rebuild)
 
 | Date | trails.pmtiles | contours.pmtiles | Total | Hosting |
 |---|---|---|---|---|
-| 2026-07-26 | 38.4 MB | 11.2 MB | 49.6 MB | committed |
-```
+| 2026-07-26 | 33.7 MB | 90.9 MB | 124.6 MB | release asset `tiles-v1` |
 
-(The row above is an example of the format. Write your own measured values and the
-hosting choice they implied.)
+Rebuilding: run the build scripts, then `gh release upload tiles-v1 --clobber` the new
+archives (or cut a `tiles-v2` and update the tag in `.github/workflows/deploy.yml`).
+Contours dominate the total — the 20 m interval over mountainous terrain is the cost.
+```
 
 - [ ] **Step 9: Confirm the whole pipeline, including the size gate**
 
