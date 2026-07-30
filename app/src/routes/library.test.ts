@@ -5,8 +5,8 @@ import type { RouteIndexEntry } from '$lib/data/types';
 
 const entries: RouteIndexEntry[] = [
   { id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
-    coords: { lat: 0, lon: 0, zoom: 1 }, grade: '3 ***', gradeSource: 'label',
-    time: null, heightGain: null, isFullEntry: true }
+    coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
+    grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true }
 ];
 
 describe('library page', () => {

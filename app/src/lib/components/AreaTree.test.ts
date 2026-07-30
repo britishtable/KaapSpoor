@@ -5,8 +5,8 @@ import { buildAreaTree } from '../data/areas';
 import type { RouteIndexEntry } from '../data/types';
 
 function entry(id: string, area: string[]): RouteIndexEntry {
-  return { id, title: id, area, coords: null, grade: null, gradeSource: null,
-    time: null, heightGain: null, isFullEntry: true };
+  return { id, title: id, area, coords: null, coordsSource: null, coordsAccuracyM: null, coordsOsm: null,
+    grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
 }
 
 describe('AreaTree', () => {

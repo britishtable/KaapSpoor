@@ -6,8 +6,8 @@ import type { RouteIndexEntry } from '../data/types';
 import { selection, clearSelection } from '../map/selection';
 
 const located: RouteIndexEntry = { id: 'a', title: 'Blind Gully', area: ['x'],
-  coords: { lat: 0, lon: 0, zoom: 1 }, grade: '3 ***', gradeSource: 'label',
-  time: null, heightGain: null, isFullEntry: true };
+  coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
+  grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true };
 
 describe('RouteRow', () => {
   it('links to the route page and shows the title', () => {

@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeId } from '../src/lib/data/ids';
-import type { RouteIndexEntry, RouteContent } from '../src/lib/data/types';
+import type { RouteIndexEntry, RouteContent, RouteLocation } from '../src/lib/data/types';
 
 interface RawRoute {
   slug: string; title: string; url: string; area: string[];
@@ -20,7 +20,10 @@ export function statValue(stats: Record<string, string>, name: string): string |
   return hit ? hit[1] : null;
 }
 
-export function transform(raw: RawDataset): { index: RouteIndexEntry[]; content: RouteContent[] } {
+export function transform(
+  raw: RawDataset,
+  locations: Record<string, RouteLocation> = {}
+): { index: RouteIndexEntry[]; content: RouteContent[] } {
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
   // The source's `related` field is the full site nav (every page links to
   // every other), so it is useless as relations. Instead relate routes that
@@ -38,8 +41,16 @@ export function transform(raw: RawDataset): { index: RouteIndexEntry[]; content:
   const content: RouteContent[] = [];
   for (const r of raw.routes) {
     const id = idFor(r);
+    // route-locations.json is the single source of truth for provenance and
+    // wins over the crawl's own coords: a curated entry exists precisely
+    // because somebody judged the crawl coordinate wrong or missing.
+    const location = locations[id];
     const entry: RouteIndexEntry = {
-      id, title: r.title, area: r.area, coords: r.coords,
+      id, title: r.title, area: r.area,
+      coords: location?.coords ?? r.coords,
+      coordsSource: location?.source ?? (r.coords ? 'crawl' : null),
+      coordsAccuracyM: location?.accuracyM ?? null,
+      coordsOsm: location?.osm ?? null,
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
@@ -62,12 +73,23 @@ export function transform(raw: RawDataset): { index: RouteIndexEntry[]; content:
 async function main() {
   const here = dirname(fileURLToPath(import.meta.url));
   const raw = JSON.parse(readFileSync(resolve(here, '../../data/routes.json'), 'utf-8')) as RawDataset;
-  const { index, content } = transform(raw);
+  // Absent on a fresh clone that has not run tools/geocode yet; every route
+  // then falls back to its crawl coordinate, which is the pre-Phase-3 behaviour.
+  const locationsPath = resolve(here, '../../data/route-locations.json');
+  const locations = existsSync(locationsPath)
+    ? (JSON.parse(readFileSync(locationsPath, 'utf-8')).locations as Record<string, RouteLocation>)
+    : {};
+  const { index, content } = transform(raw, locations);
   const out = resolve(here, '../static/data');
   await mkdir(resolve(out, 'routes'), { recursive: true });
   await writeFile(resolve(out, 'routes-index.json'), JSON.stringify(index));
   for (const c of content) await writeFile(resolve(out, `routes/${c.id}.json`), JSON.stringify(c));
-  console.log(`transform: ${index.length} routes, ${index.filter((e) => e.coords).length} located`);
+  const bySource = new Map<string, number>();
+  for (const e of index) if (e.coordsSource) bySource.set(e.coordsSource, (bySource.get(e.coordsSource) ?? 0) + 1);
+  console.log(
+    `transform: ${index.length} routes, ${index.filter((e) => e.coords).length} located ` +
+      `(${[...bySource].map(([k, v]) => `${k}=${v}`).join(', ')})`
+  );
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();
