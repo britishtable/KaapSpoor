@@ -55,3 +55,31 @@ def test_candidates_are_unique_and_non_empty():
     assert all(c.strip() for c in got)
     # "Otter Trail" is itself the OSM name, so the full title must be tried first.
     assert got[0] == "Otter Trail"
+
+
+def test_candidates_truncate_at_a_direction_word_before_a_feature_type_word():
+    # "Buttress" is part of the OSM name and stays, but "Eastern" describes the
+    # approach — without truncation this title could never reach "Devils Peak".
+    got = candidates("Devils Peak Eastern Buttress")
+    assert got[0] == "Devils Peak Eastern Buttress"
+    assert "Devils Peak" in got
+    assert got.index("Devils Peak Eastern Buttress") < got.index("Devils Peak")
+
+
+def test_candidates_truncate_at_a_multiword_direction_run():
+    assert "Lion's Head" in candidates("Lion's Head South East Arête")
+    assert "Sentinel" in candidates("Sentinel SE Ridge")
+
+
+def test_candidates_truncate_at_a_connective():
+    assert "Devils Peak" in candidates("Devils Peak via the Saddle")
+
+
+def test_truncation_never_empties_a_title_that_starts_with_a_direction_word():
+    got = candidates("North Face Traverse")
+    assert all(c.strip() for c in got)
+    assert got[0] == "North Face Traverse"
+
+
+def test_truncation_leaves_a_title_with_no_direction_or_connective_alone():
+    assert candidates("Nursery Buttress") == ["Nursery Buttress"]

@@ -79,6 +79,10 @@ TRAILING_DIRECTION_WORDS = {
 
 PEELABLE = TRAILING_ROUTE_WORDS | TRAILING_DIRECTION_WORDS
 
+# Words that join a feature name to how a route approaches it: everything from
+# here rightward describes the route, not the place.
+CONNECTIVES = {"via", "to", "from"}
+
 _PARENTHETICAL = re.compile(r"\s*\([^)]*\)")
 _QUOTED_PREFIX = re.compile(r"^\s*['\"][^'\"]+['\"]\s*[-–]\s*")
 # Apostrophes are deleted before punctuation becomes whitespace, so "Lion's"
@@ -129,5 +133,15 @@ def candidates(title: str) -> list[str]:
     # "Steenberg 'B'", "Lion's Head B" — a single-letter variant marker.
     stripped_letter = _SINGLE_LETTER_SUFFIX.sub("", " ".join(words))
     add(stripped_letter)
+
+    # Truncate at the first direction word or connective: "Devils Peak Eastern
+    # Buttress" → "Devils Peak" (even though "Buttress" is not peelable).
+    final_words = stripped_letter.split()
+    for i, token in enumerate(final_words):
+        clean_token = token.lower().strip("'\".,")
+        if clean_token in TRAILING_DIRECTION_WORDS or clean_token in CONNECTIVES:
+            if i > 0:
+                add(" ".join(final_words[:i]))
+            break
 
     return out
