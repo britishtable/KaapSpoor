@@ -60,8 +60,10 @@ describe('self-hosted source-layer contract', () => {
     ['water', 'water'],
     ['contours-index', 'contours'],
     ['contours-intermediate', 'contours'],
-    ['roads', 'roads'],
+    ['roads-major', 'roads'],
+    ['roads-minor', 'roads'],
     ['paths', 'paths'],
+    ['peaks-headline', 'peaks'],
     ['peaks-major', 'peaks'],
     ['peaks-minor', 'peaks']
   ])('layer %s reads source-layer %s', (id, sourceLayer) => {
@@ -120,19 +122,29 @@ describe('zoom scoping', () => {
     expect(layer('paths')?.minzoom).toBe(12);
   });
 
-  it('shows roads earlier than paths, since they orient you at region scale', () => {
-    expect(layer('roads')?.minzoom).toBe(9);
+  it('never hides trunk and primary roads — they orient you at region scale', () => {
+    // roads-major deliberately carries no minzoom: hiding it entirely is the
+    // defect this fix corrects, so this must stay undefined, not merely low.
+    expect(layer('roads-major')?.minzoom).toBeUndefined();
+  });
+
+  it('holds minor roads back until you are looking for a trailhead', () => {
+    expect(layer('roads-minor')?.minzoom).toBe(11);
   });
 
   it('interpolates road and path widths by zoom rather than fixing them', () => {
-    for (const id of ['roads', 'paths']) {
+    for (const id of ['roads-major', 'roads-minor', 'paths']) {
       const paint = (layer(id) as { paint?: Record<string, unknown> }).paint ?? {};
       expect(Array.isArray(paint['line-width'])).toBe(true);
       expect((paint['line-width'] as unknown[])[0]).toBe('interpolate');
     }
   });
 
-  it('shows only major summits at region scale', () => {
+  it('anchors the overview with a headline tier of very high summits', () => {
+    expect(layer('peaks-headline')?.minzoom).toBe(7);
+  });
+
+  it('shows major summits at region scale', () => {
     expect(layer('peaks-major')?.minzoom).toBe(10);
   });
 
@@ -140,31 +152,57 @@ describe('zoom scoping', () => {
     expect(layer('peaks-minor')?.minzoom).toBe(13);
   });
 
-  it('splits peaks at 1000 m using to-number with a fallback', () => {
+  it('splits peaks into three tiers using to-number with a fallback', () => {
     // ele is the raw OSM tag and arrives as a string; the two-argument
     // to-number form scores an unusable value 0, sorting it into peaks-minor.
-    expect((layer('peaks-major') as { filter?: unknown[] })?.filter).toEqual([
+    const toNumberEle = ['to-number', ['get', 'ele'], 0];
+    expect((layer('peaks-headline') as { filter?: unknown[] })?.filter).toEqual([
       '>=',
-      ['to-number', ['get', 'ele'], 0],
-      1000
+      toNumberEle,
+      1500
     ]);
-    expect((layer('peaks-minor') as { filter?: unknown[] })?.filter).toEqual([
-      '<',
-      ['to-number', ['get', 'ele'], 0],
-      1000
+    expect((layer('peaks-major') as { filter?: unknown[] })?.filter).toEqual([
+      'all',
+      ['>=', toNumberEle, 1000],
+      ['<', toNumberEle, 1500]
     ]);
+    expect((layer('peaks-minor') as { filter?: unknown[] })?.filter).toEqual(['<', toNumberEle, 1000]);
   });
 
-  it('partitions every peak into exactly one of the two layers', () => {
-    // The filters are exact negations of one another on the identical
-    // expression, so no peak can be drawn twice or dropped — including one
-    // whose ele is missing or unconvertible, which scores 0 and lands in minor.
+  it('partitions every peak into exactly one of the three tiers', () => {
+    // Every peak, including one whose ele is missing or unconvertible (which
+    // scores 0 via the to-number fallback and lands in minor), must satisfy
+    // exactly one of the three filters — no peak drawn twice, none dropped.
+    // A tiny local evaluator for just the expression shapes these filters use
+    // is more honest than asserting on the raw arrays a second time: it proves
+    // the *behaviour* is exhaustive and non-overlapping, not just the shape.
+    const evalExpr = (expr: unknown, ele: unknown): number => {
+      const [op, ...args] = expr as [string, ...unknown[]];
+      if (op === 'get') return ele as number;
+      if (op === 'to-number') {
+        const v = evalExpr(args[0], ele);
+        const n = typeof v === 'string' ? Number(v) : v;
+        return typeof n === 'number' && !Number.isNaN(n) ? n : (args[1] as number);
+      }
+      throw new Error(`unhandled expr ${op}`);
+    };
+    const evalFilter = (filter: unknown[], ele: unknown): boolean => {
+      const [op, ...args] = filter;
+      if (op === 'all') return (args as unknown[][]).every((f) => evalFilter(f, ele));
+      if (op === '>=') return evalExpr(args[0], ele) >= (args[1] as number);
+      if (op === '<') return evalExpr(args[0], ele) < (args[1] as number);
+      throw new Error(`unhandled filter op ${op}`);
+    };
+
+    const headline = (layer('peaks-headline') as { filter?: unknown[] })?.filter as unknown[];
     const major = (layer('peaks-major') as { filter?: unknown[] })?.filter as unknown[];
     const minor = (layer('peaks-minor') as { filter?: unknown[] })?.filter as unknown[];
-    expect(major[0]).toBe('>=');
-    expect(minor[0]).toBe('<');
-    expect(JSON.stringify(major[1])).toBe(JSON.stringify(minor[1]));
-    expect(major[2]).toBe(minor[2]);
+
+    const samples: unknown[] = [2000, 1500, '1500', 1499, 1000, '1000', 999, 0, 'bad', undefined, null];
+    for (const ele of samples) {
+      const hits = [headline, major, minor].filter((f) => evalFilter(f, ele));
+      expect(hits.length).toBe(1);
+    }
   });
 
   it('sorts peak labels so the highest summit wins a collision', () => {
@@ -172,7 +210,7 @@ describe('zoom scoping', () => {
     // elevation: 1085 m scores -1085 and beats 669 m at -669. An inverted sign
     // here would silently let the smallest bump win every collision.
     const expected = ['-', 0, ['to-number', ['get', 'ele'], 0]];
-    for (const id of ['peaks-major', 'peaks-minor']) {
+    for (const id of ['peaks-headline', 'peaks-major', 'peaks-minor']) {
       const layout = (layer(id) as { layout?: Record<string, unknown> }).layout ?? {};
       expect(layout['symbol-sort-key']).toEqual(expected);
     }
@@ -181,5 +219,16 @@ describe('zoom scoping', () => {
   it('interpolates peak label size by zoom', () => {
     const major = layer('peaks-major') as { layout?: Record<string, unknown> };
     expect(Array.isArray(major.layout?.['text-size'])).toBe(true);
+  });
+
+  it('leaves the opening view non-blank — no layer but the pins is hidden there', () => {
+    // Regression test for the defect this task fixes: an earlier pass gave
+    // every layer a minzoom, so at the z7.97 opening view nothing drew but
+    // background, water and pins. roads-major and peaks-headline are the two
+    // layers meant to survive that view; if either regains a minzoom above 7,
+    // the overview goes blank again.
+    const minzoomOrZero = (id: string) => layer(id)?.minzoom ?? 0;
+    expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(7);
+    expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(7);
   });
 });

@@ -258,6 +258,7 @@ test.describe('map', () => {
           paths: of('paths'),
           peaksMinor: of('peaks-minor'),
           peaksMajor: of('peaks-major'),
+          roadsMajor: of('roads-major'),
           pins: of('pins') + of('pins-cluster')
         };
       }, zoom);
@@ -267,11 +268,16 @@ test.describe('map', () => {
     // deletion, which must fail differently from "correctly scoped out".
     expect(overview.paths).not.toBe(-1);
     expect(overview.peaksMinor).not.toBe(-1);
+    expect(overview.roadsMajor).not.toBe(-1);
     expect(overview.paths).toBe(0);
     expect(overview.peaksMinor).toBe(0);
     // The pins are the point of the map: at the zoom it opens on, they must be
     // the thing that renders.
     expect(overview.pins).toBeGreaterThan(0);
+    // Regression proof for the over-correction this fix addresses: hiding
+    // roads entirely left the overview blank apart from background, water and
+    // pins. Trunk/primary roads must still render at the opening view.
+    expect(overview.roadsMajor).toBeGreaterThan(0);
 
     // z13 over the Atlantic seaboard, not an arbitrary close-in view: a
     // screenshot of exactly this camera showed Blinkwater Needle, Blinkwater

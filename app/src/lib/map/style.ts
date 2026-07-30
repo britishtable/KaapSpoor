@@ -90,16 +90,32 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
-        // Roads earn their place at region scale — they are how you find a
-        // trailhead — but hairline-thin until you are close.
-        id: 'roads',
+        // Never hidden: the national routes are how you orient yourself at
+        // region scale, and hiding them entirely left the opening view blank.
+        // Only trunk and primary draw here — a few hundred features rather
+        // than the 5,180 that made the overview unreadable.
+        id: 'roads-major',
         type: 'line',
         source: 'trails',
         'source-layer': 'roads',
-        minzoom: 9,
+        filter: ['match', ['get', 'highway'], ['trunk', 'primary'], true, false],
         paint: {
           'line-color': '#cfc7bb',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 12, 1.2, 16, 3]
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 9, 1.2, 12, 2, 16, 3.5]
+        }
+      },
+      {
+        // Everything below primary. These are the streets you need once you are
+        // looking for a trailhead, and noise before that.
+        id: 'roads-minor',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'roads',
+        minzoom: 11,
+        filter: ['!', ['match', ['get', 'highway'], ['trunk', 'primary'], true, false]],
+        paint: {
+          'line-color': '#cfc7bb',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.6, 16, 2.5]
         }
       },
       {
@@ -118,6 +134,29 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
+        // The handful of very high summits that anchor the overview — visible
+        // from the opening view rather than only once you have zoomed in past
+        // region scale. `ele` is the raw OSM tag, so it is a string and may be
+        // unconvertible — to-number's second argument is the fallback, and 0
+        // sorts such peaks into the minor layer, never here.
+        id: 'peaks-headline',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'peaks',
+        minzoom: 7,
+        filter: ['>=', ['to-number', ['get', 'ele'], 0], 1500],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 7, 11, 10, 13],
+          'text-offset': [0, 0.8],
+          // Lower sort key wins a collision, so negate elevation: the highest
+          // summit in a crowded cluster is the one that keeps its label.
+          'symbol-sort-key': ['-', 0, ['to-number', ['get', 'ele'], 0]]
+        },
+        paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
+      },
+      {
         // The summits a person actually navigates by. `ele` is the raw OSM tag,
         // so it is a string and may be unconvertible — to-number's second
         // argument is the fallback, and 0 sorts such peaks into the minor layer.
@@ -126,7 +165,11 @@ function selfHosted(base: string): StyleSpecification {
         source: 'trails',
         'source-layer': 'peaks',
         minzoom: 10,
-        filter: ['>=', ['to-number', ['get', 'ele'], 0], 1000],
+        filter: [
+          'all',
+          ['>=', ['to-number', ['get', 'ele'], 0], 1000],
+          ['<', ['to-number', ['get', 'ele'], 0], 1500]
+        ],
         layout: {
           'text-field': ['get', 'name'],
           'text-font': ['Open Sans Regular'],
