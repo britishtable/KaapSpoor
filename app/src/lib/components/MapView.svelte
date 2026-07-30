@@ -81,7 +81,14 @@
         type: 'circle',
         source: 'routes',
         filter: ['has', 'point_count'],
-        paint: { 'circle-color': '#4a6741', 'circle-radius': 16, 'circle-opacity': 0.85 }
+        paint: {
+          // Deliberately NOT the done-green (#4a6741, see the pins layer below):
+          // a cluster says "several routes here", which is a different claim
+          // from "you have done this one". Sharing a colour made green ambiguous.
+          'circle-color': '#55606b',
+          'circle-radius': 16,
+          'circle-opacity': 0.85
+        }
       });
       map.addLayer({
         id: 'pins-cluster-count',
