@@ -1,0 +1,11 @@
+{
+  "comment": "Each region is a standalone map, not a tile of a continuous surface. Its bbox is the extent of the routes whose area path starts with one of `areas`, plus a ~6 km margin, so a route near the edge still has terrain around it at close zoom. Adding a region is an entry here plus a build run; the app ships one region and has no picker.",
+  "regions": [
+    {
+      "id": "cape-town",
+      "label": "Cape Town",
+      "bbox": { "west": 18.27, "south": -34.33, "east": 18.51, "north": -33.89 },
+      "areas": ["Table-Mountain", "peninsula"]
+    }
+  ]
+}

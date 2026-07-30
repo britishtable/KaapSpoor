@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build trails.pmtiles from an OSM extract clipped to bbox.json.
+# Build trails-<region>.pmtiles from an OSM extract clipped to the region's
+# bbox in regions.json. Each region is a standalone map, not a tile of a
+# continuous surface — see regions.json's comment.
 # Prerequisites: java 21+, curl, jq. planetiler.jar is downloaded automatically.
 #
 # Heavy I/O (the OSM extract download, planetiler's temp files) happens under
@@ -13,8 +15,12 @@ REPO_TILES_DIR="$(pwd)"
 WORK=${WORK:-$HOME/kaapspoor-tiles}
 mkdir -p "$WORK/downloads" "$WORK/work" "$REPO_TILES_DIR/../../app/static/tiles"
 
-W=$(jq -r .west bbox.json); S=$(jq -r .south bbox.json)
-E=$(jq -r .east bbox.json); N=$(jq -r .north bbox.json)
+REGION=${1:?usage: build-trails.sh <region-id>   (see regions.json)}
+SEL=".regions[] | select(.id == \"$REGION\")"
+jq -e "$SEL" regions.json >/dev/null || { echo "unknown region: $REGION" >&2; exit 1; }
+W=$(jq -r "$SEL.bbox.west" regions.json);  S=$(jq -r "$SEL.bbox.south" regions.json)
+E=$(jq -r "$SEL.bbox.east" regions.json);  N=$(jq -r "$SEL.bbox.north" regions.json)
+echo "Region $REGION: $W,$S,$E,$N"
 
 PLANETILER_JAR="$WORK/planetiler.jar"
 if [ ! -f "$PLANETILER_JAR" ]; then
@@ -40,10 +46,10 @@ java -Xmx4g -jar "$PLANETILER_JAR" \
   --osm_path="$WORK/downloads/region.osm.pbf" \
   --download=false \
   --tmpdir="$WORK/work/tmp" \
-  --output="$WORK/work/trails.pmtiles" \
+  --output="$WORK/work/trails-$REGION.pmtiles" \
   --force
 
-cp "$WORK/work/trails.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/trails.pmtiles"
-echo "trails.pmtiles built."
+cp "$WORK/work/trails-$REGION.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/trails-$REGION.pmtiles"
+echo "trails-$REGION.pmtiles built."
 
-"$REPO_TILES_DIR/verify-layers.sh" trails
+"$REPO_TILES_DIR/verify-layers.sh" "$REGION" trails
