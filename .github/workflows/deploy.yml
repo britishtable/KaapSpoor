@@ -61,8 +61,35 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/build
+  # tools/geocode decides which of the 184 routes get a coordinate and how well
+  # each one is known. Its tests are what hold the honesty invariant up — that a
+  # coordinate never exists without a provenance source, and that an area-level
+  # guess can never present itself as a surveyed position. They run as their own
+  # job rather than a step in `build` so a Python failure reads as a Python
+  # failure, and they gate `deploy` because publishing a map whose location
+  # tooling is broken is exactly what this is meant to prevent.
+  #
+  # Deliberately NOT checked here: whether data/route-locations.json still
+  # matches what the tool would regenerate. CI has no OSM extract, so it can
+  # only take the CLI's degraded path (no osm-match tier); once the artifact is
+  # generated locally *with* the extract, a re-run here would differ for that
+  # reason alone and the check would fail for being right rather than wrong.
+  geocode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/geocode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: tools/geocode/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
   deploy:
-    needs: build
+    needs: [build, geocode]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
