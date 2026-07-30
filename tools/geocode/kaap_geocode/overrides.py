@@ -33,7 +33,10 @@ def load_overrides(path: Path) -> dict[str, Override]:
     if not Path(path).exists():
         return {}
 
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise OverrideError(f"{path} is not valid JSON: {exc}") from exc
     out: dict[str, Override] = {}
 
     for raw in payload.get("overrides", []):
@@ -50,10 +53,13 @@ def load_overrides(path: Path) -> dict[str, Override]:
                 "must say where it came from"
             )
 
+        raw_lat, raw_lon = raw.get("lat"), raw.get("lon")
+        if isinstance(raw_lat, bool) or isinstance(raw_lon, bool):
+            raise OverrideError(f"override {route_id!r} has a boolean lat/lon")
         try:
-            lat = float(raw["lat"])
-            lon = float(raw["lon"])
-        except (KeyError, TypeError, ValueError) as exc:
+            lat = float(raw_lat)
+            lon = float(raw_lon)
+        except (TypeError, ValueError) as exc:
             raise OverrideError(f"override {route_id!r} has invalid lat/lon") from exc
 
         if not -90.0 <= lat <= 90.0:
@@ -61,13 +67,26 @@ def load_overrides(path: Path) -> dict[str, Override]:
         if not -180.0 <= lon <= 180.0:
             raise OverrideError(f"override {route_id!r} has out-of-range lon {lon}")
 
+        raw_zoom = raw.get("zoom")
+        if raw_zoom is None:
+            zoom = DEFAULT_ZOOM
+        elif isinstance(raw_zoom, bool):
+            raise OverrideError(f"override {route_id!r} has a boolean zoom")
+        else:
+            try:
+                zoom = int(raw_zoom)
+            except (TypeError, ValueError) as exc:
+                raise OverrideError(
+                    f"override {route_id!r} has a non-numeric zoom {raw_zoom!r}"
+                ) from exc
+
         out[route_id] = Override(
             route_id=route_id,
             lat=lat,
             lon=lon,
             source=source,
             note=str(raw.get("note") or ""),
-            zoom=int(raw.get("zoom") or DEFAULT_ZOOM),
+            zoom=zoom,
         )
 
     return out

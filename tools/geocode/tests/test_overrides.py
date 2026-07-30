@@ -66,3 +66,36 @@ def test_rejects_a_duplicate_route_id(tmp_path):
     entry = {"routeId": "a--b", "lat": -33.0, "lon": 18.0, "source": "x"}
     with pytest.raises(OverrideError, match="duplicate"):
         load_overrides(write(tmp_path, {"overrides": [entry, entry]}))
+
+
+def test_an_explicit_zoom_of_zero_is_preserved(tmp_path):
+    # 0 is a legitimate zoom level; `or` would silently replace it with 15.
+    payload = {"overrides": [{**VALID["overrides"][0], "zoom": 0}]}
+    got = load_overrides(write(tmp_path, payload))
+    assert got["other-areas--mt-zebra-park-idwala-hiking-trail"].zoom == 0
+
+
+def test_rejects_a_non_numeric_zoom(tmp_path):
+    payload = {"overrides": [{**VALID["overrides"][0], "zoom": "close"}]}
+    with pytest.raises(OverrideError, match="zoom"):
+        load_overrides(write(tmp_path, payload))
+
+
+def test_rejects_a_boolean_coordinate(tmp_path):
+    # bool subclasses int, so float(True) == 1.0 would pass a range check.
+    payload = {"overrides": [{"routeId": "a--b", "lat": True, "lon": 18.0, "source": "x"}]}
+    with pytest.raises(OverrideError, match="boolean"):
+        load_overrides(write(tmp_path, payload))
+
+
+def test_rejects_a_missing_coordinate(tmp_path):
+    payload = {"overrides": [{"routeId": "a--b", "lon": 18.0, "source": "x"}]}
+    with pytest.raises(OverrideError, match="lat"):
+        load_overrides(write(tmp_path, payload))
+
+
+def test_rejects_malformed_json(tmp_path):
+    path = tmp_path / "geocode-overrides.json"
+    path.write_text("{ not json", encoding="utf-8")
+    with pytest.raises(OverrideError, match="valid JSON"):
+        load_overrides(path)
