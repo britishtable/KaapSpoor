@@ -112,4 +112,22 @@ describe('zoom scoping', () => {
       JSON.stringify(intermediate.paint?.['line-width'])
     );
   });
+
+  it('holds footpaths back until a zoom where a single path is distinguishable', () => {
+    // 10,555 paths rendered at the opening view (z7.97) and buried the route
+    // pins; this is the change that removes that.
+    expect(layer('paths')?.minzoom).toBe(12);
+  });
+
+  it('shows roads earlier than paths, since they orient you at region scale', () => {
+    expect(layer('roads')?.minzoom).toBe(9);
+  });
+
+  it('interpolates road and path widths by zoom rather than fixing them', () => {
+    for (const id of ['roads', 'paths']) {
+      const paint = (layer(id) as { paint?: Record<string, unknown> }).paint ?? {};
+      expect(Array.isArray(paint['line-width'])).toBe(true);
+      expect((paint['line-width'] as unknown[])[0]).toBe('interpolate');
+    }
+  });
 });

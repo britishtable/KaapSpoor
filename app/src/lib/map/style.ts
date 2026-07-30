@@ -90,18 +90,32 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
+        // Roads earn their place at region scale — they are how you find a
+        // trailhead — but hairline-thin until you are close.
         id: 'roads',
         type: 'line',
         source: 'trails',
         'source-layer': 'roads',
-        paint: { 'line-color': '#cfc7bb', 'line-width': 1.5 }
+        minzoom: 9,
+        paint: {
+          'line-color': '#cfc7bb',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 12, 1.2, 16, 3]
+        }
       },
       {
+        // Below z12 individual footpaths are indistinguishable from each other:
+        // 10,555 of them rendered at the opening view as brown speckle that
+        // buried the 13 route pins. They appear once they can be followed.
         id: 'paths',
         type: 'line',
         source: 'trails',
         'source-layer': 'paths',
-        paint: { 'line-color': '#8a5a3b', 'line-width': 1.2, 'line-dasharray': [3, 2] }
+        minzoom: 12,
+        paint: {
+          'line-color': '#8a5a3b',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.8, 16, 1.8],
+          'line-dasharray': [3, 2]
+        }
       },
       {
         id: 'peaks',
