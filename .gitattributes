@@ -1,0 +1,6 @@
+# These scripts run in WSL/Linux, where a CR on the shebang or a line
+# continuation is a syntax error. core.autocrlf=true would otherwise rewrite
+# them to CRLF on every checkout, so pin the ones that must stay LF.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
