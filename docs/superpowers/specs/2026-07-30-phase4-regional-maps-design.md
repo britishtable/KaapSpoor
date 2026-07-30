@@ -22,12 +22,15 @@ Measured against `data/route-locations.json` (181 located routes):
 
 | extent | routes with terrain | area vs current | DEM cells (now 12) |
 |---|---|---|---|
-| **Table Mountain + Peninsula** | **133 (73%)** | **~6%** | **2** |
+| **Table Mountain + Peninsula** | **133 (73%)** | **1.7%** | **2** |
+| Cape Town metro | 133 (73%) | 6% | 2 |
 | CT + Hottentots-Holland | 152 (84%) | 11% | 4 |
 | CT + Boland + Cederberg | 172 (95%) | 47% | 6 |
 | Current tiles | 178 (98%) | 100% | 12 |
 
-Cape Town alone holds **96 Table Mountain routes plus 37 peninsula routes** — the densest concentration in the dataset, in about a sixteenth of the area. Tiles drop from ~130 MB to an estimated 15–30 MB, which is what makes hillshade and landcover affordable rather than a budget gamble.
+Cape Town alone holds **96 Table Mountain routes plus 37 peninsula routes** — the densest concentration in the dataset, in roughly a sixtieth of the area. Tiles drop from ~130 MB to an estimated 5–15 MB, which is what makes hillshade and landcover affordable rather than a budget gamble.
+
+**The box is derived, not chosen.** Those 133 routes span `lon 18.3154–18.4623, lat -34.2814 to -33.9350`; the region below is that extent plus a 0.05° (~6 km) margin, which guarantees a full viewport of terrain around any route even at close zoom. The nearest route *outside* it is Koeberg on the West Coast, 26 km away, so no route sits awkwardly on the boundary.
 
 **Routes outside the current map are not lost.** They stay listed, searchable, filterable and openable, with their route pages intact — they simply are not pinned on a map they do not belong to. The app already behaves this way after Phase 3a's `BASEMAP_BOUNDS` framing fix; this generalises it.
 
@@ -56,7 +59,7 @@ Cape Town alone holds **96 Table Mountain routes plus 37 peninsula routes** — 
     {
       "id": "cape-town",
       "label": "Cape Town",
-      "bbox": { "west": 18.20, "south": -34.40, "east": 18.75, "north": -33.70 },
+      "bbox": { "west": 18.27, "south": -34.33, "east": 18.51, "north": -33.89 },
       "areas": ["Table-Mountain", "peninsula"]
     }
   ]
@@ -142,14 +145,14 @@ The way through reuses the machinery Phase 3 Plan 1 already built. `tools/geocod
 
 | item | estimate |
 |---|---|
-| Cape Town vector tiles | 15–30 MB |
+| Cape Town vector tiles | 5–15 MB |
 | Landcover | included above |
-| Hillshade | gated at 60 MB |
+| Hillshade | gated at 30 MB (the region is a sixtieth of the old area) |
 | Route lines | 1–2 MB |
 | Photos (deferred claim) | ~230 MB |
-| **Total** | **~330 MB of 1 GB** |
+| **Total** | **~280 MB of 1 GB** |
 
-Against the abandoned 24°E plan's ~310 MB of vector alone, this leaves roughly three times the headroom — and each future region adds only its own footprint.
+Against the abandoned 24°E plan's ~310 MB of vector alone, this leaves roughly four times the headroom — and each future region adds only its own footprint. At this size the practical ceiling stops being GitHub Pages and starts being how many regions are worth building.
 
 ## Risks
 
