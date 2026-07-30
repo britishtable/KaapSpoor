@@ -1,0 +1,4 @@
+{
+  "comment": "Curated route coordinates. Highest precedence of all tiers, including over the crawl's own coordinates, because these are the only ones a human personally checked. Every entry MUST carry a `source` (a URL or citation) — the loader rejects the file otherwise. Add entries here for routes the OSM name match cannot reach or reports as ambiguous; data/geocode-report.md lists both queues.",
+  "overrides": []
+}
