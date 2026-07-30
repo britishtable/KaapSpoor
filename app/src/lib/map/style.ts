@@ -118,15 +118,42 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
-        id: 'peaks',
+        // The summits a person actually navigates by. `ele` is the raw OSM tag,
+        // so it is a string and may be unconvertible — to-number's second
+        // argument is the fallback, and 0 sorts such peaks into the minor layer.
+        id: 'peaks-major',
         type: 'symbol',
         source: 'trails',
         'source-layer': 'peaks',
+        minzoom: 10,
+        filter: ['>=', ['to-number', ['get', 'ele'], 0], 1000],
         layout: {
           'text-field': ['get', 'name'],
           'text-font': ['Open Sans Regular'],
-          'text-size': 11,
-          'text-offset': [0, 0.8]
+          'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 15, 13],
+          'text-offset': [0, 0.8],
+          // Lower sort key wins a collision, so negate elevation: the highest
+          // summit in a crowded cluster is the one that keeps its label.
+          'symbol-sort-key': ['-', 0, ['to-number', ['get', 'ele'], 0]]
+        },
+        paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
+      },
+      {
+        // Everything else, including peaks with no usable `ele`. 188 of these
+        // carpeted the opening view; they belong at a zoom where you are looking
+        // at one mountain rather than a province.
+        id: 'peaks-minor',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'peaks',
+        minzoom: 13,
+        filter: ['<', ['to-number', ['get', 'ele'], 0], 1000],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12],
+          'text-offset': [0, 0.8],
+          'symbol-sort-key': ['-', 0, ['to-number', ['get', 'ele'], 0]]
         },
         paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
       }

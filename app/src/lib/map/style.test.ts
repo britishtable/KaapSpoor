@@ -62,7 +62,8 @@ describe('self-hosted source-layer contract', () => {
     ['contours-intermediate', 'contours'],
     ['roads', 'roads'],
     ['paths', 'paths'],
-    ['peaks', 'peaks']
+    ['peaks-major', 'peaks'],
+    ['peaks-minor', 'peaks']
   ])('layer %s reads source-layer %s', (id, sourceLayer) => {
     expect(layerFor(id)?.['source-layer']).toBe(sourceLayer);
   });
@@ -129,5 +130,34 @@ describe('zoom scoping', () => {
       expect(Array.isArray(paint['line-width'])).toBe(true);
       expect((paint['line-width'] as unknown[])[0]).toBe('interpolate');
     }
+  });
+
+  it('shows only major summits at region scale', () => {
+    expect(layer('peaks-major')?.minzoom).toBe(10);
+  });
+
+  it('holds minor peaks back until close in', () => {
+    expect(layer('peaks-minor')?.minzoom).toBe(13);
+  });
+
+  it('reads ele through to-number with a fallback, since OSM stores it as a string', () => {
+    // trails-profile.yml passes the raw OSM `ele` tag through, so it arrives as
+    // "1085" — and sometimes as something that will not convert at all.
+    const both = [layer('peaks-major'), layer('peaks-minor')];
+    for (const l of both) {
+      const json = JSON.stringify(l);
+      expect(json).toContain('to-number');
+      expect(json).toContain('ele');
+    }
+  });
+
+  it('sorts peak labels so the highest summit wins a collision', () => {
+    const major = layer('peaks-major') as { layout?: Record<string, unknown> };
+    expect(major.layout?.['symbol-sort-key']).toBeDefined();
+  });
+
+  it('interpolates peak label size by zoom', () => {
+    const major = layer('peaks-major') as { layout?: Record<string, unknown> };
+    expect(Array.isArray(major.layout?.['text-size'])).toBe(true);
   });
 });
