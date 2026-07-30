@@ -140,20 +140,42 @@ describe('zoom scoping', () => {
     expect(layer('peaks-minor')?.minzoom).toBe(13);
   });
 
-  it('reads ele through to-number with a fallback, since OSM stores it as a string', () => {
-    // trails-profile.yml passes the raw OSM `ele` tag through, so it arrives as
-    // "1085" — and sometimes as something that will not convert at all.
-    const both = [layer('peaks-major'), layer('peaks-minor')];
-    for (const l of both) {
-      const json = JSON.stringify(l);
-      expect(json).toContain('to-number');
-      expect(json).toContain('ele');
-    }
+  it('splits peaks at 1000 m using to-number with a fallback', () => {
+    // ele is the raw OSM tag and arrives as a string; the two-argument
+    // to-number form scores an unusable value 0, sorting it into peaks-minor.
+    expect((layer('peaks-major') as { filter?: unknown[] })?.filter).toEqual([
+      '>=',
+      ['to-number', ['get', 'ele'], 0],
+      1000
+    ]);
+    expect((layer('peaks-minor') as { filter?: unknown[] })?.filter).toEqual([
+      '<',
+      ['to-number', ['get', 'ele'], 0],
+      1000
+    ]);
+  });
+
+  it('partitions every peak into exactly one of the two layers', () => {
+    // The filters are exact negations of one another on the identical
+    // expression, so no peak can be drawn twice or dropped — including one
+    // whose ele is missing or unconvertible, which scores 0 and lands in minor.
+    const major = (layer('peaks-major') as { filter?: unknown[] })?.filter as unknown[];
+    const minor = (layer('peaks-minor') as { filter?: unknown[] })?.filter as unknown[];
+    expect(major[0]).toBe('>=');
+    expect(minor[0]).toBe('<');
+    expect(JSON.stringify(major[1])).toBe(JSON.stringify(minor[1]));
+    expect(major[2]).toBe(minor[2]);
   });
 
   it('sorts peak labels so the highest summit wins a collision', () => {
-    const major = layer('peaks-major') as { layout?: Record<string, unknown> };
-    expect(major.layout?.['symbol-sort-key']).toBeDefined();
+    // MapLibre gives a LOWER sort key priority, so the key must negate
+    // elevation: 1085 m scores -1085 and beats 669 m at -669. An inverted sign
+    // here would silently let the smallest bump win every collision.
+    const expected = ['-', 0, ['to-number', ['get', 'ele'], 0]];
+    for (const id of ['peaks-major', 'peaks-minor']) {
+      const layout = (layer(id) as { layout?: Record<string, unknown> }).layout ?? {};
+      expect(layout['symbol-sort-key']).toEqual(expected);
+    }
   });
 
   it('interpolates peak label size by zoom', () => {
