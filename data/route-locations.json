@@ -1,0 +1,1528 @@
+{
+  "generated": "2026-07-30",
+  "osm_extract_date": "none",
+  "locations": {
+    "cape-country--cape-karoo--anysberg-reserve-hikes": {
+      "coords": {
+        "lat": -33.4843,
+        "lon": 20.7091,
+        "zoom": 11
+      },
+      "source": "crawl"
+    },
+    "cape-country--cape-karoo--elandsberg-stanley-s-light-trail": {
+      "coords": {
+        "lat": -33.4843,
+        "lon": 20.7091,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cape-karoo--gamkaberg": {
+      "coords": {
+        "lat": -33.4843,
+        "lon": 20.7091,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--dwarsrivier-lot-s-wife-trail": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--kromriver-farm-disa-pool-hike": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--kromriver-farm-rensie-s-tv-mast-hike": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--maltese-cross-hike": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--rooiberg-trail": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--cederberg--tafelberg-gully-route": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--truitjieskraal-trail": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--cederberg--wolfberg-cracks": {
+      "coords": {
+        "lat": -32.56117,
+        "lon": 19.38227,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "cape-country--garden-route-little-karoo--donkey-trail-1": {
+      "coords": {
+        "lat": -33.857274705882354,
+        "lon": 19.039377647058824,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 159984
+    },
+    "cape-country--garden-route-little-karoo--otter-trail": {
+      "coords": {
+        "lat": -33.857274705882354,
+        "lon": 19.039377647058824,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 159984
+    },
+    "cape-country--garden-route-little-karoo--robberg-trail": {
+      "coords": {
+        "lat": -33.857274705882354,
+        "lon": 19.039377647058824,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 159984
+    },
+    "cape-country--garden-route-little-karoo--swartberg": {
+      "coords": {
+        "lat": -33.857274705882354,
+        "lon": 19.039377647058824,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 159984
+    },
+    "cape-country--groot-drakenstein--duiwelskloof": {
+      "coords": {
+        "lat": -33.9151,
+        "lon": 18.9755,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--boskloof-ridge": {
+      "coords": {
+        "lat": -34.1988,
+        "lon": 18.8374,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--crystal-pools-at-steenbras": {
+      "coords": {
+        "lat": -34.1946,
+        "lon": 18.8304,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--hangklip": {
+      "coords": {
+        "lat": -34.3641,
+        "lon": 18.8353,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--hermanus--fernkllof-at-hermanus": {
+      "coords": {
+        "lat": -34.3945,
+        "lon": 19.271,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--klipspringer": {
+      "coords": {
+        "lat": -34.28846,
+        "lon": 18.910035714285716,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 35176
+    },
+    "cape-country--overberg--kogelberg-trail": {
+      "coords": {
+        "lat": -34.31342,
+        "lon": 18.92605,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--sea-farm": {
+      "coords": {
+        "lat": -34.3638,
+        "lon": 18.8407,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--overberg--steenbras-ridge": {
+      "coords": {
+        "lat": -34.19,
+        "lon": 18.8294,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--west-coast--groot-winterhoek": {
+      "coords": {
+        "lat": -33.0955,
+        "lon": 19.1058,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--west-coast--koeberg-dikkop-trail": {
+      "coords": {
+        "lat": -33.655,
+        "lon": 18.436,
+        "zoom": 13
+      },
+      "source": "crawl"
+    },
+    "cape-country--west-coast--kooeberg-2": {
+      "coords": {
+        "lat": -33.655,
+        "lon": 18.436,
+        "zoom": 13
+      },
+      "source": "crawl"
+    },
+    "cape-country--west-coast--postberg-flower-trail": {
+      "coords": {
+        "lat": -33.1303,
+        "lon": 17.999,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--west-coast--saldanha-nature-reserve": {
+      "coords": {
+        "lat": -33.38395,
+        "lon": 18.4942,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 65300
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--bobbejaanskloof": {
+      "coords": {
+        "lat": -33.6157,
+        "lon": 19.1104,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--du-toits-peak": {
+      "coords": {
+        "lat": -33.743,
+        "lon": 19.149,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--elandspad-at-du-toits": {
+      "coords": {
+        "lat": -33.6693,
+        "lon": 19.121339999999996,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 8585
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--happy-valley": {
+      "coords": {
+        "lat": -33.6639,
+        "lon": 19.1181,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--krom-river-du-toits": {
+      "coords": {
+        "lat": -33.7286,
+        "lon": 19.1113,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--du-toits-kloof-klein-drakenstein--rockhopper": {
+      "coords": {
+        "lat": -33.5953,
+        "lon": 19.1179,
+        "zoom": 13
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--franschoek-wemmershoek--du-toits-kop": {
+      "coords": {
+        "lat": -33.8889,
+        "lon": 19.1568,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--franschoek-wemmershoek--perdekop": {
+      "coords": {
+        "lat": -33.8843,
+        "lon": 19.1701,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--franschoek-wemmershoek--wemmershoek-observation-point": {
+      "coords": {
+        "lat": -33.87555,
+        "lon": 19.16011,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--franschoek-wemmershoek--wemmershoek-peak": {
+      "coords": {
+        "lat": -33.86293,
+        "lon": 19.20492,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--hottents-holland--helderberg-dome": {
+      "coords": {
+        "lat": -34.0469,
+        "lon": 18.8704,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--hottents-holland--helderberg-west-peak": {
+      "coords": {
+        "lat": -34.0469,
+        "lon": 18.8704,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--botmanskop-and-traverse": {
+      "coords": {
+        "lat": -33.9469,
+        "lon": 18.9195,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--diagonal-route-on-3rd-ridge": {
+      "coords": {
+        "lat": -33.9888,
+        "lon": 18.994,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--klipspringer": {
+      "coords": {
+        "lat": -34.0038,
+        "lon": 18.9641,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--panorama-route": {
+      "coords": {
+        "lat": -34.0049,
+        "lon": 18.9662,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--sentralekloof": {
+      "coords": {
+        "lat": -33.96507,
+        "lon": 18.95933,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--slab-route-1st-2nd-ridge": {
+      "coords": {
+        "lat": -33.98107,
+        "lon": 18.99077,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--swartboskam": {
+      "coords": {
+        "lat": -33.9992,
+        "lon": 18.9699,
+        "zoom": 14
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--jonkershoek--victoria-peak": {
+      "coords": {
+        "lat": -34.01062,
+        "lon": 19.02328,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "cape-country--winelands--langeberg--bloupunt": {
+      "coords": {
+        "lat": -33.77941,
+        "lon": 20.09841,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--cape-point": {
+      "coords": {
+        "lat": -34.2814,
+        "lon": 18.4373,
+        "zoom": 13
+      },
+      "source": "crawl"
+    },
+    "peninsula--chapmans-peak-drive-noordhoek--blackburn-buttress": {
+      "coords": {
+        "lat": -34.068909999999995,
+        "lon": 18.378890000000002,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "peninsula--chapmans-peak-drive-noordhoek--blackburn-major": {
+      "coords": {
+        "lat": -34.0641,
+        "lon": 18.3792,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--chapmans-peak-drive-noordhoek--noordhoek-minor": {
+      "coords": {
+        "lat": -34.0676,
+        "lon": 18.3793,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--chapmans-peak-drive-noordhoek--noordhoek-peak-gully": {
+      "coords": {
+        "lat": -34.068909999999995,
+        "lon": 18.378890000000002,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "peninsula--chapmans-peak-drive-noordhoek--noordhoek-ridge-1": {
+      "coords": {
+        "lat": -34.07503,
+        "lon": 18.37817,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--disa-river-walk": {
+      "coords": {
+        "lat": -34.032156,
+        "lon": 18.344468,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2809
+    },
+    "peninsula--hout-bay--duiker-ridge": {
+      "coords": {
+        "lat": -34.03988,
+        "lon": 18.31544,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--little-lion-s-head": {
+      "coords": {
+        "lat": -34.0165,
+        "lon": 18.3435,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--sentinel-se-ridge": {
+      "coords": {
+        "lat": -34.032156,
+        "lon": 18.344468,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2809
+    },
+    "peninsula--hout-bay--skoorsteenkam2": {
+      "coords": {
+        "lat": -34.0355,
+        "lon": 18.369,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--skoosteenkam": {
+      "coords": {
+        "lat": -34.0355,
+        "lon": 18.369,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--sunset-rocks-to-logie-rocks": {
+      "coords": {
+        "lat": -34.032156,
+        "lon": 18.344468,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2809
+    },
+    "peninsula--hout-bay--suther-peak-from-hout-bay": {
+      "coords": {
+        "lat": -34.0334,
+        "lon": 18.3254,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--hout-bay--twelve-apostles-path": {
+      "coords": {
+        "lat": -34.032156,
+        "lon": 18.344468,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2809
+    },
+    "peninsula--silvermine--blockhuiskop": {
+      "coords": {
+        "lat": -34.1189,
+        "lon": 18.4274,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--silvermine--circuit-of-the-ridges": {
+      "coords": {
+        "lat": -34.0649,
+        "lon": 18.3859,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--silvermine--circuit-of-the-ridges-1": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--constantiaberg-north-west-route": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--constantiaberg-west-ridge": {
+      "coords": {
+        "lat": -34.0577,
+        "lon": 18.379,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--silvermine--kalk-bay-kam": {
+      "coords": {
+        "lat": -34.11013,
+        "lon": 18.43772,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "peninsula--silvermine--kleintuinkop": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--muizenberg-buttress": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--st-james-buttress": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--steenberg-buttress": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--trappies-surprise": {
+      "coords": {
+        "lat": -34.1275,
+        "lon": 18.4398,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--silvermine--vlakkenberg-3-rocky-peaks-ridge": {
+      "coords": {
+        "lat": -34.096155,
+        "lon": 18.417303333333333,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5543
+    },
+    "peninsula--silvermine--wolfkop": {
+      "coords": {
+        "lat": -34.0978,
+        "lon": 18.434,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--elsies-pk-brakkloof-ridge": {
+      "coords": {
+        "lat": -34.1423,
+        "lon": 18.4162,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--elsies-pk-circumnavigation-traverse": {
+      "coords": {
+        "lat": -34.184375,
+        "lon": 18.42256375,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 9997
+    },
+    "peninsula--simonstown--north-peak": {
+      "coords": {
+        "lat": -34.20212,
+        "lon": 18.44279,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--outlook-ridge-1": {
+      "coords": {
+        "lat": -34.1485,
+        "lon": 18.4327,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--redhill-direct-from-the-sea": {
+      "coords": {
+        "lat": -34.1903,
+        "lon": 18.4167,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--simonsberg": {
+      "coords": {
+        "lat": -34.20212,
+        "lon": 18.44279,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--slangkop-kommetjie": {
+      "coords": {
+        "lat": -34.14809,
+        "lon": 18.32315,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--swartkop-left-face": {
+      "coords": {
+        "lat": -34.21417,
+        "lon": 18.45268,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "peninsula--simonstown--swartkops-traverse": {
+      "coords": {
+        "lat": -34.2274,
+        "lon": 18.4535,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--7-buttresses-apostles-traverse": {
+      "coords": {
+        "lat": -33.9708,
+        "lon": 18.39205,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--blind-gully": {
+      "coords": {
+        "lat": -33.9663,
+        "lon": 18.3973,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--blind-gully-porcupine-traverse": {
+      "coords": {
+        "lat": -33.9663,
+        "lon": 18.3973,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--blinkawater-ravine": {
+      "coords": {
+        "lat": -33.9641,
+        "lon": 18.3979,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--boschkloof-traverse-needle": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--cairn-ravine": {
+      "coords": {
+        "lat": -33.9566,
+        "lon": 18.4013,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--corridor-face": {
+      "coords": {
+        "lat": -33.981855,
+        "lon": 18.381575,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--corridor-ravine": {
+      "coords": {
+        "lat": -33.9818,
+        "lon": 18.3787,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--corridor-rib": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--diagonal-route": {
+      "coords": {
+        "lat": -33.9666,
+        "lon": 18.3947,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--grootkop-yellowwood-traverse": {
+      "coords": {
+        "lat": -33.9924,
+        "lon": 18.3762,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--grotto-fountain-cairn": {
+      "coords": {
+        "lat": -33.9577,
+        "lon": 18.3984,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--grotto-ravine": {
+      "coords": {
+        "lat": -33.9577,
+        "lon": 18.3984,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--hairpin-route": {
+      "coords": {
+        "lat": -33.98932,
+        "lon": 18.36945,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--hout-bay-corner": {
+      "coords": {
+        "lat": -34.0045,
+        "lon": 18.35387,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--jubilee-buttress": {
+      "coords": {
+        "lat": -33.9681,
+        "lon": 18.393,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--kasteels-buttress": {
+      "coords": {
+        "lat": -33.9708,
+        "lon": 18.39205,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--kasteels-gully": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--kasteelspoort": {
+      "coords": {
+        "lat": -33.9691,
+        "lon": 18.392,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--lekkerwater-traverse": {
+      "coords": {
+        "lat": -34.0001,
+        "lon": 18.3574,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--llandudno-buttress": {
+      "coords": {
+        "lat": -34.0025,
+        "lon": 18.3568,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--llandudno-ravine": {
+      "coords": {
+        "lat": -34.00078,
+        "lon": 18.35586,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--not-woody-buttress": {
+      "coords": {
+        "lat": -33.9734,
+        "lon": 18.3857,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--oudekraal-ravine": {
+      "coords": {
+        "lat": -33.9851,
+        "lon": 18.3779,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--pimple-traverse": {
+      "coords": {
+        "lat": -34.0001,
+        "lon": 18.3574,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--porcupine-anvil": {
+      "coords": {
+        "lat": -33.965431,
+        "lon": 18.395725,
+        "zoom": 19
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--postern-south-face-b": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--separation-buttress": {
+      "coords": {
+        "lat": -34.0001,
+        "lon": 18.3574,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--slangolie-ravine": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--spring-buttress": {
+      "coords": {
+        "lat": -33.9763,
+        "lon": 18.3836,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--spring-step-over": {
+      "coords": {
+        "lat": -33.9763,
+        "lon": 18.3836,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--three-firs": {
+      "coords": {
+        "lat": -33.978,
+        "lon": 18.3835,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--valken-ravine": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--wood-ravine": {
+      "coords": {
+        "lat": -33.9734,
+        "lon": 18.3857,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--wood-spring-traverse": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--atlantic-west--woody-buttress": {
+      "coords": {
+        "lat": -33.9734,
+        "lon": 18.3857,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--atlantic-west--woody-left-hand-route": {
+      "coords": {
+        "lat": -33.97823744827586,
+        "lon": 18.38208551724138,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3911
+    },
+    "table-mountain--back-table-ie-top": {
+      "coords": {
+        "lat": -33.97545013235294,
+        "lon": 18.40129907352941,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5436
+    },
+    "table-mountain--devils-peak--1st-waterfall-ravine": {
+      "coords": {
+        "lat": -33.9533,
+        "lon": 18.446,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--devils-peak--blockhouse-ridge": {
+      "coords": {
+        "lat": -33.95,
+        "lon": 18.4407,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--devils-peak--devil-s-peak-oppelskop-ridge-b": {
+      "coords": {
+        "lat": -33.9524,
+        "lon": 18.4345,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--devils-peak--devils-peak-contour-paths": {
+      "coords": {
+        "lat": -33.9507,
+        "lon": 18.443,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--devils-peak--devils-peak-east-ridge": {
+      "coords": {
+        "lat": -33.95176,
+        "lon": 18.4423,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "table-mountain--devils-peak--devils-peak-via-the-saddle": {
+      "coords": {
+        "lat": -33.95176,
+        "lon": 18.4423,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "table-mountain--devils-peak--mobray-ridge": {
+      "coords": {
+        "lat": -33.9524,
+        "lon": 18.4473,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--devils-peak--saddle-ravine": {
+      "coords": {
+        "lat": -33.95176,
+        "lon": 18.4423,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "table-mountain--front-face-north--fountain-ledges": {
+      "coords": {
+        "lat": -33.958194454545456,
+        "lon": 18.416122454545455,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "table-mountain--front-face-north--india-venster-path-b": {
+      "coords": {
+        "lat": -33.95383,
+        "lon": 18.4012,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--kloof-corner": {
+      "coords": {
+        "lat": -33.95525,
+        "lon": 18.40162,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--ledges": {
+      "coords": {
+        "lat": -33.9609,
+        "lon": 18.4282,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--left-face-b": {
+      "coords": {
+        "lat": -33.9604,
+        "lon": 18.4182,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--platteklip-gorge": {
+      "coords": {
+        "lat": -33.958579,
+        "lon": 18.414395,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--right-face-arrow-face": {
+      "coords": {
+        "lat": -33.95737,
+        "lon": 18.40621,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--right-face-to-plattelklip": {
+      "coords": {
+        "lat": -33.958194454545456,
+        "lon": 18.416122454545455,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2000
+    },
+    "table-mountain--front-face-north--saddle-face": {
+      "coords": {
+        "lat": -33.961395,
+        "lon": 18.428611,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--silverstream-ledges": {
+      "coords": {
+        "lat": -33.96131,
+        "lon": 18.42495,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--silverstream-ravine": {
+      "coords": {
+        "lat": -33.96131,
+        "lon": 18.42495,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--springs": {
+      "coords": {
+        "lat": -33.961395,
+        "lon": 18.428611,
+        "zoom": 18
+      },
+      "source": "crawl"
+    },
+    "table-mountain--front-face-north--traverse-of-the-gods": {
+      "coords": {
+        "lat": -33.9484,
+        "lon": 18.4004,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--lions-head--lion-s-head-south-east-arete": {
+      "coords": {
+        "lat": -33.97545013235294,
+        "lon": 18.40129907352941,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5436
+    },
+    "table-mountain--lions-head--lions-head-360-route": {
+      "coords": {
+        "lat": -33.97545013235294,
+        "lon": 18.40129907352941,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5436
+    },
+    "table-mountain--lions-head--lions-head-b": {
+      "coords": {
+        "lat": -33.97545013235294,
+        "lon": 18.40129907352941,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 5436
+    },
+    "table-mountain--newlands-east--agathas-gully": {
+      "coords": {
+        "lat": -34.0041,
+        "lon": 18.406,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--ascension-traverse": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--newlands-east--carrel-s-ledge": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--newlands-east--cecelia-ridge": {
+      "coords": {
+        "lat": -33.99439,
+        "lon": 18.41612,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--cecilia-ravine": {
+      "coords": {
+        "lat": -33.99376,
+        "lon": 18.41626,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--constantia-corner": {
+      "coords": {
+        "lat": -34.0041,
+        "lon": 18.406,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--constantia-nek-bridle-path": {
+      "coords": {
+        "lat": -34.008674,
+        "lon": 18.40808,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--dark-gorge": {
+      "coords": {
+        "lat": -33.96115,
+        "lon": 18.4326,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--els-buttress": {
+      "coords": {
+        "lat": -33.96115,
+        "lon": 18.4326,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--els-ravine": {
+      "coords": {
+        "lat": -33.96115,
+        "lon": 18.4326,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--erica-buttress": {
+      "coords": {
+        "lat": -33.9664,
+        "lon": 18.4284,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--finesteraar-crack": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--newlands-east--hidinng-ascenscion": {
+      "coords": {
+        "lat": -33.9694,
+        "lon": 18.4287,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--newlands-forest": {
+      "coords": {
+        "lat": -33.9693,
+        "lon": 18.442,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--newlands-ravine": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--newlands-east--nursery-buttress": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--newlands-east--reserve-cleft-and-junction-peaks": {
+      "coords": {
+        "lat": -33.9791,
+        "lon": 18.4155,
+        "zoom": 15
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--skeleton-gorge": {
+      "coords": {
+        "lat": -33.9866,
+        "lon": 18.4219,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--spilhaus-buttress": {
+      "coords": {
+        "lat": -33.99603,
+        "lon": 18.41483,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--newlands-east--window-gorge": {
+      "coords": {
+        "lat": -33.98252171428572,
+        "lon": 18.42154214285714,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 3162
+    },
+    "table-mountain--orange-kloof--3rd-ridge": {
+      "coords": {
+        "lat": -33.989720000000005,
+        "lon": 18.390824444444444,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2222
+    },
+    "table-mountain--orange-kloof--cavemans-overhang": {
+      "coords": {
+        "lat": -33.98982,
+        "lon": 18.40802,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--dinganes-ridge": {
+      "coords": {
+        "lat": -33.98286,
+        "lon": 18.395,
+        "zoom": 17
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--disa-gorge-slangolie": {
+      "coords": {
+        "lat": -33.9819,
+        "lon": 18.393,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--frustration-buttress-1": {
+      "coords": {
+        "lat": -33.9884,
+        "lon": 18.382,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--frustration-ravine": {
+      "coords": {
+        "lat": -33.9885,
+        "lon": 18.3862,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--hells-gates": {
+      "coords": {
+        "lat": -33.9849,
+        "lon": 18.3873,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--intake-ravine": {
+      "coords": {
+        "lat": -33.9923,
+        "lon": 18.3849,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--klaasens-buttress-traverses": {
+      "coords": {
+        "lat": -33.9967,
+        "lon": 18.4091,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--lang-kloof": {
+      "coords": {
+        "lat": -33.989720000000005,
+        "lon": 18.390824444444444,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2222
+    },
+    "table-mountain--orange-kloof--myburghs-corner": {
+      "coords": {
+        "lat": -33.989720000000005,
+        "lon": 18.390824444444444,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2222
+    },
+    "table-mountain--orange-kloof--myburghs-waterfall-ravine": {
+      "coords": {
+        "lat": -34.0021,
+        "lon": 18.3719,
+        "zoom": 16
+      },
+      "source": "crawl"
+    },
+    "table-mountain--orange-kloof--room-with-a-view": {
+      "coords": {
+        "lat": -33.989720000000005,
+        "lon": 18.390824444444444,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2222
+    },
+    "table-mountain--orange-kloof--wynberg-caves-ridge": {
+      "coords": {
+        "lat": -33.989720000000005,
+        "lon": 18.390824444444444,
+        "zoom": 11
+      },
+      "source": "area-approx",
+      "accuracyM": 2222
+    }
+  }
+}
