@@ -228,4 +228,55 @@ test.describe('map', () => {
       )
     ).toBe(true);
   });
+
+  test('the opening view is not buried under paths and minor peaks', async ({ page }) => {
+    // Measured before this fix, at the fitBounds opening view (z7.97): 10,555
+    // paths, 5,180 roads and 188 peak labels against 13 route pins. Every layer
+    // drew at every zoom because none carried a minzoom. This asserts the
+    // scoping that fixed it, at the zoom a visitor actually lands on.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const counts = async (zoom: number) =>
+      page.evaluate(async (z) => {
+        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        const map = el.__maplibreMap!;
+        map.jumpTo({ center: [18.42, -33.96], zoom: z });
+        await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+        const of = (id: string) => {
+          try {
+            return map.queryRenderedFeatures(undefined, { layers: [id] }).length;
+          } catch {
+            return -1; // layer absent — a real failure, distinct from "zero drawn"
+          }
+        };
+        return {
+          paths: of('paths'),
+          peaksMinor: of('peaks-minor'),
+          peaksMajor: of('peaks-major'),
+          pins: of('pins') + of('pins-cluster')
+        };
+      }, zoom);
+
+    const overview = await counts(8);
+    expect(overview.paths).toBe(0);
+    expect(overview.peaksMinor).toBe(0);
+    // The pins are the point of the map: at the zoom it opens on, they must be
+    // the thing that renders.
+    expect(overview.pins).toBeGreaterThan(0);
+
+    // z13 over the Atlantic seaboard, not an arbitrary close-in view: a
+    // screenshot of exactly this camera showed Blinkwater Needle, Blinkwater
+    // Peak, St Michael Peak, Fernwood Peak, Junction Peak, Cleft Peak, Reserve
+    // Peak and Fountain Peak — all named, all under 1000 m, so all in the minor
+    // layer. Picking a plateau view instead could legitimately render zero
+    // minor peaks and fail for being right.
+    const closeIn = await counts(13);
+    expect(closeIn.paths).toBeGreaterThan(0);
+    expect(closeIn.peaksMinor).toBeGreaterThan(0);
+  });
 });
