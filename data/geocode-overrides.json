@@ -1,4 +1,37 @@
 {
   "comment": "Curated route coordinates. Highest precedence of all tiers, including over the crawl's own coordinates, because these are the only ones a human personally checked. Every entry MUST carry a `source` (a URL or citation) — the loader rejects the file otherwise. Add entries here for routes the OSM name match cannot reach or reports as ambiguous; data/geocode-report.md lists both queues.",
-  "overrides": []
+  "overrides": [
+    {
+      "routeId": "cape-country--garden-route-little-karoo--robberg-trail",
+      "lat": -34.1045,
+      "lon": 23.3921,
+      "zoom": 13,
+      "source": "OpenStreetMap: bounding-box midpoint of the boundary=protected_area named 'Robberg Nature Reserve', from the 2026-07-26 Geofabrik south-africa extract. Reproduce with tools/geocode/extract-osm-features.sh.",
+      "note": "The trail is a circuit within the reserve, so the reserve's midpoint is about as precise as a single point can honestly be. osm-match could not reach it: the route's area bbox is derived from located siblings ~300 km west."
+    },
+    {
+      "routeId": "cape-country--west-coast--saldanha-nature-reserve",
+      "lat": -33.0316,
+      "lon": 17.914,
+      "zoom": 13,
+      "source": "OpenStreetMap: bounding-box midpoint of the leisure=nature_reserve named 'SAS Saldanha Nature Reserve', from the 2026-07-26 Geofabrik south-africa extract.",
+      "note": "The route title is the reserve's own name. OSM prefixes it 'SAS' (the naval base it sits on), which is why exact-name matching missed it."
+    },
+    {
+      "routeId": "other-areas--mt-zebra-park-idwala-hiking-trail",
+      "lat": -32.2029,
+      "lon": 25.3158,
+      "zoom": 11,
+      "source": "OpenStreetMap: bounding-box midpoint of the leisure=nature_reserve named 'Mountain Zebra National Park', from the 2026-07-26 Geofabrik south-africa extract.",
+      "note": "Wide zoom on purpose — this is a 280 km² park, not a trailhead. It is also the one route with no located sibling anywhere in its area tree, so no tier below curated could reach it. Sits outside the map's tile bbox (~25.3°E vs the 24.0°E cap), so it pins over empty basemap."
+    },
+    {
+      "routeId": "cape-country--garden-route-little-karoo--otter-trail",
+      "lat": -34.0134,
+      "lon": 23.8411,
+      "zoom": 13,
+      "source": "OpenStreetMap way/331318677, 'Otter Trail Escape Route 1' — a point on the trail near its Storms River Mouth end. From the 2026-07-26 Geofabrik south-africa extract.",
+      "note": "OSM carries no way named plainly 'Otter Trail', only its numbered escape routes, so no exact-name match was possible. The trail runs ~45 km west to Nature's Valley; this pins its eastern end rather than its middle."
+    }
+  ]
 }

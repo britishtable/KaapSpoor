@@ -1,6 +1,6 @@
 {
   "generated": "2026-07-26T08:02:40+00:00",
-  "osm_extract_date": "none",
+  "osm_extract_date": "2026-07-30",
   "locations": {
     "cape-country--cape-karoo--anysberg-reserve-hikes": {
       "coords": {
@@ -99,6 +99,22 @@
       "source": "area-approx",
       "accuracyM": 2000
     },
+    "cape-country--garden-route-little-karoo--otter-trail": {
+      "coords": {
+        "lat": -34.0134,
+        "lon": 23.8411,
+        "zoom": 13
+      },
+      "source": "curated"
+    },
+    "cape-country--garden-route-little-karoo--robberg-trail": {
+      "coords": {
+        "lat": -34.1045,
+        "lon": 23.3921,
+        "zoom": 13
+      },
+      "source": "curated"
+    },
     "cape-country--groot-drakenstein--duiwelskloof": {
       "coords": {
         "lat": -33.9151,
@@ -194,6 +210,14 @@
         "zoom": 14
       },
       "source": "crawl"
+    },
+    "cape-country--west-coast--saldanha-nature-reserve": {
+      "coords": {
+        "lat": -33.0316,
+        "lon": 17.914,
+        "zoom": 13
+      },
+      "source": "curated"
     },
     "cape-country--winelands--du-toits-kloof-klein-drakenstein--bobbejaanskloof": {
       "coords": {
@@ -364,6 +388,14 @@
       },
       "source": "crawl"
     },
+    "other-areas--mt-zebra-park-idwala-hiking-trail": {
+      "coords": {
+        "lat": -32.2029,
+        "lon": 25.3158,
+        "zoom": 11
+      },
+      "source": "curated"
+    },
     "peninsula--cape-point": {
       "coords": {
         "lat": -34.2814,
@@ -466,12 +498,16 @@
     },
     "peninsula--hout-bay--sunset-rocks-to-logie-rocks": {
       "coords": {
-        "lat": -34.032156,
-        "lon": 18.344468,
-        "zoom": 11
+        "lat": -34.0102412,
+        "lon": 18.335722,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 2809
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 9968087466,
+        "name": "Sunset Rocks"
+      }
     },
     "peninsula--hout-bay--suther-peak-from-hout-bay": {
       "coords": {
@@ -517,12 +553,16 @@
     },
     "peninsula--silvermine--constantiaberg-north-west-route": {
       "coords": {
-        "lat": -34.096155,
-        "lon": 18.417303333333333,
-        "zoom": 11
+        "lat": -34.0541746,
+        "lon": 18.3854789,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 5543
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 388608972,
+        "name": "Constantiaberg"
+      }
     },
     "peninsula--silvermine--constantiaberg-west-ridge": {
       "coords": {
@@ -560,12 +600,16 @@
     },
     "peninsula--silvermine--st-james-buttress": {
       "coords": {
-        "lat": -34.096155,
-        "lon": 18.417303333333333,
-        "zoom": 11
+        "lat": -34.1085933,
+        "lon": 18.46229105,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 5543
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 950046518,
+        "name": "St James Buttress"
+      }
     },
     "peninsula--silvermine--steenberg-buttress": {
       "coords": {
@@ -611,12 +655,16 @@
     },
     "peninsula--simonstown--elsies-pk-circumnavigation-traverse": {
       "coords": {
-        "lat": -34.184375,
-        "lon": 18.42256375,
-        "zoom": 11
+        "lat": -34.1501363,
+        "lon": 18.4356101,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 9997
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 4756650027,
+        "name": "Elsies Peak"
+      }
     },
     "peninsula--simonstown--north-peak": {
       "coords": {
@@ -937,12 +985,16 @@
     },
     "table-mountain--atlantic-west--valken-ravine": {
       "coords": {
-        "lat": -33.97823744827586,
-        "lon": 18.38208551724138,
-        "zoom": 11
+        "lat": -33.968247500000004,
+        "lon": 18.390280699999998,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 3911
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 751327969,
+        "name": "Valken Ravine"
+      }
     },
     "table-mountain--atlantic-west--wood-ravine": {
       "coords": {
@@ -1021,21 +1073,29 @@
     },
     "table-mountain--devils-peak--devils-peak-east-ridge": {
       "coords": {
-        "lat": -33.95176,
-        "lon": 18.4423,
-        "zoom": 11
+        "lat": -33.9546074,
+        "lon": 18.4403929,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 2000
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 2718061707,
+        "name": "Devil's Peak"
+      }
     },
     "table-mountain--devils-peak--devils-peak-via-the-saddle": {
       "coords": {
-        "lat": -33.95176,
-        "lon": 18.4423,
-        "zoom": 11
+        "lat": -33.9546074,
+        "lon": 18.4403929,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 2000
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 2718061707,
+        "name": "Devil's Peak"
+      }
     },
     "table-mountain--devils-peak--mobray-ridge": {
       "coords": {
@@ -1162,12 +1222,16 @@
     },
     "table-mountain--lions-head--lion-s-head-south-east-arete": {
       "coords": {
-        "lat": -33.97545013235294,
-        "lon": 18.40129907352941,
-        "zoom": 11
+        "lat": -33.9350393,
+        "lon": 18.389142,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 5436
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 48944401,
+        "name": "Lion's Head"
+      }
     },
     "table-mountain--lions-head--lions-head-360-route": {
       "coords": {
@@ -1180,12 +1244,16 @@
     },
     "table-mountain--lions-head--lions-head-b": {
       "coords": {
-        "lat": -33.97545013235294,
-        "lon": 18.40129907352941,
-        "zoom": 11
+        "lat": -33.9350393,
+        "lon": 18.389142,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 5436
+      "source": "osm-match",
+      "osm": {
+        "type": "node",
+        "id": 48944401,
+        "name": "Lion's Head"
+      }
     },
     "table-mountain--newlands-east--agathas-gully": {
       "coords": {
@@ -1313,12 +1381,16 @@
     },
     "table-mountain--newlands-east--nursery-buttress": {
       "coords": {
-        "lat": -33.98252171428572,
-        "lon": 18.42154214285714,
-        "zoom": 11
+        "lat": -33.9844716,
+        "lon": 18.4205445,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 3162
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 456205637,
+        "name": "Nursery Buttress"
+      }
     },
     "table-mountain--newlands-east--reserve-cleft-and-junction-peaks": {
       "coords": {
@@ -1346,12 +1418,16 @@
     },
     "table-mountain--newlands-east--window-gorge": {
       "coords": {
-        "lat": -33.98252171428572,
-        "lon": 18.42154214285714,
-        "zoom": 11
+        "lat": -33.976654749999994,
+        "lon": 18.42373695,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 3162
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 776424004,
+        "name": "Window Gorge"
+      }
     },
     "table-mountain--orange-kloof--3rd-ridge": {
       "coords": {
