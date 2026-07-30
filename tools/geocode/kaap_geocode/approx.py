@@ -42,7 +42,9 @@ def area_approx(siblings: list[dict[str, Any]]) -> Approx | None:
     points = [
         (s["coords"]["lat"], s["coords"]["lon"])
         for s in siblings
-        if s.get("coords") and s["coords"].get("lat") is not None
+        if s.get("coords")
+        and s["coords"].get("lat") is not None
+        and s["coords"].get("lon") is not None
     ]
     if not points:
         return None

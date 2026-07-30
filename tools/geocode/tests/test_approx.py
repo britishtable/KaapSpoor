@@ -41,3 +41,22 @@ def test_a_single_sibling_still_gets_a_non_zero_accuracy():
 
 def test_no_siblings_gives_no_approximation():
     assert area_approx([]) is None
+
+
+def test_a_sibling_missing_its_longitude_is_excluded_rather_than_crashing():
+    # This module takes any sibling list, so it cannot rely on the caller
+    # having paired lat and lon for it.
+    got = area_approx([sibling(-33.90, 18.40), {"coords": {"lat": -34.10, "lon": None}}])
+    assert got is not None
+    assert round(got.lat, 4) == -33.90
+    assert round(got.lon, 4) == 18.40
+
+
+def test_a_sibling_with_no_longitude_key_at_all_is_excluded():
+    got = area_approx([sibling(-33.90, 18.40), {"coords": {"lat": -34.10}}])
+    assert got is not None
+    assert round(got.lat, 4) == -33.90
+
+
+def test_siblings_with_only_partial_coordinates_give_no_approximation():
+    assert area_approx([{"coords": {"lat": -33.9}}, {"coords": {"lon": 18.4}}]) is None
