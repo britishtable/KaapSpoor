@@ -15,5 +15,6 @@ app/playwright-report/
 
 tools/tiles/downloads/
 tools/tiles/work/
+tools/geocode/work/
 app/static/tiles/
 app/static/fonts/
