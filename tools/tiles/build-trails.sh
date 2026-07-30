@@ -16,10 +16,17 @@ WORK=${WORK:-$HOME/kaapspoor-tiles}
 mkdir -p "$WORK/downloads" "$WORK/work" "$REPO_TILES_DIR/../../app/static/tiles"
 
 REGION=${1:?usage: build-trails.sh <region-id>   (see regions.json)}
-SEL=".regions[] | select(.id == \"$REGION\")"
-jq -e "$SEL" regions.json >/dev/null || { echo "unknown region: $REGION" >&2; exit 1; }
-W=$(jq -r "$SEL.bbox.west" regions.json);  S=$(jq -r "$SEL.bbox.south" regions.json)
-E=$(jq -r "$SEL.bbox.east" regions.json);  N=$(jq -r "$SEL.bbox.north" regions.json)
+
+jq -e . regions.json >/dev/null 2>&1 \
+  || { echo "regions.json is not valid JSON" >&2; exit 1; }
+
+# --arg passes the id as data, not as jq program text: a quote or paren in it
+# is then a failed match rather than a jq compile error.
+REGION_JSON=$(jq -e --arg id "$REGION" '.regions[] | select(.id == $id)' regions.json) \
+  || { echo "unknown region: $REGION (known: $(jq -r '.regions[].id' regions.json | tr '\n' ' '))" >&2; exit 1; }
+
+W=$(jq -r '.bbox.west'  <<<"$REGION_JSON"); S=$(jq -r '.bbox.south' <<<"$REGION_JSON")
+E=$(jq -r '.bbox.east'  <<<"$REGION_JSON"); N=$(jq -r '.bbox.north' <<<"$REGION_JSON")
 echo "Region $REGION: $W,$S,$E,$N"
 
 PLANETILER_JAR="$WORK/planetiler.jar"
