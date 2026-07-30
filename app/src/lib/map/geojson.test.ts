@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { routesToGeoJSON, boundsOf } from './geojson';
+import { routesToGeoJSON, boundsOf, BASEMAP_BOUNDS } from './geojson';
 import type { RouteIndexEntry } from '$lib/data/types';
 
 function entry(id: string, coords: { lat: number; lon: number } | null): RouteIndexEntry {
@@ -43,5 +43,32 @@ describe('boundsOf', () => {
   });
   it('returns null when nothing is located', () => {
     expect(boundsOf([entry('b', null)])).toBeNull();
+  });
+
+  it('ignores a route outside the basemap bounds rather than widening the extent', () => {
+    // 23.8°E (Otter Trail-ish) is east of BASEMAP_BOUNDS.east (20.9); including
+    // it would zoom the opening view out past where anything but pins renders.
+    const outside = entry('otter', { lat: -34.0, lon: 23.8 });
+    expect(boundsOf([...entries, outside])).toEqual(boundsOf(entries));
+  });
+
+  it('widens the extent for a route inside the basemap bounds', () => {
+    const inside = entry('d', { lat: -33.0, lon: 19.8 });
+    expect(boundsOf([...entries, inside])).toEqual([[18.39, -33.97], [19.8, -32.6]]);
+  });
+
+  it('falls back to all located routes when every one is outside the basemap bounds', () => {
+    const allOutside = [
+      entry('otter', { lat: -34.0, lon: 23.8 }),
+      entry('robberg', { lat: -34.1, lon: 23.4 })
+    ];
+    expect(boundsOf(allOutside)).toEqual([
+      [23.4, -34.1],
+      [23.8, -34.0]
+    ]);
+  });
+
+  it('exposes the basemap bounds used to decide what frames the opening view', () => {
+    expect(BASEMAP_BOUNDS).toEqual({ west: 17.8, south: -34.5, east: 20.9, north: -32.4 });
   });
 });

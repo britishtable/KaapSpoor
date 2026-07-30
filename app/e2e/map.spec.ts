@@ -230,23 +230,33 @@ test.describe('map', () => {
   });
 
   test('the opening view is not buried under paths and minor peaks', async ({ page }) => {
-    // Measured before this fix, at the fitBounds opening view (z7.97): 10,555
-    // paths, 5,180 roads and 188 peak labels against 13 route pins. Every layer
-    // drew at every zoom because none carried a minzoom. This asserts the
-    // scoping that fixed it, at the zoom a visitor actually lands on.
+    // fitBounds spans every located route, including three (Otter, Robberg, Mt
+    // Zebra Park) far outside the basemap's tile bbox, which pushes the real
+    // opening zoom well below the z7.97 an earlier fix assumed -- measured
+    // z6.89 desktop / ~z4.7 mobile before the framing fix in geojson.ts's
+    // boundsOf/BASEMAP_BOUNDS. This measures the actual camera a visitor
+    // lands on rather than a hardcoded z8, so a framing regression fails here.
     await page.goto('');
     await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
       timeout: 15_000
     });
 
-    const counts = async (zoom: number) =>
+    const countsAt = async (zoom?: number) =>
       page.evaluate(async (z) => {
         const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
           __maplibreMap?: import('maplibre-gl').Map;
         };
         const map = el.__maplibreMap!;
-        map.jumpTo({ center: [18.42, -33.96], zoom: z });
-        await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+        if (z !== undefined) {
+          map.jumpTo({ center: [18.42, -33.96], zoom: z });
+        }
+        // Only wait for 'idle' if the map isn't already settled -- it's only
+        // guaranteed to fire again if something is still moving/loading, and
+        // when z is omitted (measuring the real opening camera) the map may
+        // already be idle by the time this runs.
+        if (!map.loaded() || map.isMoving()) {
+          await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+        }
         // queryRenderedFeatures does NOT throw for an unknown layer — it fires
         // an error event and returns []. So "layer absent" and "layer drew
         // nothing" are indistinguishable from its return value alone, and at
@@ -255,6 +265,7 @@ test.describe('map', () => {
         const of = (id: string) =>
           map.getLayer(id) ? map.queryRenderedFeatures(undefined, { layers: [id] }).length : -1;
         return {
+          zoom: map.getZoom(),
           paths: of('paths'),
           peaksMinor: of('peaks-minor'),
           peaksMajor: of('peaks-major'),
@@ -263,7 +274,14 @@ test.describe('map', () => {
         };
       }, zoom);
 
-    const overview = await counts(8);
+    // No zoom argument: measure the camera fitBounds actually left the map on.
+    const overview = await countsAt();
+    console.log(`observed opening zoom: ${overview.zoom}`);
+    // The assertion that catches a framing regression directly: if boundsOf
+    // widens back out to include routes with no basemap under them, this is
+    // what fails first.
+    expect(overview.zoom).toBeGreaterThan(7);
+
     // -1 means the layer is missing from the style entirely — a rename or a
     // deletion, which must fail differently from "correctly scoped out".
     expect(overview.paths).not.toBe(-1);
@@ -285,7 +303,7 @@ test.describe('map', () => {
     // Peak and Fountain Peak — all named, all under 1000 m, so all in the minor
     // layer. Picking a plateau view instead could legitimately render zero
     // minor peaks and fail for being right.
-    const closeIn = await counts(13);
+    const closeIn = await countsAt(13);
     expect(closeIn.paths).toBeGreaterThan(0);
     expect(closeIn.peaksMinor).toBeGreaterThan(0);
   });

@@ -70,7 +70,7 @@ function selfHosted(base: string): StyleSpecification {
         filter: ['==', ['%', ['get', 'ele'], 100], 0],
         paint: {
           'line-color': '#b08968',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 13, 1.1, 16, 1.8],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 13, 1.1, 16, 1.8],
           'line-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.45, 13, 0.7]
         }
       },
@@ -85,7 +85,7 @@ function selfHosted(base: string): StyleSpecification {
         filter: ['!=', ['%', ['get', 'ele'], 100], 0],
         paint: {
           'line-color': '#b08968',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 16, 0.8],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.8, 16, 0.8],
           'line-opacity': 0.55
         }
       },
@@ -115,7 +115,7 @@ function selfHosted(base: string): StyleSpecification {
         filter: ['!', ['match', ['get', 'highway'], ['trunk', 'primary'], true, false]],
         paint: {
           'line-color': '#cfc7bb',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.6, 16, 2.5]
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.8, 16, 2.5]
         }
       },
       {

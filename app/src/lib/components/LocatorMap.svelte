@@ -31,7 +31,12 @@
       container,
       style: buildStyle(SHIPPED_BASEMAP, base),
       center: [coords.lon, coords.lat],
-      zoom: coords.zoom,
+      // Clamp to at least z13: the shared style's `paths` layer (the
+      // footpath itself) has minzoom 12, and a couple of routes carry
+      // coords.zoom as low as 11. Below the paths layer's minzoom, a locator
+      // map shows a route pin with no trail under it -- useless for its one
+      // job of showing where the hike actually goes.
+      zoom: Math.max(13, coords.zoom),
       // Non-interactive: a scrollable map inside an article hijacks page scroll.
       interactive: false,
       attributionControl: false

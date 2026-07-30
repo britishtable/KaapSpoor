@@ -95,6 +95,29 @@ describe('shipped basemap', () => {
   });
 });
 
+describe('roads filters', () => {
+  // roads-major/roads-minor are the entire mechanism that cut 5,180 road
+  // features down to a few hundred at the overview; nothing previously
+  // asserted the filters themselves, so dropping the '!' below would
+  // double-draw every trunk/primary road at z11+ with every other test green.
+  const style = buildStyle('selfhosted', '');
+  const layer = (id: string) => style.layers.find((l) => l.id === id) as { filter?: unknown };
+
+  const roadsMajorFilter = ['match', ['get', 'highway'], ['trunk', 'primary'], true, false];
+
+  it('roads-major matches exactly trunk and primary highways', () => {
+    expect(layer('roads-major').filter).toEqual(roadsMajorFilter);
+  });
+
+  it("roads-minor's filter is precisely the negation of roads-major's", () => {
+    // Structural comparison against roads-major's own filter, not a second
+    // hand-copied literal, so the two cannot silently drift apart.
+    const major = layer('roads-major').filter;
+    const minor = layer('roads-minor').filter;
+    expect(minor).toEqual(['!', major]);
+  });
+});
+
 describe('zoom scoping', () => {
   const style = buildStyle('selfhosted', '');
   const layer = (id: string) => style.layers.find((l) => l.id === id);
@@ -108,12 +131,46 @@ describe('zoom scoping', () => {
     expect(layer('contours-intermediate')?.minzoom).toBe(13);
   });
 
-  it('keeps the 100 m index lines heavier than the intermediates', () => {
+  it('keeps the 100 m index lines heavier than the intermediates at every shared zoom', () => {
+    // A plain "the two arrays differ" check would pass even if the index line
+    // went thinner than the intermediate, so this actually samples the
+    // interpolation and compares the numbers at each zoom they both draw.
     const index = layer('contours-index') as { paint?: Record<string, unknown> };
     const intermediate = layer('contours-intermediate') as { paint?: Record<string, unknown> };
-    expect(JSON.stringify(index.paint?.['line-width'])).not.toBe(
-      JSON.stringify(intermediate.paint?.['line-width'])
-    );
+    const sampleWidth = (expr: unknown, zoom: number): number => {
+      const arr = expr as unknown[];
+      const stops = arr.slice(3); // ['interpolate', ['linear'], ['zoom'], z0, w0, z1, w1, ...]
+      const pairs: [number, number][] = [];
+      for (let i = 0; i < stops.length; i += 2) pairs.push([stops[i] as number, stops[i + 1] as number]);
+      if (zoom <= pairs[0][0]) return pairs[0][1];
+      for (let i = 0; i < pairs.length - 1; i++) {
+        const [z0, w0] = pairs[i];
+        const [z1, w1] = pairs[i + 1];
+        if (zoom >= z0 && zoom <= z1) return w0 + ((w1 - w0) * (zoom - z0)) / (z1 - z0);
+      }
+      return pairs[pairs.length - 1][1];
+    };
+    // Shared range: contours-intermediate exists from its own minzoom (13)
+    // through the top of contours-index's stops (16).
+    for (const zoom of [13, 14, 15, 16]) {
+      const iw = sampleWidth(index.paint?.['line-width'], zoom);
+      const jw = sampleWidth(intermediate.paint?.['line-width'], zoom);
+      expect(iw).toBeGreaterThan(jw);
+    }
+  });
+
+  it('makes each layer visibly on at its own minzoom, not a sub-pixel hairline', () => {
+    // A width under ~0.8px at the zoom a layer switches on reads as "not
+    // there" rather than "there but thin" -- the exact defect this asserts.
+    const firstStop = (id: string) => {
+      const width = (layer(id) as { paint?: Record<string, unknown> }).paint?.['line-width'] as
+        | unknown[]
+        | undefined;
+      return width?.[4] as number; // ['interpolate', ['linear'], ['zoom'], z0, w0, ...]
+    };
+    expect(firstStop('contours-index')).toBeGreaterThanOrEqual(0.8);
+    expect(firstStop('contours-intermediate')).toBeGreaterThanOrEqual(0.8);
+    expect(firstStop('roads-minor')).toBeGreaterThanOrEqual(0.8);
   });
 
   it('holds footpaths back until a zoom where a single path is distinguishable', () => {
