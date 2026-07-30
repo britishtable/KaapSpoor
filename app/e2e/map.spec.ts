@@ -247,13 +247,13 @@ test.describe('map', () => {
         const map = el.__maplibreMap!;
         map.jumpTo({ center: [18.42, -33.96], zoom: z });
         await new Promise<void>((resolve) => map.once('idle', () => resolve()));
-        const of = (id: string) => {
-          try {
-            return map.queryRenderedFeatures(undefined, { layers: [id] }).length;
-          } catch {
-            return -1; // layer absent — a real failure, distinct from "zero drawn"
-          }
-        };
+        // queryRenderedFeatures does NOT throw for an unknown layer — it fires
+        // an error event and returns []. So "layer absent" and "layer drew
+        // nothing" are indistinguishable from its return value alone, and at
+        // the opening view the expected count is 0 for exactly the layers most
+        // worth protecting. Ask the style directly instead.
+        const of = (id: string) =>
+          map.getLayer(id) ? map.queryRenderedFeatures(undefined, { layers: [id] }).length : -1;
         return {
           paths: of('paths'),
           peaksMinor: of('peaks-minor'),
@@ -263,6 +263,10 @@ test.describe('map', () => {
       }, zoom);
 
     const overview = await counts(8);
+    // -1 means the layer is missing from the style entirely — a rename or a
+    // deletion, which must fail differently from "correctly scoped out".
+    expect(overview.paths).not.toBe(-1);
+    expect(overview.peaksMinor).not.toBe(-1);
     expect(overview.paths).toBe(0);
     expect(overview.peaksMinor).toBe(0);
     // The pins are the point of the map: at the zoom it opens on, they must be
