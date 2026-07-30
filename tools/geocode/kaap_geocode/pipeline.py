@@ -46,6 +46,10 @@ class Outcome:
     unlocated: list[str]
     # (route_id, candidate, feature_count) — the curation queue.
     ambiguous: list[tuple[str, str, int]]
+    # Override entries whose routeId matches no route in this crawl — a typo, or
+    # a route since renamed or removed. Silently ignoring them would quietly
+    # weaken the one tier a human personally vouched for.
+    orphaned_overrides: list[str]
 
 
 def locate_all(
@@ -73,11 +77,12 @@ def locate_all(
 
         coords = raw.get("coords")
         if coords and coords.get("lat") is not None and coords.get("lon") is not None:
+            raw_zoom = coords.get("zoom")
             locations[rid] = Location(
                 route_id=rid,
                 lat=float(coords["lat"]),
                 lon=float(coords["lon"]),
-                zoom=int(coords.get("zoom") or ZOOM_OSM_MATCH),
+                zoom=ZOOM_OSM_MATCH if raw_zoom is None else int(raw_zoom),
                 source="crawl",
             )
             continue
@@ -127,4 +132,12 @@ def locate_all(
             accuracy_m=approx.accuracy_m,
         )
 
-    return Outcome(locations=locations, unlocated=unlocated, ambiguous=ambiguous)
+    seen = {route_id(raw.get("area") or [], raw.get("slug") or "") for raw in routes}
+    orphaned_overrides = sorted(rid for rid in overrides if rid not in seen)
+
+    return Outcome(
+        locations=locations,
+        unlocated=unlocated,
+        ambiguous=ambiguous,
+        orphaned_overrides=orphaned_overrides,
+    )

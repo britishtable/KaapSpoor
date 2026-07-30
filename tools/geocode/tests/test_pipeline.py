@@ -102,3 +102,35 @@ def test_every_location_carries_a_source():
     assert out.locations
     for loc in out.locations.values():
         assert loc.source in {"curated", "crawl", "osm-match", "area-approx"}
+
+
+def test_a_crawl_coordinate_keeps_an_explicit_zoom_of_zero():
+    # 0 is a real zoom level; `or` would silently replace it with 15.
+    routes = [route(["a"], "x", -33.97, 18.39, zoom=0)]
+    out = locate_all(routes, [], {})
+    assert out.locations["a--x"].zoom == 0
+
+
+def test_a_crawl_coordinate_with_no_zoom_falls_back_to_the_default():
+    routes = [{"area": ["a"], "slug": "x", "title": "X", "coords": {"lat": -33.97, "lon": 18.39}}]
+    out = locate_all(routes, [], {})
+    assert out.locations["a--x"].zoom == 15
+
+
+def test_an_override_matching_no_route_is_reported_rather_than_ignored():
+    routes = [route(["a"], "x", -33.97, 18.39)]
+    overrides = {
+        "a--typo": Override(route_id="a--typo", lat=-33.9, lon=18.4, source="somewhere")
+    }
+    out = locate_all(routes, [], overrides)
+    assert out.orphaned_overrides == ["a--typo"]
+    # The real route is unaffected.
+    assert out.locations["a--x"].source == "crawl"
+
+
+def test_no_orphans_when_every_override_matches_a_route():
+    routes = [route(["a"], "x", -33.97, 18.39)]
+    overrides = {"a--x": Override(route_id="a--x", lat=-33.9, lon=18.4, source="checked")}
+    out = locate_all(routes, [], overrides)
+    assert out.orphaned_overrides == []
+    assert out.locations["a--x"].source == "curated"
