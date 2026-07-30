@@ -31,7 +31,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    routes = json.loads(args.routes.read_text(encoding="utf-8"))["routes"]
+    dataset = json.loads(args.routes.read_text(encoding="utf-8"))
+    routes = dataset["routes"]
+    # Inherit the crawl's own timestamp rather than stamping today: this output
+    # is a pure function of its inputs, and a fresh date on every run would
+    # dirty a committed artifact that had not actually changed.
+    generated = str(dataset.get("generated") or date.today().isoformat())
 
     if args.features.exists():
         features = read_features(args.features)
@@ -49,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     outcome = locate_all(routes, features, overrides)
 
     payload = {
-        "generated": date.today().isoformat(),
+        "generated": generated,
         "osm_extract_date": extract_date,
         "locations": {
             rid: {

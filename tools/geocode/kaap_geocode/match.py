@@ -34,16 +34,32 @@ class Match:
     candidate: str
 
 
-def find_match(
-    candidate_names: list[str], features: list[Feature], bbox: BBox
-) -> Match | None:
-    by_key: dict[str, list[Feature]] = defaultdict(list)
-    for feature in features:
-        if bbox.contains(feature.lat, feature.lon):
-            by_key[comparison_key(feature.name)].append(feature)
+#: Features grouped by `comparison_key(name)`. Built once per run.
+FeatureIndex = dict[str, list[Feature]]
 
+
+def index_features(features: list[Feature]) -> FeatureIndex:
+    """Group features by comparison key, so each name is normalised once.
+
+    A real extract holds millions of named features and the ladder asks about
+    every unlocated route in turn; keying inside `find_match` re-ran the whole
+    normalisation for each one. The index is bbox-free precisely so it can be
+    shared — `find_match` applies each route's own bbox to the shortlist.
+    """
+    by_key: FeatureIndex = defaultdict(list)
+    for feature in features:
+        by_key[comparison_key(feature.name)].append(feature)
+    return dict(by_key)
+
+
+def find_match(
+    candidate_names: list[str], index: FeatureIndex, bbox: BBox
+) -> Match | None:
     for candidate in candidate_names:
-        hits = by_key.get(comparison_key(candidate), [])
+        # Filter after the name lookup, not before: the index is shared across
+        # routes but the bbox is not. Ambiguity is still judged on what is
+        # inside the bbox alone, so a namesake elsewhere cannot block a match.
+        hits = [f for f in index.get(comparison_key(candidate), ()) if bbox.contains(f.lat, f.lon)]
         if len(hits) > 1:
             raise AmbiguousMatch(candidate, len(hits))
         if hits:

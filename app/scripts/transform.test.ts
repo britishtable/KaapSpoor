@@ -96,7 +96,9 @@ describe('transform provenance', () => {
     expect(index[0].coordsSource).toBe('curated');
   });
 
-  it('carries the accuracy radius for an area-approximate location', () => {
+  it('leaves a route unlocated when its only location is area-approximate', () => {
+    // The entry exists in route-locations.json but must not become a pin: its
+    // radius is kilometres and no app code renders uncertainty yet.
     const { index } = transform(dataset([{ slug: 'corridor-rib' }]), {
       'a--corridor-rib': {
         coords: { lat: -33.97, lon: 18.39, zoom: 11 },
@@ -104,9 +106,35 @@ describe('transform provenance', () => {
         accuracyM: 4200
       }
     });
-    expect(index[0].coordsSource).toBe('area-approx');
-    expect(index[0].coordsAccuracyM).toBe(4200);
+    expect(index[0].coords).toBeNull();
+    expect(index[0].coordsSource).toBeNull();
+    expect(index[0].coordsAccuracyM).toBeNull();
   });
+
+  it('does not let an area-approximate entry override a crawl coordinate', () => {
+    const raw = dataset([{ slug: 'kasteelspoort', coords: { lat: -33.97, lon: 18.39, zoom: 17 } }]);
+    const { index } = transform(raw, {
+      'a--kasteelspoort': {
+        coords: { lat: -33.5, lon: 19.0, zoom: 11 },
+        source: 'area-approx',
+        accuracyM: 90000
+      }
+    });
+    expect(index[0].coords).toEqual({ lat: -33.97, lon: 18.39, zoom: 17 });
+    expect(index[0].coordsSource).toBe('crawl');
+    expect(index[0].coordsAccuracyM).toBeNull();
+  });
+
+  it.each(['crawl', 'curated', 'osm-match'] as const)(
+    'merges a %s location as before',
+    (source) => {
+      const { index } = transform(dataset([{ slug: 'corridor-rib' }]), {
+        'a--corridor-rib': { coords: { lat: -33.97, lon: 18.39, zoom: 15 }, source }
+      });
+      expect(index[0].coords).toEqual({ lat: -33.97, lon: 18.39, zoom: 15 });
+      expect(index[0].coordsSource).toBe(source);
+    }
+  );
 
   it('carries the matched OSM feature for an osm-match location', () => {
     const { index } = transform(dataset([{ slug: 'newlands-ravine' }]), {
@@ -121,14 +149,14 @@ describe('transform provenance', () => {
   });
 
   it('propagates provenance to the per-route content as well as the index', () => {
-    const { content } = transform(dataset([{ slug: 'corridor-rib' }]), {
-      'a--corridor-rib': {
-        coords: { lat: -33.97, lon: 18.39, zoom: 11 },
-        source: 'area-approx',
-        accuracyM: 4200
+    const { content } = transform(dataset([{ slug: 'newlands-ravine' }]), {
+      'a--newlands-ravine': {
+        coords: { lat: -33.965, lon: 18.435, zoom: 15 },
+        source: 'osm-match',
+        osm: { type: 'node', id: 7, name: 'Newlands Ravine' }
       }
     });
-    expect(content[0].coordsSource).toBe('area-approx');
-    expect(content[0].coordsAccuracyM).toBe(4200);
+    expect(content[0].coordsSource).toBe('osm-match');
+    expect(content[0].coordsOsm).toEqual({ type: 'node', id: 7, name: 'Newlands Ravine' });
   });
 });

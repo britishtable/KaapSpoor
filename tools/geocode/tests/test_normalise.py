@@ -8,6 +8,22 @@ def test_comparison_key_lowercases_and_drops_punctuation():
     assert comparison_key("Carrel's  Ledge") == "carrels ledge"
 
 
+def test_comparison_key_treats_every_apostrophe_shape_alike():
+    # OSM commonly stores the typographic U+2019. If it were not deleted the key
+    # would be "devil s peak" and every apostrophe'd name would silently fail to
+    # match its straight-quoted route title.
+    assert comparison_key("Devil’s Peak") == comparison_key("Devil's Peak") == "devils peak"
+    assert comparison_key("Lionʼs Head") == comparison_key("Lion's Head")
+    assert comparison_key("Myburgh’s Kloof") == "myburghs kloof"
+
+
+def test_candidates_handle_a_curly_apostrophe_title():
+    got = candidates("Lion’s Head B (Twirly-Whirly route)")
+    assert got[0] == "Lion’s Head B (Twirly-Whirly route)"
+    assert "Lion’s Head" in got
+    assert comparison_key(got[-1]) == "lions head"
+
+
 def test_comparison_key_expands_abbreviations():
     assert comparison_key("Elsies Pk") == "elsies peak"
     assert comparison_key("Mt Zebra Park") == "mount zebra park"

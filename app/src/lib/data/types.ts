@@ -10,13 +10,31 @@ export type CoordsSource = 'crawl' | 'curated' | 'osm-match' | 'area-approx';
 
 export interface OsmRef { type: string; id: number; name: string; }
 
-/** One entry of data/route-locations.json, written by tools/geocode. */
-export interface RouteLocation {
+/**
+ * One entry of data/route-locations.json, written by tools/geocode.
+ *
+ * Split by `source` so the optional fields are discriminated rather than
+ * merely conventional: only an `area-approx` entry can carry an accuracy
+ * radius, and only an `osm-match` entry an OSM reference.
+ */
+
+/** A location the app can place on the map as a point. */
+export interface PreciseLocation {
   coords: Coords;
-  source: CoordsSource;
-  accuracyM?: number;
+  source: 'crawl' | 'curated' | 'osm-match';
   osm?: OsmRef;
 }
+
+/** An area-level guess. Deliberately NOT rendered as a point: it carries a
+ *  radius in kilometres, and drawing it as a dot would imply metre precision
+ *  the coordinate does not have. Held here until the map can draw uncertainty. */
+export interface ApproximateLocation {
+  coords: Coords;
+  source: 'area-approx';
+  accuracyM: number;
+}
+
+export type RouteLocation = PreciseLocation | ApproximateLocation;
 
 export interface RouteIndexEntry {
   id: string;

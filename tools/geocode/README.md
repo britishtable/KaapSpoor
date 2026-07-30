@@ -16,6 +16,18 @@ occasional data task, not part of the app build or CI.
 Routes reaching the bottom without a position stay unlocated, and the app keeps
 showing them as such.
 
+Two limits keep the bottom tier honest. Below `MIN_ACCURACY_M` (2 km) the radius
+is floored, so a lone sibling cannot masquerade as a surveyed dot; above
+`MAX_ACCURACY_M` (25 km) `area_approx` refuses outright and the route stays
+unlocated, because a centroid that vague no longer says where the hike is.
+
+**The app does not render `area-approx` at all yet.** `app/scripts/transform.ts`
+merges only `curated`, `crawl` and `osm-match` into the route index; nothing in
+the app reads `coordsAccuracyM`, so an area centroid would draw as a pin
+indistinguishable from a surveyed one. The entries stay in
+`data/route-locations.json` for the plan that teaches the map to draw
+uncertainty. Do not lift that gate before then.
+
 ## Prerequisites
 
 - Python 3.11+ and `pip install -r requirements.txt` (pytest only; the tool

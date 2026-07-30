@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-30",
+  "generated": "2026-07-26T08:02:40+00:00",
   "osm_extract_date": "none",
   "locations": {
     "cape-country--cape-karoo--anysberg-reserve-hikes": {
@@ -99,42 +99,6 @@
       "source": "area-approx",
       "accuracyM": 2000
     },
-    "cape-country--garden-route-little-karoo--donkey-trail-1": {
-      "coords": {
-        "lat": -33.857274705882354,
-        "lon": 19.039377647058824,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 159984
-    },
-    "cape-country--garden-route-little-karoo--otter-trail": {
-      "coords": {
-        "lat": -33.857274705882354,
-        "lon": 19.039377647058824,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 159984
-    },
-    "cape-country--garden-route-little-karoo--robberg-trail": {
-      "coords": {
-        "lat": -33.857274705882354,
-        "lon": 19.039377647058824,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 159984
-    },
-    "cape-country--garden-route-little-karoo--swartberg": {
-      "coords": {
-        "lat": -33.857274705882354,
-        "lon": 19.039377647058824,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 159984
-    },
     "cape-country--groot-drakenstein--duiwelskloof": {
       "coords": {
         "lat": -33.9151,
@@ -174,15 +138,6 @@
         "zoom": 15
       },
       "source": "crawl"
-    },
-    "cape-country--overberg--klipspringer": {
-      "coords": {
-        "lat": -34.28846,
-        "lon": 18.910035714285716,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 35176
     },
     "cape-country--overberg--kogelberg-trail": {
       "coords": {
@@ -239,15 +194,6 @@
         "zoom": 14
       },
       "source": "crawl"
-    },
-    "cape-country--west-coast--saldanha-nature-reserve": {
-      "coords": {
-        "lat": -33.38395,
-        "lon": 18.4942,
-        "zoom": 11
-      },
-      "source": "area-approx",
-      "accuracyM": 65300
     },
     "cape-country--winelands--du-toits-kloof-klein-drakenstein--bobbejaanskloof": {
       "coords": {

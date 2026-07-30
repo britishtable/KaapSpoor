@@ -86,8 +86,14 @@ CONNECTIVES = {"via", "to", "from"}
 _PARENTHETICAL = re.compile(r"\s*\([^)]*\)")
 _QUOTED_PREFIX = re.compile(r"^\s*['\"][^'\"]+['\"]\s*[-–]\s*")
 # Apostrophes are deleted before punctuation becomes whitespace, so "Lion's"
-# collapses to "lions" rather than splitting into "lion s".
-_APOSTROPHE = re.compile(r"[''`]")
+# collapses to "lions" rather than splitting into "lion s". OSM commonly stores
+# the typographic U+2019, so every shape has to be listed or a curly-quoted
+# feature name would key as "lion s" and silently never match the wiki's
+# straight-quoted title. Escapes, not literals, so a transcription cannot
+# quietly flatten one of them into another.
+# U+0027 apostrophe, U+0060 backtick, U+2019 right single quote, U+02BC modifier
+# letter apostrophe.
+_APOSTROPHE = re.compile("[\\x27\\x60\\u2019\\u02bc]")
 _PUNCTUATION = re.compile(r"[^a-z0-9]+")
 _SINGLE_LETTER_SUFFIX = re.compile(r"\s+['\"]?[A-Z]['\"]?$")
 

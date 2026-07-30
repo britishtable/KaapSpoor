@@ -15,7 +15,7 @@ from .approx import area_approx
 from .areas import bbox_of, located_scope
 from .features import Feature
 from .ids import route_id
-from .match import AmbiguousMatch, find_match
+from .match import AmbiguousMatch, find_match, index_features
 from .normalise import candidates
 from .overrides import Override
 
@@ -60,6 +60,8 @@ def locate_all(
     locations: dict[str, Location] = {}
     unlocated: list[str] = []
     ambiguous: list[tuple[str, str, int]] = []
+    # Normalise every feature name once, not once per unlocated route.
+    feature_index = index_features(features)
 
     for raw in routes:
         rid = route_id(raw.get("area") or [], raw.get("slug") or "")
@@ -98,7 +100,7 @@ def locate_all(
 
         match = None
         try:
-            match = find_match(candidates(raw.get("title") or ""), features, bbox)
+            match = find_match(candidates(raw.get("title") or ""), feature_index, bbox)
         except AmbiguousMatch as exc:
             ambiguous.append((rid, exc.candidate, exc.count))
 

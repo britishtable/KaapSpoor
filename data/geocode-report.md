@@ -2,7 +2,7 @@
 
 **OSM extract date:** none
 
-Located **183 / 184** routes; **1** remain unlocated.
+Located **177 / 184** routes; **7** remain unlocated.
 
 ## Tier mix
 
@@ -11,7 +11,7 @@ Located **183 / 184** routes; **1** remain unlocated.
 | `curated` | 0 |
 | `crawl` | 125 |
 | `osm-match` | 0 |
-| `area-approx` | 58 |
+| `area-approx` | 52 |
 
 ## OSM matches
 
@@ -39,6 +39,12 @@ None.
 
 ## Still unlocated
 
+- `cape-country--garden-route-little-karoo--donkey-trail-1`
+- `cape-country--garden-route-little-karoo--otter-trail`
+- `cape-country--garden-route-little-karoo--robberg-trail`
+- `cape-country--garden-route-little-karoo--swartberg`
+- `cape-country--overberg--klipspringer`
+- `cape-country--west-coast--saldanha-nature-reserve`
 - `other-areas--mt-zebra-park-idwala-hiking-trail`
 
 ## Area-approximate
@@ -54,12 +60,6 @@ None.
 | `cape-country--cederberg--tafelberg-gully-route` | 2000 |
 | `cape-country--cederberg--truitjieskraal-trail` | 2000 |
 | `cape-country--cederberg--wolfberg-cracks` | 2000 |
-| `cape-country--garden-route-little-karoo--donkey-trail-1` | 159984 |
-| `cape-country--garden-route-little-karoo--otter-trail` | 159984 |
-| `cape-country--garden-route-little-karoo--robberg-trail` | 159984 |
-| `cape-country--garden-route-little-karoo--swartberg` | 159984 |
-| `cape-country--overberg--klipspringer` | 35176 |
-| `cape-country--west-coast--saldanha-nature-reserve` | 65300 |
 | `cape-country--winelands--du-toits-kloof-klein-drakenstein--elandspad-at-du-toits` | 8585 |
 | `peninsula--chapmans-peak-drive-noordhoek--blackburn-buttress` | 2000 |
 | `peninsula--chapmans-peak-drive-noordhoek--noordhoek-peak-gully` | 2000 |

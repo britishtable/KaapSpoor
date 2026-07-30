@@ -39,10 +39,14 @@ def _coordinates(geometry: dict[str, Any]) -> Iterator[tuple[float, float]]:
     """Yield (lon, lat) pairs from any GeoJSON geometry, at any nesting depth."""
 
     def walk(node: Any) -> Iterator[tuple[float, float]]:
+        # A GeoJSON position is [lon, lat] or [lon, lat, elevation]; osmium emits
+        # the 3-element form wherever the source carries an ele tag, and dropping
+        # those would silently lose whole features. A ring of two or three
+        # positions is a list of lists, so the numeric test keeps them apart.
         if (
             isinstance(node, list)
-            and len(node) == 2
-            and all(isinstance(v, (int, float)) for v in node)
+            and len(node) in (2, 3)
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in node)
         ):
             yield float(node[0]), float(node[1])
         elif isinstance(node, list):

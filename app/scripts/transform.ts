@@ -44,12 +44,22 @@ export function transform(
     // route-locations.json is the single source of truth for provenance and
     // wins over the crawl's own coords: a curated entry exists precisely
     // because somebody judged the crawl coordinate wrong or missing.
-    const location = locations[id];
+    // DO NOT REMOVE THIS GATE without the map first being able to draw
+    // uncertainty. An `area-approx` entry is an area centroid with a radius of
+    // kilometres; nothing in the app reads `coordsAccuracyM` yet, so merging it
+    // would render a whole-region guess as a pin indistinguishable from a
+    // surveyed one — e.g. the Otter Trail pinned near Worcester, 450 km out.
+    // Until then such a route stays honestly unlocated, exactly as it was
+    // before tools/geocode existed. The data remains in route-locations.json.
+    const recorded = locations[id];
+    const location = recorded?.source === 'area-approx' ? undefined : recorded;
     const entry: RouteIndexEntry = {
       id, title: r.title, area: r.area,
       coords: location?.coords ?? r.coords,
       coordsSource: location?.source ?? (r.coords ? 'crawl' : null),
-      coordsAccuracyM: location?.accuracyM ?? null,
+      // Always null while the gate above holds: only `area-approx` ever carries
+      // a radius, and `area-approx` never reaches this point.
+      coordsAccuracyM: null,
       coordsOsm: location?.osm ?? null,
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),

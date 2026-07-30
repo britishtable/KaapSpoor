@@ -19,6 +19,13 @@ EARTH_RADIUS_M = 6_371_000
 # a value that reads as "somewhere around here" at trail scale.
 MIN_ACCURACY_M = 2_000
 
+# The other end: past this the centroid stops telling you anything useful about
+# where a hike is. A 160 km "approximation" of the Otter Trail lands near
+# Worcester, 450 km away and in the wrong direction — it is not a vaguer answer,
+# it is a wrong one. Beyond the ceiling the honest answer is "unknown", so
+# `area_approx` refuses and the route stays unlocated.
+MAX_ACCURACY_M = 25_000
+
 
 @dataclass(frozen=True)
 class Approx:
@@ -52,4 +59,6 @@ def area_approx(siblings: list[dict[str, Any]]) -> Approx | None:
     lat = sum(p[0] for p in points) / len(points)
     lon = sum(p[1] for p in points) / len(points)
     furthest = max(haversine_m(lat, lon, p[0], p[1]) for p in points)
+    if furthest > MAX_ACCURACY_M:
+        return None
     return Approx(lat=lat, lon=lon, accuracy_m=max(MIN_ACCURACY_M, round(furthest)))

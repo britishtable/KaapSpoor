@@ -4,3 +4,6 @@
 {"type":"Feature","id":"n4","properties":{"@id":"n4","natural":"peak"},"geometry":{"type":"Point","coordinates":[18.5000,-33.9000]}}
 {"type":"Feature","id":"n5","properties":{"@id":"n5","name":"Elsies Peak","natural":"peak"},"geometry":{"type":"Point","coordinates":[18.4380,-34.1300]}}
 {"type":"Feature","id":"n6","properties":{"@id":"n6","name":"Newlands Ravine","natural":"valley"},"geometry":{"type":"Point","coordinates":[25.0000,-32.0000]}}
+{"type":"Feature","id":"n7","properties":{"@id":"n7","name":"Myburgh’s Kloof","natural":"valley"},"geometry":{"type":"Point","coordinates":[18.3620,-33.9930]}}
+{"type":"Feature","id":"n8","properties":{"@id":"n8","name":"Arête Ridge","natural":"ridge"},"geometry":{"type":"Point","coordinates":[18.4100,-33.9800]}}
+{"type":"Feature","id":"n9","properties":{"@id":"n9","name":"Lot’s Wife","natural":"peak","ele":"1080"},"geometry":{"type":"Point","coordinates":[18.4200,-34.0500,1080]}}

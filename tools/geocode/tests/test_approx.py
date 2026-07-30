@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kaap_geocode.approx import area_approx, haversine_m
+from kaap_geocode.approx import MAX_ACCURACY_M, MIN_ACCURACY_M, area_approx, haversine_m
 
 
 def sibling(lat, lon):
@@ -37,6 +37,35 @@ def test_a_single_sibling_still_gets_a_non_zero_accuracy():
     got = area_approx([sibling(-33.97, 18.39)])
     assert got is not None
     assert got.accuracy_m > 0
+
+
+def test_a_tight_cluster_is_still_approximated():
+    # ~2 km apart: well inside the ceiling, so this is a usable approximation.
+    got = area_approx([sibling(-33.97, 18.39), sibling(-33.98, 18.40)])
+    assert got is not None
+    assert got.accuracy_m <= MAX_ACCURACY_M
+
+
+def test_a_spread_wider_than_the_ceiling_gives_no_approximation():
+    # Robberg, the Otter Trail and the Swartberg all sit under `cape-country`;
+    # their centroid lands near Worcester with a 160 km radius. That is not a
+    # vaguer answer, it is a wrong one, so the route must stay unlocated.
+    got = area_approx(
+        [sibling(-34.10, 23.39), sibling(-33.98, 23.60), sibling(-33.35, 22.05)]
+    )
+    assert got is None
+
+
+def test_the_ceiling_is_applied_to_the_true_radius_not_the_floored_one():
+    # Two siblings ~50 km apart give a ~25 km radius from the centroid; nudge
+    # them past that and the answer must be refused rather than clamped.
+    assert area_approx([sibling(-33.50, 18.40), sibling(-34.50, 18.40)]) is None
+
+
+def test_the_floor_still_applies_to_a_lone_sibling():
+    got = area_approx([sibling(-33.97, 18.39)])
+    assert got is not None
+    assert got.accuracy_m == MIN_ACCURACY_M
 
 
 def test_no_siblings_gives_no_approximation():
