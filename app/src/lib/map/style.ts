@@ -60,15 +60,33 @@ function selfHosted(base: string): StyleSpecification {
         paint: { 'fill-color': '#a8c8e0' }
       },
       {
-        id: 'contours',
+        // The 100 m index lines carry the mid zooms on their own. The archive
+        // starts at z10, so that is the floor — below it there is nothing to draw.
+        id: 'contours-index',
         type: 'line',
         source: 'contours',
         'source-layer': 'contours',
+        minzoom: 10,
+        filter: ['==', ['%', ['get', 'ele'], 100], 0],
         paint: {
           'line-color': '#b08968',
-          // Indexed 100 m lines read heavier than the 20 m intermediates.
-          'line-width': ['case', ['==', ['%', ['get', 'ele'], 100], 0], 1.1, 0.5],
-          'line-opacity': 0.7
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 13, 1.1, 16, 1.8],
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.45, 13, 0.7]
+        }
+      },
+      {
+        // 20 m intermediates are sub-pixel noise until you are close in, which
+        // is the whole reason this is a separate layer rather than a width case.
+        id: 'contours-intermediate',
+        type: 'line',
+        source: 'contours',
+        'source-layer': 'contours',
+        minzoom: 13,
+        filter: ['!=', ['%', ['get', 'ele'], 100], 0],
+        paint: {
+          'line-color': '#b08968',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 16, 0.8],
+          'line-opacity': 0.55
         }
       },
       {

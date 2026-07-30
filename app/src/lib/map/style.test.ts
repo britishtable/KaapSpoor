@@ -26,7 +26,8 @@ describe('buildStyle(selfhosted)', () => {
   });
   it('draws contour lines and paths', () => {
     const ids = style.layers.map((l) => l.id);
-    expect(ids).toContain('contours');
+    expect(ids).toContain('contours-index');
+    expect(ids).toContain('contours-intermediate');
     expect(ids).toContain('paths');
   });
   it('attributes OpenStreetMap', () => {
@@ -57,7 +58,8 @@ describe('self-hosted source-layer contract', () => {
 
   it.each([
     ['water', 'water'],
-    ['contours', 'contours'],
+    ['contours-index', 'contours'],
+    ['contours-intermediate', 'contours'],
     ['roads', 'roads'],
     ['paths', 'paths'],
     ['peaks', 'peaks']
@@ -87,5 +89,27 @@ describe('shipped basemap', () => {
     }
     expect(fetched.join('|')).not.toContain('opentopomap.org');
     expect(fetched.join('|')).not.toContain('demotiles.maplibre.org');
+  });
+});
+
+describe('zoom scoping', () => {
+  const style = buildStyle('selfhosted', '');
+  const layer = (id: string) => style.layers.find((l) => l.id === id);
+
+  it("draws index contours from the archive's own minimum zoom", () => {
+    // contours.pmtiles is built z10-14; a lower minzoom would render nothing.
+    expect(layer('contours-index')?.minzoom).toBe(10);
+  });
+
+  it("holds the 20 m intermediates back until they are legible", () => {
+    expect(layer('contours-intermediate')?.minzoom).toBe(13);
+  });
+
+  it('keeps the 100 m index lines heavier than the intermediates', () => {
+    const index = layer('contours-index') as { paint?: Record<string, unknown> };
+    const intermediate = layer('contours-intermediate') as { paint?: Record<string, unknown> };
+    expect(JSON.stringify(index.paint?.['line-width'])).not.toBe(
+      JSON.stringify(intermediate.paint?.['line-width'])
+    );
   });
 });
