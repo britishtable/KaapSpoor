@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { routesToGeoJSON, boundsOf, BASEMAP_BOUNDS } from './geojson';
+import { SHIPPED_REGION } from './region';
 import type { RouteIndexEntry } from '$lib/data/types';
 
 function entry(id: string, coords: { lat: number; lon: number } | null): RouteIndexEntry {
@@ -14,7 +15,7 @@ function entry(id: string, coords: { lat: number; lon: number } | null): RouteIn
 const entries = [
   entry('a', { lat: -33.97, lon: 18.39 }),
   entry('b', null),
-  entry('c', { lat: -32.6, lon: 19.2 })
+  entry('c', { lat: -34.3, lon: 18.47 }) // Cape Point-ish, inside the shipped region
 ];
 
 describe('routesToGeoJSON', () => {
@@ -39,22 +40,23 @@ describe('routesToGeoJSON', () => {
 
 describe('boundsOf', () => {
   it('returns south-west and north-east corners', () => {
-    expect(boundsOf(entries)).toEqual([[18.39, -33.97], [19.2, -32.6]]);
+    expect(boundsOf(entries)).toEqual([[18.39, -34.3], [18.47, -33.97]]);
   });
   it('returns null when nothing is located', () => {
     expect(boundsOf([entry('b', null)])).toBeNull();
   });
 
   it('ignores a route outside the basemap bounds rather than widening the extent', () => {
-    // 23.8°E (Otter Trail-ish) is east of BASEMAP_BOUNDS.east (20.9); including
-    // it would zoom the opening view out past where anything but pins renders.
+    // 23.8°E (Otter Trail-ish) is far east of BASEMAP_BOUNDS.east (18.51);
+    // including it would zoom the opening view out past where anything but
+    // pins renders.
     const outside = entry('otter', { lat: -34.0, lon: 23.8 });
     expect(boundsOf([...entries, outside])).toEqual(boundsOf(entries));
   });
 
   it('widens the extent for a route inside the basemap bounds', () => {
-    const inside = entry('d', { lat: -33.0, lon: 19.8 });
-    expect(boundsOf([...entries, inside])).toEqual([[18.39, -33.97], [19.8, -32.6]]);
+    const inside = entry('d', { lat: -33.9, lon: 18.3 });
+    expect(boundsOf([...entries, inside])).toEqual([[18.3, -34.3], [18.47, -33.9]]);
   });
 
   it('falls back to all located routes when every one is outside the basemap bounds', () => {
@@ -69,6 +71,12 @@ describe('boundsOf', () => {
   });
 
   it('exposes the basemap bounds used to decide what frames the opening view', () => {
-    expect(BASEMAP_BOUNDS).toEqual({ west: 17.8, south: -34.5, east: 20.9, north: -32.4 });
+    expect(BASEMAP_BOUNDS).toEqual(SHIPPED_REGION.bbox);
+  });
+
+  it('frames on the shipped region rather than a second hand-written box', () => {
+    // One region, one source of truth: a divergence here frames the map on
+    // terrain the pipeline never built.
+    expect(BASEMAP_BOUNDS).toBe(SHIPPED_REGION.bbox);
   });
 });

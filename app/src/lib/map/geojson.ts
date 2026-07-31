@@ -1,5 +1,6 @@
 import type { RouteIndexEntry } from '$lib/data/types';
 import type { FeatureCollection, Point } from 'geojson';
+import { SHIPPED_REGION } from './region';
 
 export interface RoutePinProps {
   id: string;
@@ -24,13 +25,11 @@ export function routesToGeoJSON(
   };
 }
 
-// The basemap's tile bbox (tools/tiles/bbox.json). Routes outside it pin over
-// blank background, and including them in the opening view zooms the map so far
-// out that nothing else renders — measured at z6.9 desktop, z4.7 mobile. They
-// stay pinned and findable; they just do not get to frame the map.
-// Plan 2 widens the tile bbox east to 24.0, at which point Otter and Robberg
-// come inside it and rejoin the framing automatically.
-export const BASEMAP_BOUNDS = { west: 17.8, south: -34.5, east: 20.9, north: -32.4 };
+// The shipped region's bbox (tools/tiles/regions.json). Routes outside it pin
+// over blank background, and including them in the opening view zooms the map
+// so far out that nothing else renders. They stay pinned and findable; they
+// just do not get to frame the map.
+export const BASEMAP_BOUNDS = SHIPPED_REGION.bbox;
 
 export function boundsOf(
   entries: RouteIndexEntry[]

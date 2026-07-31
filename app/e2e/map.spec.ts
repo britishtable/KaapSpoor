@@ -230,12 +230,13 @@ test.describe('map', () => {
   });
 
   test('the opening view is not buried under paths and minor peaks', async ({ page }) => {
-    // fitBounds spans every located route, including three (Otter, Robberg, Mt
-    // Zebra Park) far outside the basemap's tile bbox, which pushes the real
-    // opening zoom well below the z7.97 an earlier fix assumed -- measured
-    // z6.89 desktop / ~z4.7 mobile before the framing fix in geojson.ts's
-    // boundsOf/BASEMAP_BOUNDS. This measures the actual camera a visitor
-    // lands on rather than a hardcoded z8, so a framing regression fails here.
+    // fitBounds spans only the located routes inside BASEMAP_BOUNDS (now the
+    // ~22x49 km Cape Town region, not the old province-wide box), so the
+    // opening zoom sits far higher than the pre-recut z7-8 range -- this
+    // measures the actual camera a visitor lands on rather than a hardcoded
+    // value, so a framing regression fails here. The band has both a floor
+    // (catches fitBounds widening back out to routes outside the region) and
+    // a ceiling (catches bounds collapsing to a single point).
     await page.goto('');
     await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
       timeout: 15_000
@@ -280,7 +281,8 @@ test.describe('map', () => {
     // The assertion that catches a framing regression directly: if boundsOf
     // widens back out to include routes with no basemap under them, this is
     // what fails first.
-    expect(overview.zoom).toBeGreaterThan(7);
+    expect(overview.zoom).toBeGreaterThan(9);
+    expect(overview.zoom).toBeLessThan(15);
 
     // -1 means the layer is missing from the style entirely — a rename or a
     // deletion, which must fail differently from "correctly scoped out".

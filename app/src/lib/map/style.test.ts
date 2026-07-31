@@ -21,8 +21,17 @@ describe('buildStyle(selfhosted)', () => {
     expect(style.sources.contours.type).toBe('vector');
   });
   it('prefixes pmtiles URLs with the base path so GitHub Pages resolves them', () => {
-    expect(JSON.stringify(style.sources)).toContain('pmtiles:///KaapSpoor/tiles/trails.pmtiles');
-    expect(JSON.stringify(style.sources)).toContain('pmtiles:///KaapSpoor/tiles/contours.pmtiles');
+    expect(JSON.stringify(style.sources)).toContain(
+      'pmtiles:///KaapSpoor/tiles/trails-cape-town.pmtiles'
+    );
+    expect(JSON.stringify(style.sources)).toContain(
+      'pmtiles:///KaapSpoor/tiles/contours-cape-town.pmtiles'
+    );
+  });
+  it('points at the shipped region archives', () => {
+    const json = JSON.stringify(style.sources);
+    expect(json).toContain('pmtiles:///KaapSpoor/tiles/trails-cape-town.pmtiles');
+    expect(json).toContain('pmtiles:///KaapSpoor/tiles/contours-cape-town.pmtiles');
   });
   it('draws contour lines and paths', () => {
     const ids = style.layers.map((l) => l.id);

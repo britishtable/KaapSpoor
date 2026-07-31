@@ -1,4 +1,5 @@
 import type { StyleSpecification } from 'maplibre-gl';
+import { SHIPPED_REGION } from './region';
 
 export type Basemap = 'opentopo' | 'selfhosted';
 
@@ -41,12 +42,12 @@ function selfHosted(base: string): StyleSpecification {
     sources: {
       trails: {
         type: 'vector',
-        url: `pmtiles://${base}/tiles/trails.pmtiles`,
+        url: `pmtiles://${base}/tiles/trails-${SHIPPED_REGION.id}.pmtiles`,
         attribution: ATTRIBUTION_SELF
       },
       contours: {
         type: 'vector',
-        url: `pmtiles://${base}/tiles/contours.pmtiles`,
+        url: `pmtiles://${base}/tiles/contours-${SHIPPED_REGION.id}.pmtiles`,
         attribution: ATTRIBUTION_SELF
       }
     },
