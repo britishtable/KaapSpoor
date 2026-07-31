@@ -20,7 +20,7 @@ jq -e . regions.json >/dev/null 2>&1 \
   || { echo "regions.json is not valid JSON" >&2; exit 1; }
 
 REGION_JSON=$(jq -e --arg id "$REGION" '.regions[] | select(.id == $id)' regions.json) \
-  || { echo "unknown region: $REGION (known: $(jq -r '.regions[].id' regions.json | tr '\n' ' ')" >&2; exit 1; }
+  || { echo "unknown region: $REGION (known: $(jq -r '.regions[].id' regions.json | tr '\n' ' '))" >&2; exit 1; }
 
 W=$(jq -r '.bbox.west'  <<<"$REGION_JSON"); S=$(jq -r '.bbox.south' <<<"$REGION_JSON")
 E=$(jq -r '.bbox.east'  <<<"$REGION_JSON"); N=$(jq -r '.bbox.north' <<<"$REGION_JSON")
@@ -79,7 +79,13 @@ done
 GOT=$(ls "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif 2>/dev/null | wc -l)
 # Same 2/3 tolerance the previous hard-coded 8-of-12 encoded, now computed from
 # the derived cell count so it scales when a region's bbox coverage changes.
-EXPECTED_MIN=$((TOTAL_CELLS * 2 / 3))
+#
+# Ceiling of 2/3, not floor: at 12 cells both give 8, but floor division gives
+# 1 for a 2-cell region and 0 for a 1-cell one — so a region small enough to
+# matter could pass this check with half its DEM missing, or none of it. The
+# guard exists to catch a changed bucket layout before a partial mosaic puts
+# holes in the contours, and small regions are now the norm.
+EXPECTED_MIN=$(( (TOTAL_CELLS * 2 + 2) / 3 ))
 if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
   echo "Only ${GOT} DEM tiles present, expected at least ${EXPECTED_MIN}." >&2
   echo "The bucket layout or tile naming has probably changed: ${BUCKET}" >&2
