@@ -13,6 +13,7 @@ layers:
     features:
       - source: osm
         geometry: line
+        min_zoom: 11
         include_when:
           highway: [path, footway, track, steps, bridleway]
         attributes:
@@ -44,3 +45,24 @@ layers:
         attributes:
           - key: name
           - key: ele
+  - id: landcover
+    features:
+      - source: osm
+        geometry: polygon
+        min_zoom: 8
+        include_when:
+          natural: [wood, scrub, heath, grassland, bare_rock, sand, beach]
+          landuse: [forest, vineyard, orchard]
+        attributes:
+          - key: natural
+          - key: landuse
+  - id: places
+    features:
+      - source: osm
+        geometry: point
+        include_when:
+          place: [city, town, village, suburb]
+        attributes:
+          - key: place
+          - key: name
+          - key: population
