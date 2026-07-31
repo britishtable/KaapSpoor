@@ -14,14 +14,23 @@ REPO_TILES_DIR="$(pwd)"
 WORK=${WORK:-$HOME/kaapspoor-tiles}
 mkdir -p "$WORK/downloads" "$WORK/work" "$REPO_TILES_DIR/../../app/static/tiles"
 
-W=$(jq -r .west bbox.json); S=$(jq -r .south bbox.json)
-E=$(jq -r .east bbox.json); N=$(jq -r .north bbox.json)
+REGION=${1:?usage: build-contours.sh <region-id>   (see regions.json)}
+
+jq -e . regions.json >/dev/null 2>&1 \
+  || { echo "regions.json is not valid JSON" >&2; exit 1; }
+
+REGION_JSON=$(jq -e --arg id "$REGION" '.regions[] | select(.id == $id)' regions.json) \
+  || { echo "unknown region: $REGION (known: $(jq -r '.regions[].id' regions.json | tr '\n' ' ')" >&2; exit 1; }
+
+W=$(jq -r '.bbox.west'  <<<"$REGION_JSON"); S=$(jq -r '.bbox.south' <<<"$REGION_JSON")
+E=$(jq -r '.bbox.east'  <<<"$REGION_JSON"); N=$(jq -r '.bbox.north' <<<"$REGION_JSON")
 
 # Copernicus DEM cells are 1x1 degree, named by their south-west corner. Derive
-# the cell range from bbox.json — the single source of truth this script must
-# not drift from — instead of hard-coding it: widening bbox.json must widen the
-# DEM fetch too, or gdalwarp pads the uncovered area with nodata and the build
-# produces a silently contour-free band that no existing check catches.
+# the cell range from the region's bbox in regions.json — the single source of
+# truth this script must not drift from — instead of hard-coding it: widening a
+# region's bbox must widen the DEM fetch too, or gdalwarp pads the uncovered
+# area with nodata and the build produces a silently contour-free band that no
+# existing check catches.
 #
 # floor(), not int()/truncation: awk's int() truncates toward zero, which for a
 # negative south/west bound (all of this bbox) rounds the wrong way.
@@ -41,7 +50,7 @@ LONS=$(seq "$LON_LO" "$LON_HI")
 LAT_COUNT=$(echo "$LATS" | wc -l)
 LON_COUNT=$(echo "$LONS" | wc -l)
 TOTAL_CELLS=$((LAT_COUNT * LON_COUNT))
-echo "DEM cell range for bbox.json: lat ${LAT_LO}..${LAT_HI}, lon ${LON_LO}..${LON_HI} (${TOTAL_CELLS} cells)"
+echo "DEM cell range for region $REGION: lat ${LAT_LO}..${LAT_HI}, lon ${LON_LO}..${LON_HI} (${TOTAL_CELLS} cells)"
 
 # Fetch the Copernicus GLO-30 tiles covering the bbox straight from AWS's public
 # bucket: no login, no API key, no usage cap. Tiles are named by their south-west
@@ -69,7 +78,7 @@ done
 # has moved and a silent partial mosaic would leave a hole in the contours.
 GOT=$(ls "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif 2>/dev/null | wc -l)
 # Same 2/3 tolerance the previous hard-coded 8-of-12 encoded, now computed from
-# the derived cell count so it scales when bbox.json's coverage changes.
+# the derived cell count so it scales when a region's bbox coverage changes.
 EXPECTED_MIN=$((TOTAL_CELLS * 2 / 3))
 if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
   echo "Only ${GOT} DEM tiles present, expected at least ${EXPECTED_MIN}." >&2
@@ -78,27 +87,29 @@ if [ "$GOT" -lt "$EXPECTED_MIN" ]; then
 fi
 echo "DEM: ${GOT} tiles covering the bbox."
 
-# Merge the tiles into one virtual raster, then clip to the bbox.
+# Merge the tiles into one virtual raster, then clip to the bbox. The vrt stays
+# unregioned — it mosaics every downloaded cell regardless of region, and this
+# warp is what actually clips to the region's bbox.
 gdalbuildvrt "$WORK/work/dem.vrt" "$WORK"/downloads/Copernicus_DSM_COG_10_*.tif
 gdalwarp -te "$W" "$S" "$E" "$N" -r bilinear -overwrite \
-  "$WORK/work/dem.vrt" "$WORK/work/dem-clipped.tif"
+  "$WORK/work/dem.vrt" "$WORK/work/dem-$REGION.tif"
 
-rm -f "$WORK/work/contours.gpkg"
-gdal_contour -a ele -i 20 "$WORK/work/dem-clipped.tif" "$WORK/work/contours.gpkg"
+rm -f "$WORK/work/contours-$REGION.gpkg"
+gdal_contour -a ele -i 20 "$WORK/work/dem-$REGION.tif" "$WORK/work/contours-$REGION.gpkg"
 
 # tippecanoe cannot read GeoPackage directly (it errors with "Found unexpected
 # character" — it only reads (Geo)JSON/CSV natively), so convert first. This
 # is a deviation from the brief, which fed the .gpkg straight to tippecanoe.
-ogr2ogr -f GeoJSON "$WORK/work/contours.geojson" "$WORK/work/contours.gpkg"
+ogr2ogr -f GeoJSON "$WORK/work/contours-$REGION.geojson" "$WORK/work/contours-$REGION.gpkg"
 
-tippecanoe -o "$WORK/work/contours.pmtiles" \
+tippecanoe -o "$WORK/work/contours-$REGION.pmtiles" \
   --layer=contours \
   --minimum-zoom=10 --maximum-zoom=14 \
   --drop-densest-as-needed \
   --force \
-  "$WORK/work/contours.geojson"
+  "$WORK/work/contours-$REGION.geojson"
 
-cp "$WORK/work/contours.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/contours.pmtiles"
-echo "contours.pmtiles built."
+cp "$WORK/work/contours-$REGION.pmtiles" "$REPO_TILES_DIR/../../app/static/tiles/contours-$REGION.pmtiles"
+echo "contours-$REGION.pmtiles built."
 
-"$REPO_TILES_DIR/verify-layers.sh" contours
+"$REPO_TILES_DIR/verify-layers.sh" "$REGION" contours
