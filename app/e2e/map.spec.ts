@@ -242,38 +242,45 @@ test.describe('map', () => {
       timeout: 15_000
     });
 
-    const countsAt = async (zoom?: number) =>
-      page.evaluate(async (z) => {
-        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
-          __maplibreMap?: import('maplibre-gl').Map;
-        };
-        const map = el.__maplibreMap!;
-        if (z !== undefined) {
-          map.jumpTo({ center: [18.42, -33.96], zoom: z });
-        }
-        // Only wait for 'idle' if the map isn't already settled -- it's only
-        // guaranteed to fire again if something is still moving/loading, and
-        // when z is omitted (measuring the real opening camera) the map may
-        // already be idle by the time this runs.
-        if (!map.loaded() || map.isMoving()) {
-          await new Promise<void>((resolve) => map.once('idle', () => resolve()));
-        }
-        // queryRenderedFeatures does NOT throw for an unknown layer — it fires
-        // an error event and returns []. So "layer absent" and "layer drew
-        // nothing" are indistinguishable from its return value alone, and at
-        // the opening view the expected count is 0 for exactly the layers most
-        // worth protecting. Ask the style directly instead.
-        const of = (id: string) =>
-          map.getLayer(id) ? map.queryRenderedFeatures(undefined, { layers: [id] }).length : -1;
-        return {
-          zoom: map.getZoom(),
-          paths: of('paths'),
-          peaksMinor: of('peaks-minor'),
-          peaksMajor: of('peaks-major'),
-          roadsMajor: of('roads-major'),
-          pins: of('pins') + of('pins-cluster')
-        };
-      }, zoom);
+    const countsAt = async (zoom?: number, center?: [number, number]) =>
+      page.evaluate(
+        async ({ z, c }) => {
+          const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+            __maplibreMap?: import('maplibre-gl').Map;
+          };
+          const map = el.__maplibreMap!;
+          if (z !== undefined) {
+            map.jumpTo({ center: c ?? [18.42, -33.96], zoom: z });
+          }
+          // Only wait for 'idle' if the map isn't already settled -- it's only
+          // guaranteed to fire again if something is still moving/loading, and
+          // when z is omitted (measuring the real opening camera) the map may
+          // already be idle by the time this runs.
+          if (!map.loaded() || map.isMoving()) {
+            await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+          }
+          // queryRenderedFeatures does NOT throw for an unknown layer — it fires
+          // an error event and returns []. So "layer absent" and "layer drew
+          // nothing" are indistinguishable from its return value alone, and at
+          // the opening view the expected count is 0 for exactly the layers most
+          // worth protecting. Ask the style directly instead.
+          const of = (id: string) =>
+            map.getLayer(id) ? map.queryRenderedFeatures(undefined, { layers: [id] }).length : -1;
+          return {
+            zoom: map.getZoom(),
+            paths: of('paths'),
+            peaksMinor: of('peaks-minor'),
+            peaksMajor: of('peaks-major'),
+            roadsMajor: of('roads-major'),
+            pins: of('pins') + of('pins-cluster'),
+            landcover: of('landcover'),
+            placesSettlement: of('places-settlement'),
+            placesSuburb: of('places-suburb'),
+            peaksHeadline: of('peaks-headline')
+          };
+        },
+        { z: zoom, c: center }
+      );
 
     // No zoom argument: measure the camera fitBounds actually left the map on.
     const overview = await countsAt();
@@ -299,14 +306,41 @@ test.describe('map', () => {
     // pins. Trunk/primary roads must still render at the opening view.
     expect(overview.roadsMajor).toBeGreaterThan(0);
 
-    // z13 over the Atlantic seaboard, not an arbitrary close-in view: a
-    // screenshot of exactly this camera showed Blinkwater Needle, Blinkwater
-    // Peak, St Michael Peak, Fernwood Peak, Junction Peak, Cleft Peak, Reserve
-    // Peak and Fountain Peak — all named, all under 1000 m, so all in the minor
-    // layer. Picking a plateau view instead could legitimately render zero
-    // minor peaks and fail for being right.
-    const closeIn = await countsAt(13);
+    // Phase 4b: the opening view must now show what it was given. These were
+    // all in the archive and drawn by nothing before this plan.
+    expect(overview.landcover).toBeGreaterThan(0);
+    expect(overview.placesSettlement).toBeGreaterThan(0);
+    expect(overview.peaksHeadline).toBeGreaterThan(0);
+    // Suburbs are 231 features against 14 settlements — they must NOT be here.
+    expect(overview.placesSuburb).toBe(0);
+    // Absent layers return -1; a rename must fail loudly, not silently pass.
+    for (const v of [overview.landcover, overview.placesSettlement, overview.peaksHeadline]) {
+      expect(v).not.toBe(-1);
+    }
+
+    // Raster layers are not returned by queryRenderedFeatures, so assert
+    // hillshade's presence in the style directly rather than a feature count.
+    const hasHillshade = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      return !!el.__maplibreMap!.getLayer('hillshade');
+    });
+    expect(hasHillshade).toBe(true);
+
+    // z14 over Hout Bay/Llandudno, not an arbitrary close-in view: peaks-minor
+    // moved to minzoom 14 in a later task of this plan (headline >= 1000m at
+    // z8, major 600-999m at z12, minor <1000m at z14), so z13 now correctly
+    // renders zero minor peaks everywhere -- that trap is exactly what this
+    // comment used to warn about. Measured directly: this camera renders
+    // Little Lion's Head (437 m) and Houtbaainek by name in peaks-minor, and
+    // Llandudno by name in places-suburb. Table Mountain's own plateau camera
+    // was rejected for this reason -- its named peaks (Blinkwater Peak, Table
+    // Mountain itself, etc.) are mostly 900 m+ and land in peaks-major, not
+    // here.
+    const closeIn = await countsAt(14, [18.36, -34.02]);
     expect(closeIn.paths).toBeGreaterThan(0);
     expect(closeIn.peaksMinor).toBeGreaterThan(0);
+    expect(closeIn.placesSuburb).toBeGreaterThan(0);
   });
 });
