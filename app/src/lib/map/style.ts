@@ -86,13 +86,22 @@ function selfHosted(base: string): StyleSpecification {
           'fill-color': [
             'match',
             ['coalesce', ['get', 'natural'], ['get', 'landuse']],
-            ['scrub', 'heath'], '#c8d2b0',
-            ['wood', 'forest'], '#b3c49a',
-            ['vineyard', 'orchard'], '#d8d9a8',
-            ['grassland'], '#d5dcb8',
-            ['beach', 'sand'], '#ece2c8',
-            ['bare_rock'], '#dcd6cc',
-            '#e8e3d6'
+            // Woodland is the darkest cover here, and the anchor the rest are
+            // spaced against.
+            ['wood', 'forest'], '#a9bd8c',
+            // Fynbos — scrub and heath are the same vegetation on this
+            // peninsula and must not read as two different covers.
+            ['scrub', 'heath'], '#c3d0a6',
+            // Vineyard and orchard get a warm ochre rather than a fourth green:
+            // at 313 polygons combined they are the largest class, and there is
+            // no lightness room left among the greens to separate them.
+            ['vineyard', 'orchard'], '#e0cfa0',
+            // Neutral and desaturated, so rock reads as rock beside the ochre
+            // at a similar lightness.
+            ['bare_rock'], '#d8d2ca',
+            ['grassland'], '#dbe3bc',
+            ['beach', 'sand'], '#efe4c6',
+            '#ece7db'
           ],
           // Low enough that the hillshade beneath still shapes the terrain.
           'fill-opacity': 0.55

@@ -359,4 +359,15 @@ describe('zoom scoping', () => {
     const scrubColour = expr.match(/"scrub","heath"[^"]*"(#[0-9a-f]{6})"/i);
     expect(scrubColour).not.toBeNull();
   });
+
+  it('keeps landcover translucent enough for the hillshade to shape it', () => {
+    const layer = style.layers.find((l) => l.id === 'landcover') as {
+      paint?: Record<string, unknown>;
+    };
+    const opacity = layer.paint?.['fill-opacity'] as number;
+    // Opaque would erase the shading underneath; near-zero would erase the
+    // colour. Both are silent failures that look like "the palette is wrong".
+    expect(opacity).toBeGreaterThanOrEqual(0.3);
+    expect(opacity).toBeLessThanOrEqual(0.75);
+  });
 });
