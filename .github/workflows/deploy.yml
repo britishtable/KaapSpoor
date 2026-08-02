@@ -36,14 +36,15 @@ jobs:
           # exists. Assert a size floor per archive, and that glyphs actually
           # landed, so a corrupt download fails here rather than deploying a
           # blank map — the same silent-failure class as the maplibre worker 404.
-          test "$(stat -c%s static/tiles/trails.pmtiles)"   -gt 20000000
-          test "$(stat -c%s static/tiles/contours.pmtiles)" -gt 50000000
+          test "$(stat -c%s static/tiles/trails-cape-town.pmtiles)"    -gt 4041842
+          test "$(stat -c%s static/tiles/contours-cape-town.pmtiles)"  -gt 780113
+          test "$(stat -c%s static/tiles/hillshade-cape-town.pmtiles)" -gt 1468006
           test "$(find static/fonts -name '*.pbf' | wc -l)" -gt 100
           ls -la static/tiles
           find static/fonts -name '*.pbf' | wc -l
         env:
           GH_TOKEN: ${{ github.token }}
-          TILES_TAG: tiles-v1
+          TILES_TAG: tiles-cape-town-v1
       # e2e is the only thing that proves the map works in a real browser
       # (npm test above is jsdom, no WebGL). It runs after the tiles/fonts are
       # in place — its own webServer builds the site same as the deploy build

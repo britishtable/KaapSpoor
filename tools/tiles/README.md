@@ -1,7 +1,9 @@
 # Tile build
 
-Builds the two PMTiles archives the map needs. Output is git-ignored; see the size
-report for whether to commit it or publish it as a release asset.
+Builds the PMTiles archives each region's map needs. `regions.json` is the single
+source of truth for which regions exist and what bbox each one covers — each region
+is a **standalone map**, not a tile of one continuous surface. Output is git-ignored;
+see the size report for whether to commit it or publish it as a release asset.
 
 ## Prerequisites
 
@@ -16,6 +18,11 @@ with no nested `$variables`, since those get mangled crossing the Windows/WSL bo
 - No DEM to supply by hand: `build-contours.sh` downloads the Copernicus GLO-30 tiles it
   needs from AWS's public bucket (<https://registry.opendata.aws/copernicus-dem/>) — no login,
   no API key
+- The `pmtiles` CLI is required **only for hillshade** (`build-hillshade.sh`). Get the Go
+  implementation from <https://github.com/protomaps/go-pmtiles/releases> — grab
+  `go-pmtiles_<version>_Linux_x86_64.tar.gz`, which extracts a `pmtiles` binary; put it on
+  PATH. Do not confuse this with `protomaps/PMTiles`, which is the spec/JS library repo and
+  will not get you the CLI (its releases page 404s for this purpose).
 
 Both build scripts do their heavy I/O (downloads, planetiler/gdal/tippecanoe intermediates)
 under `$WORK` (default `$HOME/kaapspoor-tiles`) on WSL's own filesystem, not under `/mnt/c`
@@ -25,12 +32,25 @@ this size dominates the build time. Only the finished `.pmtiles` files are copie
 
 ## Build
 
+Every build command takes a region id from `regions.json` as its first argument:
+
 ```bash
-./build-trails.sh      # downloads the region extract and planetiler.jar on first run
-./build-contours.sh    # downloads the DEM tiles itself
-./fetch-fonts.sh        # downloads a prebuilt "Open Sans Regular" glyph set
+./build-trails.sh cape-town      # downloads the region extract and planetiler.jar on first run
+./build-contours.sh cape-town    # downloads the DEM tiles itself, clips a dem-<region>.tif
+./build-hillshade.sh cape-town   # optional; reuses the DEM build-contours.sh just clipped
+./fetch-fonts.sh                 # downloads a prebuilt "Open Sans Regular" glyph set (not region-specific)
 node report-size.mjs
 ```
+
+`build-hillshade.sh` does not clip its own DEM — it reuses `dem-<region>.tif`, the file
+`build-contours.sh` already produced for that region. Run contours before hillshade for any
+given region, or hillshade will fail with a missing-file error rather than silently refetching.
+
+### Adding a region
+
+Adding a region is a data change, not a code change: add an entry to `regions.json` (id,
+label, bbox, the route `areas` prefixes that define it) and run the three build scripts
+above with the new id. Nothing in the build scripts themselves needs editing.
 
 ## Contract with the app
 
@@ -39,8 +59,9 @@ breaks the map:
 
 | Archive | Source layers |
 |---|---|
-| `trails.pmtiles` | `paths`, `roads`, `water`, `peaks` |
-| `contours.pmtiles` | `contours` (with an `ele` attribute) |
+| `trails-<region>.pmtiles` | `paths`, `roads`, `water`, `peaks`, `landcover`, `places` |
+| `contours-<region>.pmtiles` | `contours` (with an `ele` attribute) |
+| `hillshade-<region>.pmtiles` | single-band greyscale raster, no alpha channel |
 
 Contours are 20 m intervals; `style.ts` weights lines where `ele % 100 == 0`.
 
@@ -48,9 +69,12 @@ Verify layer names and attributes actually landed correctly after any change —
 mismatch breaks the map silently:
 
 ```bash
-tippecanoe-decode app/static/tiles/contours.pmtiles <z> <x> <y> | head   # any tile that exists at that zoom
-ogrinfo -al -so /vsipmtiles/app/static/tiles/trails.pmtiles              # or use `pmtiles show`
+tippecanoe-decode app/static/tiles/contours-cape-town.pmtiles <z> <x> <y> | head   # any tile that exists at that zoom
+ogrinfo -al -so /vsipmtiles/app/static/tiles/trails-cape-town.pmtiles              # or use `pmtiles show`
 ```
+
+`verify-layers.sh <region> <trails|contours>` runs the layer-presence half of this check
+automatically at the end of the corresponding build script.
 
 ## Licensing
 
@@ -59,11 +83,16 @@ own attribution belongs in the style's attribution string too.
 
 ## Measured (record each rebuild)
 
-| Date | trails.pmtiles | contours.pmtiles | Total | Hosting |
-|---|---|---|---|---|
-| 2026-07-26 | 33.7 MB | 90.9 MB | 124.6 MB | release asset `tiles-v1` |
+| Date | Region | trails | contours | hillshade | Total | Hosting |
+|---|---|---|---|---|---|---|
+| 2026-07-26 | (province-wide, pre-recut) | 33.7 MB | 90.9 MB | — | 124.6 MB | release asset `tiles-v1` |
+| 2026-08-02 | cape-town | 5,774,061 B (~5.5 MB) | 1,114,448 B (~1.1 MB) | 2,121,908 B (~2.0 MB) | 8.6 MB | release asset `tiles-cape-town-v1` |
 
-Rebuilding: run the build scripts, then `gh release upload tiles-v1 --clobber` the new
-archives. To cut a new tag instead, change `TILES_TAG` in `.github/workflows/deploy.yml` —
-it is declared once, so that is the only edit needed.
-Contours dominate the total — the 20 m interval over mountainous terrain is the cost.
+Rebuilding: run the build scripts for the region, then `gh release upload tiles-<region>-v1
+--clobber` the new archives. To cut a new tag instead, change `TILES_TAG` in
+`.github/workflows/deploy.yml` — it is declared once, so that is the only edit needed.
+
+Contours dominate the province-wide total — the 20 m interval over mountainous terrain was
+the cost there. At regional scale, trails dominate instead; hillshade is the one raster
+archive and the only one that could threaten the size budget, so `report-size.mjs` gates it
+at 30 MB.
