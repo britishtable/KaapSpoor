@@ -370,4 +370,48 @@ describe('zoom scoping', () => {
     expect(opacity).toBeGreaterThanOrEqual(0.3);
     expect(opacity).toBeLessThanOrEqual(0.75);
   });
+
+  it('labels settlements from the overview and suburbs only close in', () => {
+    const settlement = style.layers.find((l) => l.id === 'places-settlement') as {
+      minzoom?: number; filter?: unknown;
+    };
+    const suburb = style.layers.find((l) => l.id === 'places-suburb') as {
+      minzoom?: number; filter?: unknown;
+    };
+    // The map opens near z10.3. City/town/village is 14 features in region —
+    // the right density to orient by. Suburb is 231 and would bury everything.
+    // places-settlement carries no minzoom at all (draws from the opening
+    // view), so coalesce to 0 the way the roads-major/peaks-headline check
+    // above already does — undefined is not a number toBeLessThanOrEqual
+    // can compare.
+    expect(settlement.minzoom ?? 0).toBeLessThanOrEqual(10);
+    expect(suburb.minzoom).toBeGreaterThanOrEqual(13);
+  });
+
+  it('splits places so the two tiers cannot both draw the same feature', () => {
+    const settlement = style.layers.find((l) => l.id === 'places-settlement') as {
+      filter?: unknown;
+    };
+    const suburb = style.layers.find((l) => l.id === 'places-suburb') as {
+      filter?: unknown;
+    };
+    expect(JSON.stringify(settlement.filter)).toContain('city');
+    expect(JSON.stringify(settlement.filter)).toContain('town');
+    expect(JSON.stringify(settlement.filter)).toContain('village');
+    expect(JSON.stringify(suburb.filter)).toContain('suburb');
+    expect(JSON.stringify(settlement.filter)).not.toContain('suburb');
+  });
+
+  it('ranks settlements so a city outranks a village in a collision', () => {
+    const settlement = style.layers.find((l) => l.id === 'places-settlement') as {
+      layout?: Record<string, unknown>;
+    };
+    expect(settlement.layout?.['symbol-sort-key']).toBeDefined();
+  });
+
+  it('draws place labels above the lines they sit on', () => {
+    const ids = style.layers.map((l) => l.id);
+    expect(ids.indexOf('places-settlement')).toBeGreaterThan(ids.indexOf('roads-major'));
+    expect(ids.indexOf('places-settlement')).toBeGreaterThan(ids.indexOf('contours-index'));
+  });
 });

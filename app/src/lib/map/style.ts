@@ -254,6 +254,54 @@ function selfHosted(base: string): StyleSpecification {
           'symbol-sort-key': ['-', 0, ['to-number', ['get', 'ele'], 0]]
         },
         paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
+      },
+      {
+        // 14 features in this region against suburb's 231 — the density that
+        // makes an overview readable. This is what orients the map; peak labels
+        // cannot, because route cluster badges outrank them in symbol collision.
+        id: 'places-settlement',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'places',
+        filter: ['match', ['get', 'place'], ['city', 'town', 'village'], true, false],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': [
+            'interpolate', ['linear'], ['zoom'],
+            9, ['match', ['get', 'place'], 'city', 14, 'town', 11, 9],
+            14, ['match', ['get', 'place'], 'city', 20, 'town', 16, 13]
+          ],
+          // Lower wins a collision, so rank city above town above village.
+          'symbol-sort-key': ['match', ['get', 'place'], 'city', 0, 'town', 1, 2],
+          'text-padding': 6
+        },
+        paint: {
+          'text-color': '#4a4a4a',
+          'text-halo-color': '#f4f1ea',
+          'text-halo-width': 1.6
+        }
+      },
+      {
+        // 231 features. Useful once you are looking for a trailhead in a
+        // particular suburb, overwhelming at any zoom before that.
+        id: 'places-suburb',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'places',
+        minzoom: 13,
+        filter: ['==', ['get', 'place'], 'suburb'],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12],
+          'text-padding': 4
+        },
+        paint: {
+          'text-color': '#6b6b6b',
+          'text-halo-color': '#f4f1ea',
+          'text-halo-width': 1.4
+        }
       }
     ]
   };
