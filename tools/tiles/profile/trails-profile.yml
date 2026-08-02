@@ -2,7 +2,7 @@
 # bytes we do not ship. "Thin roads" means trunk..residential only — enough to
 # find a trailhead, nothing below that (no service roads, driveways, buildings).
 schema_name: KaapSpoor trails
-schema_description: Footpaths, tracks, water, peaks and access roads only
+schema_description: Footpaths, tracks, water, peaks, access roads, landcover and places only
 attribution: '&copy; OpenStreetMap contributors'
 sources:
   osm:

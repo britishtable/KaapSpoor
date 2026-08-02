@@ -28,11 +28,6 @@ describe('buildStyle(selfhosted)', () => {
       'pmtiles:///KaapSpoor/tiles/contours-cape-town.pmtiles'
     );
   });
-  it('points at the shipped region archives', () => {
-    const json = JSON.stringify(style.sources);
-    expect(json).toContain('pmtiles:///KaapSpoor/tiles/trails-cape-town.pmtiles');
-    expect(json).toContain('pmtiles:///KaapSpoor/tiles/contours-cape-town.pmtiles');
-  });
   it('draws contour lines and paths', () => {
     const ids = style.layers.map((l) => l.id);
     expect(ids).toContain('contours-index');

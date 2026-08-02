@@ -3,7 +3,7 @@
 Builds the PMTiles archives each region's map needs. `regions.json` is the single
 source of truth for which regions exist and what bbox each one covers — each region
 is a **standalone map**, not a tile of one continuous surface. Output is git-ignored;
-see the size report for whether to commit it or publish it as a release asset.
+the archives are published as release assets, not committed.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ with no nested `$variables`, since those get mangled crossing the Windows/WSL bo
   PATH. Do not confuse this with `protomaps/PMTiles`, which is the spec/JS library repo and
   will not get you the CLI (its releases page 404s for this purpose).
 
-Both build scripts do their heavy I/O (downloads, planetiler/gdal/tippecanoe intermediates)
+All three build scripts do their heavy I/O (downloads, planetiler/gdal/tippecanoe intermediates)
 under `$WORK` (default `$HOME/kaapspoor-tiles`) on WSL's own filesystem, not under `/mnt/c`
 — crossing the Windows/WSL filesystem boundary for repeated random-access reads on files of
 this size dominates the build time. Only the finished `.pmtiles` files are copied back into
@@ -90,7 +90,10 @@ own attribution belongs in the style's attribution string too.
 
 Rebuilding: run the build scripts for the region, then `gh release upload tiles-<region>-v1
 --clobber` the new archives. To cut a new tag instead, change `TILES_TAG` in
-`.github/workflows/deploy.yml` — it is declared once, so that is the only edit needed.
+`.github/workflows/deploy.yml`. That variable also gates the `fonts.tar.gz` fetch (same
+workflow, same tag), so **a new tiles release must carry `fonts.tar.gz` alongside the
+`.pmtiles` files** — omitting it fails CI, since the deploy step downloads glyphs from
+that release too.
 
 Contours dominate the province-wide total — the 20 m interval over mountainous terrain was
 the cost there. At regional scale, trails dominate instead; hillshade is the one raster

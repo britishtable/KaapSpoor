@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SHIPPED_REGION } from './region';
+import regions from '../../../../tools/tiles/regions.json';
 
 describe('SHIPPED_REGION', () => {
   it('is the Cape Town region', () => {
@@ -7,13 +8,16 @@ describe('SHIPPED_REGION', () => {
   });
 
   it('matches the bbox tools/tiles/regions.json builds', () => {
-    // Derived from the 133 Table Mountain and peninsula routes plus a ~6 km
-    // margin. If these drift apart, the map frames terrain that was never built.
+    // Reads the actual regions.json entry rather than a hard-coded literal,
+    // so the two cannot silently drift apart: the map would then frame
+    // terrain that was never built.
+    const capeTown = regions.regions.find((r) => r.id === 'cape-town');
+    expect(capeTown).toBeDefined();
     expect(SHIPPED_REGION.bbox).toEqual({
-      west: 18.27,
-      south: -34.33,
-      east: 18.51,
-      north: -33.89
+      west: capeTown!.bbox.west,
+      south: capeTown!.bbox.south,
+      east: capeTown!.bbox.east,
+      north: capeTown!.bbox.north
     });
   });
 
