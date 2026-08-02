@@ -216,10 +216,12 @@ describe('zoom scoping', () => {
     expect(filterOf('peaks-minor')).toEqual(['<', ele, 600]);
   });
 
-  it('shows the four highest summits where the map opens', () => {
-    // The map opens near z10.3; a headline minzoom above that would leave the
-    // opening view without a single peak name, which is what it had before.
-    expect(layer('peaks-headline')?.minzoom).toBeLessThanOrEqual(10);
+  it('shows the four highest summits below any opening zoom', () => {
+    // fitBounds derives the opening zoom from the pane: 9.92 measured in the
+    // Playwright viewport, 10.3 in a desktop browser, lower on a phone. A
+    // headline minzoom inside that range leaves some viewports with no peak
+    // label at all, which is the defect this tier exists to fix. 8 clears it.
+    expect(layer('peaks-headline')?.minzoom).toBe(8);
     expect(layer('peaks-major')?.minzoom).toBe(12);
     expect(layer('peaks-minor')?.minzoom).toBe(14);
   });
@@ -235,6 +237,44 @@ describe('zoom scoping', () => {
     expect(mj[0]).toBe('all');
     expect(mn[0]).toBe('<');
     expect(mn[2]).toBe(600);
+  });
+
+  it('partitions sample elevations into exactly one tier, including an unusable ele', () => {
+    // Behavioural check, not just a shape check: evaluates the actual filter
+    // expressions against sample ele values (numbers, numeric strings, an
+    // unconvertible string, and missing values) so a silently overlapping or
+    // gapped threshold would fail here even if the arrays still looked right.
+    const evalExpr = (expr: unknown, ele: unknown): number => {
+      const [op, ...args] = expr as [string, ...unknown[]];
+      if (op === 'get') return ele as number;
+      if (op === 'to-number') {
+        const v = evalExpr(args[0], ele);
+        const n = typeof v === 'string' ? Number(v) : v;
+        return typeof n === 'number' && !Number.isNaN(n) ? n : (args[1] as number);
+      }
+      throw new Error(`unhandled expr ${op}`);
+    };
+    const evalFilter = (filter: unknown[], ele: unknown): boolean => {
+      const [op, ...args] = filter;
+      if (op === 'all') return (args as unknown[][]).every((f) => evalFilter(f, ele));
+      if (op === '>=') return evalExpr(args[0], ele) >= (args[1] as number);
+      if (op === '<') return evalExpr(args[0], ele) < (args[1] as number);
+      throw new Error(`unhandled filter op ${op}`);
+    };
+
+    const headline = filterOf('peaks-headline') as unknown[];
+    const major = filterOf('peaks-major') as unknown[];
+    const minor = filterOf('peaks-minor') as unknown[];
+
+    const samples: unknown[] = [2000, 1086, '1086', 1000, '1000', 999, 600, '600', 599, 0, 'bad', undefined, null];
+    for (const ele of samples) {
+      const hits = [headline, major, minor].filter((f) => evalFilter(f, ele));
+      expect(hits.length).toBe(1);
+    }
+    // An unconvertible ele scores 0 via the to-number fallback and must land
+    // specifically in minor, not merely in "exactly one" tier.
+    expect(evalFilter(minor, 'bad')).toBe(true);
+    expect(evalFilter(minor, undefined)).toBe(true);
   });
 
   it('sorts peak labels so the highest summit wins a collision', () => {
@@ -256,13 +296,15 @@ describe('zoom scoping', () => {
   it('leaves the opening view non-blank — no layer but the pins is hidden there', () => {
     // Regression test for the defect an earlier pass introduced: giving every
     // layer a minzoom left nothing drawing but background, water and pins.
-    // The region was since re-cut to the peninsula, so the opening view is
-    // z10.3, not the old z7.97 — roads-major and peaks-headline are the two
-    // layers meant to survive it; if either regains a minzoom above 10, the
-    // overview goes blank again.
+    // The opening zoom is not a constant — fitBounds derives it from the pane
+    // size (9.92 measured in the Playwright viewport, ~10.3 in a desktop
+    // browser, lower on a phone) — so the bound here must clear the lowest
+    // plausible opening zoom, not just one measurement. roads-major and
+    // peaks-headline are the two layers meant to survive it; if either
+    // regains a minzoom above 8, some viewport's overview goes blank again.
     const minzoomOrZero = (id: string) => layer(id)?.minzoom ?? 0;
-    expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(10);
-    expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(10);
+    expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(8);
+    expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(8);
   });
 
   it('declares hillshade as a raster source at the archive zoom range', () => {

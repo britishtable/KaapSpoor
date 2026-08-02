@@ -193,7 +193,12 @@ function selfHosted(base: string): StyleSpecification {
         // down to Devil's Peak ~1000 m), anchoring the overview from the
         // opening view. The old >=1500 m threshold was set for the Cederberg,
         // whose summits exceed 2000 m; Table Mountain is only 1086 m, so
-        // nothing here ever cleared it. `ele` is the raw OSM tag, so it is a
+        // nothing here ever cleared it. minzoom 8 is deliberately below any
+        // plausible opening zoom — fitBounds derives that zoom from the pane
+        // size, so it varies with viewport (9.92 in the Playwright pane, ~10.3
+        // in a desktop browser, lower on a phone); a minzoom inside that range
+        // would leave some viewports with no peak label, reproducing the
+        // defect this tier exists to fix. `ele` is the raw OSM tag, so it is a
         // string and may be unconvertible — to-number's second argument is
         // the fallback, and 0 sorts such peaks into the minor layer, never
         // here.
@@ -201,7 +206,7 @@ function selfHosted(base: string): StyleSpecification {
         type: 'symbol',
         source: 'trails',
         'source-layer': 'peaks',
-        minzoom: 10,
+        minzoom: 8,
         filter: ['>=', ['to-number', ['get', 'ele'], 0], 1000],
         layout: {
           'text-field': ['get', 'name'],
