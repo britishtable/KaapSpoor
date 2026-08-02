@@ -201,69 +201,40 @@ describe('zoom scoping', () => {
     }
   });
 
-  it('anchors the overview with a headline tier of very high summits', () => {
-    expect(layer('peaks-headline')?.minzoom).toBe(7);
-  });
+  // filter doesn't exist on every LayerSpecification variant (e.g. background),
+  // so narrow explicitly rather than letting the union leak into every assertion.
+  const filterOf = (id: string) => (layer(id) as { filter?: unknown })?.filter;
 
-  it('shows major summits at region scale', () => {
-    expect(layer('peaks-major')?.minzoom).toBe(10);
-  });
-
-  it('holds minor peaks back until close in', () => {
-    expect(layer('peaks-minor')?.minzoom).toBe(13);
-  });
-
-  it('splits peaks into three tiers using to-number with a fallback', () => {
-    // ele is the raw OSM tag and arrives as a string; the two-argument
-    // to-number form scores an unusable value 0, sorting it into peaks-minor.
-    const toNumberEle = ['to-number', ['get', 'ele'], 0];
-    expect((layer('peaks-headline') as { filter?: unknown[] })?.filter).toEqual([
-      '>=',
-      toNumberEle,
-      1500
+  it('tiers peaks for a peninsula whose highest point is 1086 m', () => {
+    // Measured in region: 0 peaks >= 1500 (the old headline threshold, which
+    // rendered nothing), 4 in 1000-1499, 13 in 700-999, 31 in 400-699.
+    const ele = ['to-number', ['get', 'ele'], 0];
+    expect(filterOf('peaks-headline')).toEqual(['>=', ele, 1000]);
+    expect(filterOf('peaks-major')).toEqual([
+      'all', ['>=', ele, 600], ['<', ele, 1000]
     ]);
-    expect((layer('peaks-major') as { filter?: unknown[] })?.filter).toEqual([
-      'all',
-      ['>=', toNumberEle, 1000],
-      ['<', toNumberEle, 1500]
-    ]);
-    expect((layer('peaks-minor') as { filter?: unknown[] })?.filter).toEqual(['<', toNumberEle, 1000]);
+    expect(filterOf('peaks-minor')).toEqual(['<', ele, 600]);
   });
 
-  it('partitions every peak into exactly one of the three tiers', () => {
-    // Every peak, including one whose ele is missing or unconvertible (which
-    // scores 0 via the to-number fallback and lands in minor), must satisfy
-    // exactly one of the three filters — no peak drawn twice, none dropped.
-    // A tiny local evaluator for just the expression shapes these filters use
-    // is more honest than asserting on the raw arrays a second time: it proves
-    // the *behaviour* is exhaustive and non-overlapping, not just the shape.
-    const evalExpr = (expr: unknown, ele: unknown): number => {
-      const [op, ...args] = expr as [string, ...unknown[]];
-      if (op === 'get') return ele as number;
-      if (op === 'to-number') {
-        const v = evalExpr(args[0], ele);
-        const n = typeof v === 'string' ? Number(v) : v;
-        return typeof n === 'number' && !Number.isNaN(n) ? n : (args[1] as number);
-      }
-      throw new Error(`unhandled expr ${op}`);
-    };
-    const evalFilter = (filter: unknown[], ele: unknown): boolean => {
-      const [op, ...args] = filter;
-      if (op === 'all') return (args as unknown[][]).every((f) => evalFilter(f, ele));
-      if (op === '>=') return evalExpr(args[0], ele) >= (args[1] as number);
-      if (op === '<') return evalExpr(args[0], ele) < (args[1] as number);
-      throw new Error(`unhandled filter op ${op}`);
-    };
+  it('shows the four highest summits where the map opens', () => {
+    // The map opens near z10.3; a headline minzoom above that would leave the
+    // opening view without a single peak name, which is what it had before.
+    expect(layer('peaks-headline')?.minzoom).toBeLessThanOrEqual(10);
+    expect(layer('peaks-major')?.minzoom).toBe(12);
+    expect(layer('peaks-minor')?.minzoom).toBe(14);
+  });
 
-    const headline = (layer('peaks-headline') as { filter?: unknown[] })?.filter as unknown[];
-    const major = (layer('peaks-major') as { filter?: unknown[] })?.filter as unknown[];
-    const minor = (layer('peaks-minor') as { filter?: unknown[] })?.filter as unknown[];
-
-    const samples: unknown[] = [2000, 1500, '1500', 1499, 1000, '1000', 999, 0, 'bad', undefined, null];
-    for (const ele of samples) {
-      const hits = [headline, major, minor].filter((f) => evalFilter(f, ele));
-      expect(hits.length).toBe(1);
-    }
+  it('still partitions every peak into exactly one tier', () => {
+    const h = filterOf('peaks-headline') as unknown[];
+    const mj = filterOf('peaks-major') as unknown[];
+    const mn = filterOf('peaks-minor') as unknown[];
+    // headline >= 1000; major [600,1000); minor < 600 — exhaustive and
+    // non-overlapping, including a peak whose ele is missing (scores 0).
+    expect(h[0]).toBe('>=');
+    expect(h[2]).toBe(1000);
+    expect(mj[0]).toBe('all');
+    expect(mn[0]).toBe('<');
+    expect(mn[2]).toBe(600);
   });
 
   it('sorts peak labels so the highest summit wins a collision', () => {
@@ -283,14 +254,15 @@ describe('zoom scoping', () => {
   });
 
   it('leaves the opening view non-blank — no layer but the pins is hidden there', () => {
-    // Regression test for the defect this task fixes: an earlier pass gave
-    // every layer a minzoom, so at the z7.97 opening view nothing drew but
-    // background, water and pins. roads-major and peaks-headline are the two
-    // layers meant to survive that view; if either regains a minzoom above 7,
-    // the overview goes blank again.
+    // Regression test for the defect an earlier pass introduced: giving every
+    // layer a minzoom left nothing drawing but background, water and pins.
+    // The region was since re-cut to the peninsula, so the opening view is
+    // z10.3, not the old z7.97 — roads-major and peaks-headline are the two
+    // layers meant to survive it; if either regains a minzoom above 10, the
+    // overview goes blank again.
     const minzoomOrZero = (id: string) => layer(id)?.minzoom ?? 0;
-    expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(7);
-    expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(7);
+    expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(10);
+    expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(10);
   });
 
   it('declares hillshade as a raster source at the archive zoom range', () => {

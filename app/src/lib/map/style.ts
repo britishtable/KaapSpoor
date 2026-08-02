@@ -189,17 +189,20 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
-        // The handful of very high summits that anchor the overview — visible
-        // from the opening view rather than only once you have zoomed in past
-        // region scale. `ele` is the raw OSM tag, so it is a string and may be
-        // unconvertible — to-number's second argument is the fallback, and 0
-        // sorts such peaks into the minor layer, never here.
+        // The four highest summits on the peninsula (Table Mountain 1086 m
+        // down to Devil's Peak ~1000 m), anchoring the overview from the
+        // opening view. The old >=1500 m threshold was set for the Cederberg,
+        // whose summits exceed 2000 m; Table Mountain is only 1086 m, so
+        // nothing here ever cleared it. `ele` is the raw OSM tag, so it is a
+        // string and may be unconvertible — to-number's second argument is
+        // the fallback, and 0 sorts such peaks into the minor layer, never
+        // here.
         id: 'peaks-headline',
         type: 'symbol',
         source: 'trails',
         'source-layer': 'peaks',
-        minzoom: 7,
-        filter: ['>=', ['to-number', ['get', 'ele'], 0], 1500],
+        minzoom: 10,
+        filter: ['>=', ['to-number', ['get', 'ele'], 0], 1000],
         layout: {
           'text-field': ['get', 'name'],
           'text-font': ['Open Sans Regular'],
@@ -212,18 +215,20 @@ function selfHosted(base: string): StyleSpecification {
         paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
       },
       {
-        // The summits a person actually navigates by. `ele` is the raw OSM tag,
+        // The mid tier: ~18 summits between 600 m and 1000 m, including
+        // Lion's Head (669 m). Drawn from z12, where you are looking at one
+        // mountain rather than the whole peninsula. `ele` is the raw OSM tag,
         // so it is a string and may be unconvertible — to-number's second
         // argument is the fallback, and 0 sorts such peaks into the minor layer.
         id: 'peaks-major',
         type: 'symbol',
         source: 'trails',
         'source-layer': 'peaks',
-        minzoom: 10,
+        minzoom: 12,
         filter: [
           'all',
-          ['>=', ['to-number', ['get', 'ele'], 0], 1000],
-          ['<', ['to-number', ['get', 'ele'], 0], 1500]
+          ['>=', ['to-number', ['get', 'ele'], 0], 600],
+          ['<', ['to-number', ['get', 'ele'], 0], 1000]
         ],
         layout: {
           'text-field': ['get', 'name'],
@@ -237,15 +242,16 @@ function selfHosted(base: string): StyleSpecification {
         paint: { 'text-color': '#5b4636', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
       },
       {
-        // Everything else, including peaks with no usable `ele`. 188 of these
-        // carpeted the opening view; they belong at a zoom where you are looking
-        // at one mountain rather than a province.
+        // Everything under 600 m, plus peaks with no usable `ele` (which score
+        // 0 via the to-number fallback). ~55 of these on the peninsula; they
+        // belong at a zoom where you are looking at one mountain, not the
+        // whole map.
         id: 'peaks-minor',
         type: 'symbol',
         source: 'trails',
         'source-layer': 'peaks',
-        minzoom: 13,
-        filter: ['<', ['to-number', ['get', 'ele'], 0], 1000],
+        minzoom: 14,
+        filter: ['<', ['to-number', ['get', 'ele'], 0], 600],
         layout: {
           'text-field': ['get', 'name'],
           'text-font': ['Open Sans Regular'],
