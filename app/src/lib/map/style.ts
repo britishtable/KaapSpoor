@@ -9,7 +9,7 @@ export const SHIPPED_BASEMAP: Basemap = 'selfhosted';
 
 export const ATTRIBUTION_OSM = '© OpenStreetMap contributors';
 const ATTRIBUTION_OPENTOPO = `${ATTRIBUTION_OSM}, © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`;
-const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, contours from Copernicus DEM`;
+const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, elevation data from Copernicus DEM`;
 
 // Self-hosted glyphs. MapLibre's demotiles font server is a demo service, not
 // production infrastructure — depending on it would leave the app with an
@@ -71,7 +71,14 @@ function selfHosted(base: string): StyleSpecification {
         id: 'hillshade',
         type: 'raster',
         source: 'hillshade',
-        paint: { 'raster-opacity': 0.25 }
+        paint: {
+          // Relief compresses at overview zoom, where a flat 0.25 turned the
+          // whole peninsula into a dark mass that buried the landcover and the
+          // contours. Ramped: barely there when you are looking at the whole
+          // map, full strength when you are close enough for shading to say
+          // something about the ground. Verified in a browser at z10.3 and z12.5.
+          'raster-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.08, 11, 0.15, 13, 0.3]
+        }
       },
       {
         // Grouped by what it is on the ground, not by which OSM tag was used:

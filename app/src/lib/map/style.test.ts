@@ -330,13 +330,24 @@ describe('zoom scoping', () => {
     expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('water'));
   });
 
-  it('keeps hillshade subtle enough that contours stay primary', () => {
+  it('ramps hillshade opacity so overview zoom stays subtle and close-in zoom reads terrain', () => {
+    // Flat 0.25 buried the peninsula in a dark mass at overview zoom; a
+    // ramped expression fixed it (verified live at z10.3 and z12.5). This
+    // samples the stops rather than asserting a scalar, since the paint value
+    // is now an interpolate expression, not a number.
     const layer = style.layers.find((l) => l.id === 'hillshade') as {
       paint?: Record<string, unknown>;
     };
-    const opacity = layer.paint?.['raster-opacity'] as number;
-    expect(opacity).toBeGreaterThan(0);
-    expect(opacity).toBeLessThanOrEqual(0.35);
+    const opacity = layer.paint?.['raster-opacity'] as unknown[];
+    expect(opacity[0]).toBe('interpolate');
+    const stops = opacity.slice(3);
+    const outputs: number[] = [];
+    for (let i = 1; i < stops.length; i += 2) outputs.push(stops[i] as number);
+    expect(outputs.length).toBeGreaterThan(0);
+    for (const o of outputs) {
+      expect(o).toBeGreaterThan(0);
+      expect(o).toBeLessThanOrEqual(0.35);
+    }
   });
 
   it('fills landcover between the hillshade and the water', () => {
@@ -417,10 +428,13 @@ describe('zoom scoping', () => {
   });
 
   it('ranks settlements so a city outranks a village in a collision', () => {
+    // Deep equality, matching the peak layers' equivalent assertion: a plain
+    // toBeDefined() would still pass with city and village reversed.
     const settlement = style.layers.find((l) => l.id === 'places-settlement') as {
       layout?: Record<string, unknown>;
     };
-    expect(settlement.layout?.['symbol-sort-key']).toBeDefined();
+    const expected = ['match', ['get', 'place'], 'city', 0, 'town', 1, 2];
+    expect(settlement.layout?.['symbol-sort-key']).toEqual(expected);
   });
 
   it('draws place labels above the lines they sit on', () => {

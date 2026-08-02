@@ -249,8 +249,11 @@ test.describe('map', () => {
             __maplibreMap?: import('maplibre-gl').Map;
           };
           const map = el.__maplibreMap!;
-          if (z !== undefined) {
-            map.jumpTo({ center: c ?? [18.42, -33.96], zoom: z });
+          // Every call site either omits both zoom and center (measuring the
+          // real opening camera) or passes both explicitly — there is no
+          // camera this fell back to, so there is nothing to default.
+          if (z !== undefined && c !== undefined) {
+            map.jumpTo({ center: c, zoom: z });
           }
           // Only wait for 'idle' if the map isn't already settled -- it's only
           // guaranteed to fire again if something is still moving/loading, and
@@ -310,10 +313,21 @@ test.describe('map', () => {
     // all in the archive and drawn by nothing before this plan.
     expect(overview.landcover).toBeGreaterThan(0);
     expect(overview.placesSettlement).toBeGreaterThan(0);
-    expect(overview.peaksHeadline).toBeGreaterThan(0);
+    // peaksHeadline is deliberately NOT asserted > 0 here. It passed in
+    // Playwright's viewport by luck and measured 0 in a real browser at
+    // z10.37 (Chrome): confirmed by hiding pins-cluster-count, which took
+    // headline peaks from 0 -> 2. MapLibre places later symbol layers first,
+    // so the route cluster badges win the collision against peak labels —
+    // correct behaviour for a route-discovery map, since the clusters are the
+    // point, but it makes this assertion viewport-dependent and flaky. Town
+    // labels (placesSettlement, asserted above, rendered 6 in the browser)
+    // are what actually orient the overview; peak labels are asserted at the
+    // close-in camera below, where clusters have broken apart.
     // Suburbs are 231 features against 14 settlements — they must NOT be here.
     expect(overview.placesSuburb).toBe(0);
     // Absent layers return -1; a rename must fail loudly, not silently pass.
+    // peaksHeadline is checked for existence only (see above for why its
+    // count is not asserted here).
     for (const v of [overview.landcover, overview.placesSettlement, overview.peaksHeadline]) {
       expect(v).not.toBe(-1);
     }
@@ -338,6 +352,21 @@ test.describe('map', () => {
     // was rejected for this reason -- its named peaks (Blinkwater Peak, Table
     // Mountain itself, etc.) are mostly 900 m+ and land in peaks-major, not
     // here.
+    //
+    // placesSuburb here is only 1 -- one collision away from flaking, since
+    // queryRenderedFeatures only returns symbols that survived placement. A
+    // 6-camera grid was measured to find headroom (paths / peaksMinor /
+    // peaksMajor / placesSuburb, all z14 unless noted):
+    //   [18.36,-34.02]  (this camera): 215 / 2 / 0 / 1
+    //   Camps Bay      [18.377,-33.951]: 329 / 0 / 0 / 2
+    //   Fish Hoek      [18.433,-34.138]: 457 / 1 / 0 / 0
+    //   Muizenberg     [18.471,-34.108]: 530 / 2 / 0 / 1
+    //   Fish Hoek  z15 [18.433,-34.138]: 232 / 0 / 0 / 0
+    //   Muizenberg z15 [18.471,-34.108]: 300 / 0 / 0 / 1
+    // No candidate clears placesSuburb above 1 while also holding a peak tier
+    // above 0 -- this camera ties Muizenberg z14 for the best minimum across
+    // the asserted layers (1), and its rendered features are already verified
+    // by name above, so it stays.
     const closeIn = await countsAt(14, [18.36, -34.02]);
     expect(closeIn.paths).toBeGreaterThan(0);
     expect(closeIn.peaksMinor).toBeGreaterThan(0);
