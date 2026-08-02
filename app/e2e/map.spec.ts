@@ -342,34 +342,35 @@ test.describe('map', () => {
     });
     expect(hasHillshade).toBe(true);
 
-    // z14 over Hout Bay/Llandudno, not an arbitrary close-in view: peaks-minor
-    // moved to minzoom 14 in a later task of this plan (headline >= 1000m at
-    // z8, major 600-999m at z12, minor <1000m at z14), so z13 now correctly
-    // renders zero minor peaks everywhere -- that trap is exactly what this
-    // comment used to warn about. Measured directly: this camera renders
-    // Little Lion's Head (437 m) and Houtbaainek by name in peaks-minor, and
-    // Llandudno by name in places-suburb. Table Mountain's own plateau camera
-    // was rejected for this reason -- its named peaks (Blinkwater Peak, Table
-    // Mountain itself, etc.) are mostly 900 m+ and land in peaks-major, not
-    // here.
-    //
-    // placesSuburb here is only 1 -- one collision away from flaking, since
-    // queryRenderedFeatures only returns symbols that survived placement. A
-    // 6-camera grid was measured to find headroom (paths / peaksMinor /
-    // peaksMajor / placesSuburb, all z14 unless noted):
-    //   [18.36,-34.02]  (this camera): 215 / 2 / 0 / 1
-    //   Camps Bay      [18.377,-33.951]: 329 / 0 / 0 / 2
-    //   Fish Hoek      [18.433,-34.138]: 457 / 1 / 0 / 0
-    //   Muizenberg     [18.471,-34.108]: 530 / 2 / 0 / 1
-    //   Fish Hoek  z15 [18.433,-34.138]: 232 / 0 / 0 / 0
-    //   Muizenberg z15 [18.471,-34.108]: 300 / 0 / 0 / 1
-    // No candidate clears placesSuburb above 1 while also holding a peak tier
-    // above 0 -- this camera ties Muizenberg z14 for the best minimum across
-    // the asserted layers (1), and its rendered features are already verified
-    // by name above, so it stays.
-    const closeIn = await countsAt(14, [18.36, -34.02]);
-    expect(closeIn.paths).toBeGreaterThan(0);
-    expect(closeIn.peaksMinor).toBeGreaterThan(0);
-    expect(closeIn.placesSuburb).toBeGreaterThan(0);
+    // No single close-in camera gives every asserted layer real headroom: the
+    // 6-camera grid measured for this plan found placesSuburb topping out at
+    // 1 feature everywhere at z14/z15 (one label collision away from
+    // flaking), while a z13 camera over the same area has it at 7 -- suburb
+    // labels are densest right at their own minzoom, before the viewport
+    // narrows. peaks-minor cannot be checked at z13 though: that tier starts
+    // at z14. So the close-in check is split across the camera where each
+    // subject actually has margin, rather than forcing one camera to cover
+    // both and accepting a count of 1.
+
+    // Suburbs at z13, the zoom places-suburb starts at and where they are
+    // densest before the viewport narrows: 7 features here against 1 at any
+    // z14 camera measured, so this does not sit one collision away from
+    // failing.
+    const suburbView = await countsAt(13, [18.42, -33.96]);
+    expect(suburbView.paths).toBeGreaterThan(0);
+    expect(suburbView.placesSuburb).toBeGreaterThan(0);
+
+    // Peaks at z14 over Hout Bay/Llandudno, not an arbitrary close-in view:
+    // peaks-minor moved to minzoom 14 in a later task of this plan (headline
+    // >= 1000m at z8, major 600-999m at z12, minor <1000m at z14), so z13
+    // renders zero minor peaks everywhere -- that trap is exactly why this is
+    // a second camera rather than reusing suburbView. Measured directly: this
+    // camera renders Little Lion's Head (437 m) and Houtbaainek by name in
+    // peaks-minor. The Table Mountain plateau camera was rejected for this
+    // reason -- its named peaks (Blinkwater Peak, Table Mountain itself,
+    // etc.) are mostly 900 m+ and land in peaks-major, not here.
+    const peakView = await countsAt(14, [18.36, -34.02]);
+    expect(peakView.paths).toBeGreaterThan(0);
+    expect(peakView.peaksMinor).toBeGreaterThan(0);
   });
 });
