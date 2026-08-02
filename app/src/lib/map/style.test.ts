@@ -292,4 +292,36 @@ describe('zoom scoping', () => {
     expect(minzoomOrZero('roads-major')).toBeLessThanOrEqual(7);
     expect(minzoomOrZero('peaks-headline')).toBeLessThanOrEqual(7);
   });
+
+  it('declares hillshade as a raster source at the archive zoom range', () => {
+    const src = style.sources.hillshade as {
+      type: string; url?: string; minzoom?: number; maxzoom?: number; attribution?: string;
+    };
+    expect(src.type).toBe('raster');
+    expect(src.url).toContain('hillshade-cape-town.pmtiles');
+    // The archive is built z9-13. Declaring the range lets MapLibre overzoom
+    // rather than request tiles that do not exist.
+    expect(src.minzoom).toBe(9);
+    expect(src.maxzoom).toBe(13);
+    expect(src.attribution).toContain('Copernicus');
+  });
+
+  it('draws hillshade underneath the terrain it shades', () => {
+    const ids = style.layers.map((l) => l.id);
+    expect(ids).toContain('hillshade');
+    // Under contours and water, above only the background: shading is a
+    // backdrop, not a layer competing with the lines that carry the detail.
+    expect(ids.indexOf('hillshade')).toBe(1);
+    expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('contours-index'));
+    expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('water'));
+  });
+
+  it('keeps hillshade subtle enough that contours stay primary', () => {
+    const layer = style.layers.find((l) => l.id === 'hillshade') as {
+      paint?: Record<string, unknown>;
+    };
+    const opacity = layer.paint?.['raster-opacity'] as number;
+    expect(opacity).toBeGreaterThan(0);
+    expect(opacity).toBeLessThanOrEqual(0.35);
+  });
 });

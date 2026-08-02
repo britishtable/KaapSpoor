@@ -49,10 +49,30 @@ function selfHosted(base: string): StyleSpecification {
         type: 'vector',
         url: `pmtiles://${base}/tiles/contours-${SHIPPED_REGION.id}.pmtiles`,
         attribution: ATTRIBUTION_SELF
+      },
+      hillshade: {
+        type: 'raster',
+        url: `pmtiles://${base}/tiles/hillshade-${SHIPPED_REGION.id}.pmtiles`,
+        tileSize: 256,
+        // Built z9-13 by tools/tiles/build-hillshade.sh. Declaring the range
+        // makes MapLibre overzoom past 13 instead of requesting absent tiles.
+        minzoom: 9,
+        maxzoom: 13,
+        attribution: ATTRIBUTION_SELF
       }
     },
     layers: [
       { id: 'background', type: 'background', paint: { 'background-color': '#f4f1ea' } },
+      {
+        // A backdrop, not a feature layer: it gives the mountain its shape at a
+        // glance while the 20 m contours stay the thing you actually read
+        // elevation from. Kept low-opacity for that reason — at full strength it
+        // muddies both the contours and the landcover fills above it.
+        id: 'hillshade',
+        type: 'raster',
+        source: 'hillshade',
+        paint: { 'raster-opacity': 0.25 }
+      },
       {
         id: 'water',
         type: 'fill',
