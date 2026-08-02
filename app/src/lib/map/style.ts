@@ -74,6 +74,31 @@ function selfHosted(base: string): StyleSpecification {
         paint: { 'raster-opacity': 0.25 }
       },
       {
+        // Grouped by what it is on the ground, not by which OSM tag was used:
+        // scrub and heath are both fynbos here and must read as one cover type.
+        // Vineyard is the single largest class in this region (296 polygons),
+        // so it gets a colour of its own rather than being lumped with woodland.
+        id: 'landcover',
+        type: 'fill',
+        source: 'trails',
+        'source-layer': 'landcover',
+        paint: {
+          'fill-color': [
+            'match',
+            ['coalesce', ['get', 'natural'], ['get', 'landuse']],
+            ['scrub', 'heath'], '#c8d2b0',
+            ['wood', 'forest'], '#b3c49a',
+            ['vineyard', 'orchard'], '#d8d9a8',
+            ['grassland'], '#d5dcb8',
+            ['beach', 'sand'], '#ece2c8',
+            ['bare_rock'], '#dcd6cc',
+            '#e8e3d6'
+          ],
+          // Low enough that the hillshade beneath still shapes the terrain.
+          'fill-opacity': 0.55
+        }
+      },
+      {
         id: 'water',
         type: 'fill',
         source: 'trails',

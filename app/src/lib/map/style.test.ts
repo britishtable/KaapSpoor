@@ -324,4 +324,39 @@ describe('zoom scoping', () => {
     expect(opacity).toBeGreaterThan(0);
     expect(opacity).toBeLessThanOrEqual(0.35);
   });
+
+  it('fills landcover between the hillshade and the water', () => {
+    const ids = style.layers.map((l) => l.id);
+    expect(ids).toContain('landcover');
+    expect(ids.indexOf('landcover')).toBeGreaterThan(ids.indexOf('hillshade'));
+    expect(ids.indexOf('landcover')).toBeLessThan(ids.indexOf('water'));
+  });
+
+  it('colours every landcover class present in the region', () => {
+    // Measured in the shipped archive at the opening view: vineyard 296,
+    // scrub 184, wood 50, heath 44, beach 32, grassland 20, forest 17,
+    // orchard 17, sand 7, bare_rock 2. A class with no case falls through to
+    // the default and silently reads as bare ground.
+    const layer = style.layers.find((l) => l.id === 'landcover') as {
+      paint?: Record<string, unknown>;
+    };
+    const json = JSON.stringify(layer.paint?.['fill-color']);
+    for (const cls of [
+      'vineyard', 'scrub', 'wood', 'heath', 'beach',
+      'grassland', 'forest', 'orchard', 'sand', 'bare_rock'
+    ]) {
+      expect(json).toContain(cls);
+    }
+  });
+
+  it('groups fynbos so scrub and heath read as one thing', () => {
+    const layer = style.layers.find((l) => l.id === 'landcover') as {
+      paint?: Record<string, unknown>;
+    };
+    const expr = JSON.stringify(layer.paint?.['fill-color']);
+    // Both OSM tags describe the same vegetation on this peninsula; a reader
+    // should not see two different greens for it.
+    const scrubColour = expr.match(/"scrub","heath"[^"]*"(#[0-9a-f]{6})"/i);
+    expect(scrubColour).not.toBeNull();
+  });
 });
