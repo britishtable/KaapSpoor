@@ -115,7 +115,17 @@ function selfHosted(base: string): StyleSpecification {
           // contours. Ramped: barely there when you are looking at the whole
           // map, full strength when you are close enough for shading to say
           // something about the ground. Verified in a browser at z10.3 and z12.5.
-          'raster-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.08, 11, 0.15, 13, 0.3]
+          //
+          // Rises to full strength at z13, the top of what
+          // tools/tiles/build-hillshade.sh actually builds, then decays: above
+          // that MapLibre overzooms a pre-rendered raster, and the shading
+          // turns to blur right where the contours and paths carry the detail.
+          // Both ends verified in a browser — a flat 0.25 made the overview a
+          // dark mass, and holding 0.3 above z13 smeared the close-in view.
+          'raster-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            9, 0.08, 11, 0.15, 13, 0.3, 14, 0.12, 15, 0.03
+          ]
         }
       },
       {

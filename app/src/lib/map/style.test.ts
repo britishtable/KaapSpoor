@@ -334,28 +334,41 @@ describe('zoom scoping', () => {
     expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('water'));
   });
 
-  it('ramps hillshade opacity so overview zoom stays subtle and close-in zoom reads terrain', () => {
+  it('ramps hillshade opacity so it peaks at the archive ceiling and decays on both sides', () => {
     // Flat 0.25 buried the peninsula in a dark mass at overview zoom; a
-    // ramped expression fixed it (verified live at z10.3 and z12.5). This
-    // samples the stops rather than asserting a scalar, since the paint value
-    // is now an interpolate expression, not a number.
+    // ramped expression fixed it (verified live at z10.3 and z12.5). Above
+    // the archive's maxzoom, MapLibre overzooms a pre-rendered raster and the
+    // shading turns to blur over the contours and paths (verified at z14.6),
+    // so the ramp must also decay past that ceiling rather than holding flat.
+    // This samples the stops rather than asserting a scalar, since the paint
+    // value is now an interpolate expression, not a number.
     const layer = style.layers.find((l) => l.id === 'hillshade') as {
       paint?: Record<string, unknown>;
     };
     const opacity = layer.paint?.['raster-opacity'] as unknown[];
     expect(opacity[0]).toBe('interpolate');
     const stops = opacity.slice(3);
-    const outputs: number[] = [];
-    for (let i = 1; i < stops.length; i += 2) outputs.push(stops[i] as number);
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < stops.length; i += 2) {
+      pairs.push([stops[i] as number, stops[i + 1] as number]);
+    }
+    const outputs = pairs.map(([, o]) => o);
     expect(outputs.length).toBeGreaterThan(0);
     for (const o of outputs) {
       expect(o).toBeGreaterThan(0);
       expect(o).toBeLessThanOrEqual(0.35);
     }
-    // Inverting the ramp would restore the defect it exists to fix — a heavy
-    // wash at overview zoom where relief compresses — and every bound above
-    // would still pass. Assert the direction, not just the range.
-    expect(outputs).toEqual([...outputs].sort((a, b) => a - b));
+    // The peak must sit exactly at the archive's own maxzoom, read from the
+    // source rather than hard-coded, so the ramp and the archive cannot
+    // silently drift apart.
+    const archiveMaxzoom = (style.sources.hillshade as { maxzoom?: number }).maxzoom;
+    const peak = pairs.reduce((best, p) => (p[1] > best[1] ? p : best));
+    expect(peak[0]).toBe(archiveMaxzoom);
+    // The last stop must be strictly below the peak — a flat tail above the
+    // archive's ceiling is exactly the smeared-close-in-view defect this
+    // ramp exists to fix.
+    const lastStop = pairs[pairs.length - 1];
+    expect(lastStop[1]).toBeLessThan(peak[1]);
   });
 
   it('fills landcover between the hillshade and the water', () => {
