@@ -9,10 +9,21 @@
     switch (route.coordsSource) {
       case 'crawl': return 'Location from the Mountain Meanders page.';
       case 'curated': return 'Location checked and corrected by hand.';
-      case 'osm-match': return `Location matched to “${route.coordsOsm?.name}” in OpenStreetMap.`;
+      case 'osm-match': {
+        const name = route.coordsOsm?.name;
+        return name
+          ? `Location matched to “${name}” in OpenStreetMap.`
+          : 'Location matched to a feature in OpenStreetMap.';
+      }
       case 'area-approx': {
-        // coordsAccuracyM is only ever set alongside 'area-approx' (see types.ts).
-        const km = (route.coordsAccuracyM ?? 0) / 1000;
+        // coordsAccuracyM is supposed to always be set alongside 'area-approx' (see
+        // types.ts), but that value crosses a Python→JSON boundary (tools/geocode)
+        // that TypeScript cannot enforce at runtime, so guard it here too.
+        const accuracy = route.coordsAccuracyM;
+        if (typeof accuracy !== 'number' || !(accuracy > 0)) {
+          return 'Approximate — averaged from other routes in this area.';
+        }
+        const km = accuracy / 1000;
         return `Approximate — somewhere within about ${km.toFixed(1)} km of this point, averaged from other routes in this area.`;
       }
       default: return 'Location not recorded.';

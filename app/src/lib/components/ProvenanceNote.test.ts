@@ -36,4 +36,19 @@ describe('ProvenanceNote', () => {
     render(ProvenanceNote, { route: { ...base, coords: null, coordsSource: null } });
     expect(screen.getByText('Location not recorded.')).toBeTruthy();
   });
+
+  it('states an area-approx location without a radius when accuracy is missing', () => {
+    render(ProvenanceNote, { route: { ...base, coordsSource: 'area-approx', coordsAccuracyM: null } });
+    expect(
+      screen.getByText('Approximate — averaged from other routes in this area.')
+    ).toBeTruthy();
+    expect(screen.queryByText(/0\.0/)).toBeNull();
+    expect(screen.queryByText(/within/)).toBeNull();
+  });
+
+  it('states an osm-match location without a name when coordsOsm is missing', () => {
+    render(ProvenanceNote, { route: { ...base, coordsSource: 'osm-match', coordsOsm: null } });
+    expect(screen.getByText('Location matched to a feature in OpenStreetMap.')).toBeTruthy();
+    expect(screen.queryByText(/undefined/)).toBeNull();
+  });
 });
