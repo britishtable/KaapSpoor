@@ -18,6 +18,7 @@
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
   import { selection, setHovered, setSelected } from '$lib/map/selection';
   import { journal } from '$lib/journal/store';
+  import { SHIPPED_REGION } from '$lib/map/region';
   import type { RouteIndexEntry } from '$lib/data/types';
 
   let { entries, basemap = SHIPPED_BASEMAP }: { entries: RouteIndexEntry[]; basemap?: Basemap } = $props();
@@ -25,6 +26,26 @@
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
   let loaded = $state(false);
+
+  // The map is a standalone region (see region.ts), not a window onto a
+  // continuous world -- style.ts's region-mask layer paints everything
+  // outside SHIPPED_REGION as letterboxing, and without a camera constraint a
+  // visitor could still pan clean off it into that masked space.
+  //
+  // The margin has to be well past a naive "small buffer": MapLibre's
+  // maxBounds also raises the *minimum* zoom, to whatever level makes the
+  // bounds box fill the viewport, and this region is portrait (0.24° wide by
+  // 0.44° tall) while the map pane is landscape -- so the box's height, not
+  // its width, decides that floor. A margin of ~0.05-0.15° measured well
+  // above the real opening zoom (10.2-10.9 against an observed 9.92) because
+  // it raised that floor past the zoom fitBounds actually wants, and the two
+  // constraints fought each other. 0.3° was measured to sit below the floor
+  // in the Playwright viewport (opening zoom unchanged at 9.924), leaving
+  // fitBounds' own camera as the one that wins.
+  const REGION_MAX_BOUNDS: [[number, number], [number, number]] = [
+    [SHIPPED_REGION.bbox.west - 0.3, SHIPPED_REGION.bbox.south - 0.3],
+    [SHIPPED_REGION.bbox.east + 0.3, SHIPPED_REGION.bbox.north + 0.3]
+  ];
 
   onMount(() => {
     // maplibre-gl resolves its worker script relative to import.meta.url of
@@ -42,7 +63,8 @@
     map = new MapLibreMap({
       container,
       style: buildStyle(basemap, base),
-      attributionControl: false // added explicitly below so it is never dropped
+      attributionControl: false, // added explicitly below so it is never dropped
+      maxBounds: REGION_MAX_BOUNDS
     });
 
     // Test-only hook: WebGL pixels are not queryable from Playwright, and

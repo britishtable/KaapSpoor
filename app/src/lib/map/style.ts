@@ -59,6 +59,44 @@ function selfHosted(base: string): StyleSpecification {
         minzoom: 9,
         maxzoom: 13,
         attribution: ATTRIBUTION_SELF
+      },
+      'region-mask': {
+        type: 'geojson',
+        // planetiler's --bounds decides which tiles are built, not where their
+        // features end: an edge tile still carries whole roads and place
+        // labels past the region, which then render on bare background. This
+        // masks everything outside SHIPPED_REGION so the region reads as the
+        // whole map, not a rectangle with debris around it.
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              // Exterior ring: the whole world, wound counter-clockwise per
+              // RFC 7946.
+              [
+                [-180, -85],
+                [180, -85],
+                [180, 85],
+                [-180, 85],
+                [-180, -85]
+              ],
+              // Hole: the shipped region, wound clockwise (the opposite of
+              // the exterior) so it reads as a hole rather than a second
+              // filled ring. Derived from SHIPPED_REGION.bbox, never
+              // hard-coded, so a region change cannot desynchronise the mask
+              // from the tiles it was built for.
+              [
+                [SHIPPED_REGION.bbox.west, SHIPPED_REGION.bbox.south],
+                [SHIPPED_REGION.bbox.west, SHIPPED_REGION.bbox.north],
+                [SHIPPED_REGION.bbox.east, SHIPPED_REGION.bbox.north],
+                [SHIPPED_REGION.bbox.east, SHIPPED_REGION.bbox.south],
+                [SHIPPED_REGION.bbox.west, SHIPPED_REGION.bbox.south]
+              ]
+            ]
+          }
+        }
       }
     },
     layers: [
@@ -327,6 +365,20 @@ function selfHosted(base: string): StyleSpecification {
           'text-halo-color': '#f4f1ea',
           'text-halo-width': 1.4
         }
+      },
+      {
+        // Last, so it draws over every basemap layer above -- including the
+        // roads and place labels that leak past the region on an edge tile.
+        // Route pins are added by MapView.svelte at runtime via addLayer(),
+        // which always appends to the end of the current layer stack, so they
+        // land above this and are never covered by it.
+        id: 'region-mask',
+        type: 'fill',
+        source: 'region-mask',
+        // 20 points darker than the #f4f1ea background: distinct enough to
+        // read as deliberate letterboxing, not heavy enough to look like a
+        // separate map.
+        paint: { 'fill-color': '#e0dbd0' }
       }
     ]
   };

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildStyle, ATTRIBUTION_OSM, SHIPPED_BASEMAP } from './style';
+import { SHIPPED_REGION } from './region';
 
 describe('buildStyle(opentopo)', () => {
   const style = buildStyle('opentopo', '');
@@ -458,5 +459,71 @@ describe('zoom scoping', () => {
     const ids = style.layers.map((l) => l.id);
     expect(ids.indexOf('places-settlement')).toBeGreaterThan(ids.indexOf('roads-major'));
     expect(ids.indexOf('places-settlement')).toBeGreaterThan(ids.indexOf('contours-index'));
+  });
+});
+
+describe('region mask', () => {
+  // planetiler's --bounds decides which tiles are built, not where their
+  // features end -- an edge tile still carries whole roads and place labels
+  // past SHIPPED_REGION, which then render on bare background. The mask
+  // covers the rest of the world so the region reads as the whole map.
+  const style = buildStyle('selfhosted', '');
+  const maskLayer = style.layers[style.layers.length - 1] as {
+    id: string; type: string; source: string; paint?: Record<string, unknown>;
+  };
+  const maskSource = style.sources['region-mask'] as {
+    type: string; data: { geometry: { type: string; coordinates: number[][][] } };
+  };
+
+  it('is the last layer, so it draws over every basemap layer including leaking labels', () => {
+    expect(maskLayer.id).toBe('region-mask');
+    // Belt-and-braces: also confirm nothing else in the array claims the id,
+    // i.e. this really is the layer at the tail, not a coincidental match.
+    expect(style.layers.filter((l) => l.id === 'region-mask')).toHaveLength(1);
+  });
+
+  it('is a fill layer painted 20 points darker than the #f4f1ea background', () => {
+    expect(maskLayer.type).toBe('fill');
+    expect(maskLayer.source).toBe('region-mask');
+    expect(maskLayer.paint?.['fill-color']).toBe('#e0dbd0');
+  });
+
+  it("derives the hole from SHIPPED_REGION.bbox, so a region change can't desync it", () => {
+    const { west, south, east, north } = SHIPPED_REGION.bbox;
+    const [outer, hole] = maskSource.data.geometry.coordinates;
+    expect(maskSource.data.geometry.type).toBe('Polygon');
+    // Outer ring: the whole world.
+    expect(outer[0]).toEqual([-180, -85]);
+    expect(outer).toContainEqual([180, 85]);
+    // Hole: exactly the shipped region's bbox corners.
+    const holeLons = hole.map((c) => c[0]);
+    const holeLats = hole.map((c) => c[1]);
+    expect(Math.min(...holeLons)).toBe(west);
+    expect(Math.max(...holeLons)).toBe(east);
+    expect(Math.min(...holeLats)).toBe(south);
+    expect(Math.max(...holeLats)).toBe(north);
+  });
+
+  it('winds the outer ring counter-clockwise and the hole clockwise, per RFC 7946', () => {
+    // Shoelace formula: positive signed area is counter-clockwise, negative
+    // is clockwise, for coordinates given as (lon, lat).
+    const signedArea = (ring: number[][]): number => {
+      let sum = 0;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const [x0, y0] = ring[i];
+        const [x1, y1] = ring[i + 1];
+        sum += x0 * y1 - x1 * y0;
+      }
+      return sum / 2;
+    };
+    const [outer, hole] = maskSource.data.geometry.coordinates;
+    expect(signedArea(outer)).toBeGreaterThan(0);
+    expect(signedArea(hole)).toBeLessThan(0);
+  });
+
+  it('closes both rings, since GeoJSON requires the first and last position to match', () => {
+    const [outer, hole] = maskSource.data.geometry.coordinates;
+    expect(outer[0]).toEqual(outer[outer.length - 1]);
+    expect(hole[0]).toEqual(hole[hole.length - 1]);
   });
 });

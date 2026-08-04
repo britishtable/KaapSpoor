@@ -373,4 +373,36 @@ test.describe('map', () => {
     expect(peakView.paths).toBeGreaterThan(0);
     expect(peakView.peaksMinor).toBeGreaterThan(0);
   });
+
+  test('constrains the camera to the region, so panning cannot wander off the map', async ({
+    page
+  }) => {
+    // The map is a standalone region (see region.ts and style.ts's
+    // region-mask layer), not a window onto a continuous world. Without
+    // maxBounds a visitor could still pan clean off the region into the
+    // masked-out space beyond it. This reads the real MapLibre camera
+    // constraint back, rather than just checking a prop was passed somewhere.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const maxBounds = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const b = el.__maplibreMap!.getMaxBounds();
+      if (!b) return null;
+      return { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() };
+    });
+
+    expect(maxBounds).not.toBeNull();
+    // SHIPPED_REGION.bbox: west 18.27, south -34.33, east 18.51, north -33.89.
+    // maxBounds must contain the whole region -- a tighter box would clip the
+    // camera before it could ever frame the region fitBounds targets.
+    expect(maxBounds!.west).toBeLessThanOrEqual(18.27);
+    expect(maxBounds!.south).toBeLessThanOrEqual(-34.33);
+    expect(maxBounds!.east).toBeGreaterThanOrEqual(18.51);
+    expect(maxBounds!.north).toBeGreaterThanOrEqual(-33.89);
+  });
 });
