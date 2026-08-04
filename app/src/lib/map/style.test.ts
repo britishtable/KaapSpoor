@@ -69,7 +69,10 @@ describe('self-hosted source-layer contract', () => {
     ['paths', 'paths'],
     ['peaks-headline', 'peaks'],
     ['peaks-major', 'peaks'],
-    ['peaks-minor', 'peaks']
+    ['peaks-minor', 'peaks'],
+    ['landcover', 'landcover'],
+    ['places-settlement', 'places'],
+    ['places-suburb', 'places']
   ])('layer %s reads source-layer %s', (id, sourceLayer) => {
     expect(layerFor(id)?.['source-layer']).toBe(sourceLayer);
   });
@@ -348,6 +351,10 @@ describe('zoom scoping', () => {
       expect(o).toBeGreaterThan(0);
       expect(o).toBeLessThanOrEqual(0.35);
     }
+    // Inverting the ramp would restore the defect it exists to fix — a heavy
+    // wash at overview zoom where relief compresses — and every bound above
+    // would still pass. Assert the direction, not just the range.
+    expect(outputs).toEqual([...outputs].sort((a, b) => a - b));
   });
 
   it('fills landcover between the hillshade and the water', () => {
@@ -405,12 +412,22 @@ describe('zoom scoping', () => {
     };
     // The map opens near z10.3. City/town/village is 14 features in region —
     // the right density to orient by. Suburb is 231 and would bury everything.
-    // places-settlement carries no minzoom at all (draws from the opening
-    // view), so coalesce to 0 the way the roads-major/peaks-headline check
-    // above already does — undefined is not a number toBeLessThanOrEqual
-    // can compare.
     expect(settlement.minzoom ?? 0).toBeLessThanOrEqual(10);
     expect(suburb.minzoom).toBeGreaterThanOrEqual(13);
+  });
+
+  it('floors places-settlement below the opening view, not below the region', () => {
+    // Mirror image of the peaks-headline floor: with no minzoom at all,
+    // places-settlement's 14 labels stack into a few pixels over empty
+    // background when zoomed out past the region, clamped to their lowest
+    // text-size stop. 7 is not tuned to one measurement of the opening
+    // zoom — it sits below the lowest plausible opening zoom across
+    // viewports (9.92 in the Playwright pane, 10.3 in a desktop browser,
+    // lower on a phone), the same margin peaks-headline's floor of 8 keeps.
+    const settlement = style.layers.find((l) => l.id === 'places-settlement') as {
+      minzoom?: number;
+    };
+    expect(settlement.minzoom).toBe(7);
   });
 
   it('splits places so the two tiers cannot both draw the same feature', () => {

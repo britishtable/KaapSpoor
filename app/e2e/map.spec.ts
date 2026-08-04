@@ -362,7 +362,7 @@ test.describe('map', () => {
 
     // Peaks at z14 over Hout Bay/Llandudno, not an arbitrary close-in view:
     // peaks-minor moved to minzoom 14 in a later task of this plan (headline
-    // >= 1000m at z8, major 600-999m at z12, minor <1000m at z14), so z13
+    // >= 1000m at z8, major 600-999m at z12, minor <600m at z14), so z13
     // renders zero minor peaks everywhere -- that trap is exactly why this is
     // a second camera rather than reusing suburbView. Measured directly: this
     // camera renders Little Lion's Head (437 m) and Houtbaainek by name in

@@ -281,6 +281,13 @@ function selfHosted(base: string): StyleSpecification {
         type: 'symbol',
         source: 'trails',
         'source-layer': 'places',
+        // Below 7, zoomed out past the region, its 14 labels stack into a few
+        // pixels over empty background at the lowest text-size stop — the
+        // mirror image of the reason peaks-headline is floored at 8. 7 sits
+        // below every measured opening zoom (9.92 in the Playwright viewport,
+        // 10.3 in a desktop browser, lower on a phone), so it still labels
+        // the opening view on any device.
+        minzoom: 7,
         filter: ['match', ['get', 'place'], ['city', 'town', 'village'], true, false],
         layout: {
           'text-field': ['get', 'name'],
