@@ -99,17 +99,27 @@
         clusterMaxZoom: 13
       });
 
+      // The circle gets its OWN source, deliberately not the clustered `routes`
+      // one. Framing a selection on its uncertainty bounds lands the camera at
+      // z11-12.2 (measured across viewports), below clusterMaxZoom 13, so the
+      // selected point is inside a cluster and a filter against `routes` draws
+      // nothing at all -- the feature the filter looks for does not exist at
+      // that zoom. This was live and invisible until a browser check caught it.
+      // An unclustered source of exactly one point cannot have that problem.
+      map.addSource('selected-uncertainty', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
       // Added first so it sits under every pin and cluster: a translucent disc
       // several kilometres across must never obscure the thing it describes.
-      // The filter starts matching nothing -- this layer draws the SELECTED
-      // route's circle only (see the selection effect below), because the 31
-      // approximate routes share just 9 centroids and permanent circles would
-      // be an overlapping soup. The reasoning is in pins.ts.
+      // It holds the SELECTED route alone (see the selection effect below),
+      // because the 31 approximate routes share just 9 centroids and permanent
+      // circles would be an overlapping soup. The reasoning is in pins.ts.
       map.addLayer({
         id: 'uncertainty',
         type: 'circle',
-        source: 'routes',
-        filter: ['==', ['get', 'id'], ''],
+        source: 'selected-uncertainty',
         paint: uncertaintyPaint()
       });
 
@@ -267,9 +277,17 @@
         ? target.coordsAccuracyM
         : null;
 
-    // Show the uncertainty circle for the selected route and no other. An id
-    // that matches nothing (the empty string) is how it goes away again.
-    map.setFilter('uncertainty', ['==', ['get', 'id'], approxRadius ? selectedId : '']);
+    // Show the uncertainty circle for the selected route and no other; an empty
+    // collection is how it goes away again.
+    (map.getSource('selected-uncertainty') as GeoJSONSource | undefined)?.setData(
+      approxRadius && target?.coords
+        ? {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [target.coords.lon, target.coords.lat] },
+            properties: { coordsAccuracyM: approxRadius }
+          }
+        : { type: 'FeatureCollection', features: [] }
+    );
 
     if (target?.coords) {
       if (approxRadius) {

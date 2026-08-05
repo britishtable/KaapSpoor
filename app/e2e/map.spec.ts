@@ -1,6 +1,45 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const KASTEELSPOORT_ID = 'table-mountain--atlantic-west--kasteelspoort';
+const KASTEELSPOORT_TITLE = 'Kasteelspoort path (KP)';
+// One of the 31 area-approx routes, and one of the 7 stacked on the Table
+// Mountain / Atlantic West centroid (r=3911 m) that the plan calls out as a
+// known limitation. Its title is unique in the dataset, so the panel's search
+// narrows to it alone.
+const APPROX_TITLE = 'Slangolie Ravine';
+
+/**
+ * Rendered feature count for a layer, or -1 if the style has no such layer --
+ * the same distinction the of() helper inside the opening-view test draws, and
+ * for the same reason: queryRenderedFeatures does not throw for an unknown
+ * layer, it returns [], so "absent" and "drew nothing" are otherwise identical.
+ */
+async function renderedCount(page: Page, layer: string): Promise<number> {
+  return page.evaluate(async (id) => {
+    const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+      __maplibreMap?: import('maplibre-gl').Map;
+    };
+    const map = el.__maplibreMap!;
+    if (!map.loaded() || map.isMoving()) {
+      await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+    }
+    return map.getLayer(id) ? map.queryRenderedFeatures(undefined, { layers: [id] }).length : -1;
+  }, layer);
+}
+
+/**
+ * Selects a route by clicking its row in the FULL, unfiltered tree.
+ *
+ * Deliberately not "filter to one route, then click it". Filtering leaves a
+ * single feature in the pin source, which cannot cluster with anything -- and
+ * that hid a real bug: with every route present, a selection framed on its
+ * uncertainty bounds sits below clusterMaxZoom, so the selected point is inside
+ * a cluster. The circle drew nothing in normal use while a filtered test passed.
+ */
+async function selectFromPanel(page: Page, title: string): Promise<void> {
+  await page.getByTestId('route-link').filter({ hasText: title }).first().click();
+  await expect(page.getByTestId('preview-body')).toBeVisible();
+}
 
 // MapView stashes the live MapLibre instance on the map container for tests
 // only (see the __maplibreMap comment in MapView.svelte) — WebGL pixels are
@@ -404,5 +443,100 @@ test.describe('map', () => {
     expect(maxBounds!.south).toBeLessThanOrEqual(-34.33);
     expect(maxBounds!.east).toBeGreaterThanOrEqual(18.51);
     expect(maxBounds!.north).toBeGreaterThanOrEqual(-33.89);
+  });
+});
+
+test.describe('selection and uncertainty', () => {
+  test('clicking a pin previews that route without leaving the map', async ({ page }) => {
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const point = await jumpToKasteelspoort(page);
+    const unscrolledBox = await page.locator('[data-testid="map"]').boundingBox();
+    if (!unscrolledBox) throw new Error('map container has no bounding box');
+    await page.evaluate(
+      (y) => window.scrollTo(0, Math.max(0, y - window.innerHeight / 2)),
+      unscrolledBox.y + point.y
+    );
+    const box = await page.locator('[data-testid="map"]').boundingBox();
+    if (!box) throw new Error('map container has no bounding box');
+    await page.mouse.click(box.x + point.x, box.y + point.y);
+
+    // Scoped to the panel: the pin popup shows the title too, so an unscoped
+    // assertion would pass without the preview existing at all.
+    const preview = page.getByTestId('preview-body');
+    await expect(preview).toBeVisible();
+    await expect(page.getByRole('heading', { name: KASTEELSPOORT_TITLE })).toBeVisible();
+    // Still on the map, which is the whole point.
+    await expect(page).toHaveURL(/\/$|\/KaapSpoor\/$/);
+  });
+
+  test('selecting an approximate route draws its uncertainty circle', async ({ page }) => {
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    expect(await renderedCount(page, 'uncertainty')).toBe(0); // layer present, drawing nothing
+
+    await selectFromPanel(page, APPROX_TITLE);
+
+    expect(await renderedCount(page, 'uncertainty')).toBeGreaterThan(0);
+  });
+
+  test('selecting a surveyed route draws no uncertainty circle', async ({ page }) => {
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    await selectFromPanel(page, KASTEELSPOORT_TITLE);
+
+    // Zero, not -1: the layer must still exist. A renamed or dropped layer has
+    // to fail differently from one correctly drawing nothing.
+    expect(await renderedCount(page, 'uncertainty')).toBe(0);
+  });
+
+  test('the lifted gate puts approximate routes on the map', async ({ page }) => {
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const bySource = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const source = el.__maplibreMap!.getSource('routes') as import('maplibre-gl').GeoJSONSource;
+      const data = source.serialize().data as GeoJSON.FeatureCollection;
+      const counts: Record<string, number> = {};
+      for (const f of data.features) {
+        const s = String(f.properties?.coordsSource);
+        counts[s] = (counts[s] ?? 0) + 1;
+      }
+      return { counts, total: data.features.length };
+    });
+
+    // Deliberately not a hard-coded total, which drifts with every re-crawl.
+    // Before the gate came off this count was exactly zero, and the total was
+    // the surveyed count alone.
+    const approx = bySource.counts['area-approx'] ?? 0;
+    expect(approx).toBeGreaterThan(0);
+    expect(bySource.total).toBeGreaterThan(bySource.total - approx);
+
+    // Every approximate route must carry a radius, or its circle cannot be sized.
+    const missingRadius = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const source = el.__maplibreMap!.getSource('routes') as import('maplibre-gl').GeoJSONSource;
+      const data = source.serialize().data as GeoJSON.FeatureCollection;
+      return data.features.filter(
+        (f) => f.properties?.coordsSource === 'area-approx' && !f.properties?.coordsAccuracyM
+      ).length;
+    });
+    expect(missingRadius).toBe(0);
   });
 });
