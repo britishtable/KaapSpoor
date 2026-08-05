@@ -39,7 +39,15 @@
 >
   <span class="title">{route.title}</span>
   {#if route.grade}<span class="grade">{route.grade.split(' ')[0]}</span>{/if}
-  {#if !route.coords}<span class="glyph" aria-label="no location" title="No location recorded">◌</span>{/if}
+  <!-- Three distinct states. Approximate is not absent: the route has a
+       position, it is just an area centroid good to a few kilometres. Before
+       the gate came off, such a route had no coords at all and so wore the
+       "no location" glyph, which is now simply the wrong claim. -->
+  {#if !route.coords}
+    <span class="glyph" aria-label="no location" title="No location recorded">◌</span>
+  {:else if route.coordsSource === 'area-approx'}
+    <span class="glyph approx" aria-label="approximate location" title="Approximate location">≈</span>
+  {/if}
   {#if done}<span class="glyph" aria-label="done" title="Done">✓</span>{/if}
 </a>
 
@@ -57,4 +65,7 @@
   .title { flex: 1; }
   .grade { font-variant-numeric: tabular-nums; opacity: 0.7; font-size: 0.85em; }
   .glyph { opacity: 0.75; }
+  /* Matches ProvenanceNote's caveat treatment, so "approximate" looks the same
+     wherever the app says it. */
+  .glyph.approx { opacity: 1; color: color-mix(in srgb, darkorange 70%, currentColor); }
 </style>

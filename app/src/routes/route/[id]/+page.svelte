@@ -4,6 +4,7 @@
   import StatsStrip from '$lib/components/StatsStrip.svelte';
   import JournalControls from '$lib/components/JournalControls.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
+  import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -18,11 +19,12 @@
   <h1>{r.title}</h1>
   <StatsStrip route={r} />
 
+  <!-- Every route states how its position is known, in the same component the
+       map's preview panel uses, so the two can never word it differently. -->
   {#if r.coords}
-    <LocatorMap coords={r.coords} title={r.title} />
-  {:else}
-    <p class="loc muted">Location not recorded.</p>
+    <LocatorMap coords={r.coords} title={r.title} accuracyM={r.coordsAccuracyM} />
   {/if}
+  <ProvenanceNote route={r} />
 
   {#each Object.entries(r.sections) as [heading, body]}
     {#if heading}<h2>{heading}</h2>{/if}
@@ -46,6 +48,5 @@
   .page { padding: 1rem; max-width: 60rem; margin: 0 auto; }
   .crumb { opacity: 0.7; font-size: 0.9em; }
   .crumb a { color: inherit; }
-  .loc.muted { opacity: 0.6; }
   .src { margin-top: 2rem; font-size: 0.85em; opacity: 0.7; }
 </style>

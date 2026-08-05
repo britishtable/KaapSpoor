@@ -44,22 +44,36 @@ export function transform(
     // route-locations.json is the single source of truth for provenance and
     // wins over the crawl's own coords: a curated entry exists precisely
     // because somebody judged the crawl coordinate wrong or missing.
-    // DO NOT REMOVE THIS GATE without the map first being able to draw
-    // uncertainty. An `area-approx` entry is an area centroid with a radius of
-    // kilometres; nothing in the app reads `coordsAccuracyM` yet, so merging it
-    // would render a whole-region guess as a pin indistinguishable from a
-    // surveyed one — e.g. the Otter Trail pinned near Worcester, 450 km out.
-    // Until then such a route stays honestly unlocated, exactly as it was
-    // before tools/geocode existed. The data remains in route-locations.json.
+    //
+    // The gate that used to drop every `area-approx` entry here was lifted in
+    // Phase 4c, on the condition its own comment set: that the map could draw
+    // uncertainty first. It can. What now keeps the Otter Trail's area centroid
+    // — near Worcester, 450 km from the walk — from passing as a surveyed
+    // position is not this function but two things downstream, and removing
+    // either one puts the gate back on the table:
+    //
+    //   1. src/lib/map/pins.ts draws a route with `coordsSource: 'area-approx'`
+    //      as a HOLLOW pin, always, at every zoom, selected or not.
+    //   2. Selecting one draws its accuracy circle and frames the camera on
+    //      that circle rather than flying to z14, so the radius is visible
+    //      rather than implied.
+    //
+    // Both depend on `coordsAccuracyM` and `coordsSource` reaching the app, so
+    // they are written out below rather than nulled.
     const recorded = locations[id];
-    const location = recorded?.source === 'area-approx' ? undefined : recorded;
+    // An area centroid is strictly less information than a coordinate for the
+    // route itself: it is a fallback for a route that has nothing, never a
+    // replacement for something better. (geocode only emits it as a last
+    // resort, so today this changes no route — it is here so a future re-crawl
+    // cannot quietly downgrade a real coordinate to its area's midpoint.)
+    const location = recorded?.source === 'area-approx' && r.coords ? undefined : recorded;
     const entry: RouteIndexEntry = {
       id, title: r.title, area: r.area,
       coords: location?.coords ?? r.coords,
       coordsSource: location?.source ?? (r.coords ? 'crawl' : null),
-      // Always null while the gate above holds: only `area-approx` ever carries
-      // a radius, and `area-approx` never reaches this point.
-      coordsAccuracyM: null,
+      // Only `area-approx` carries a radius; the discriminated union in
+      // types.ts is what makes reading it off any other source impossible.
+      coordsAccuracyM: location?.source === 'area-approx' ? location.accuracyM : null,
       coordsOsm: location?.osm ?? null,
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),

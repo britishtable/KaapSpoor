@@ -42,4 +42,33 @@ describe('route page', () => {
     expect(screen.queryByTestId('locator-map')).toBeNull();
     expect(screen.getByText('Location not recorded.')).toBeTruthy();
   });
+
+  it('states how a located route was positioned, not merely where', () => {
+    const located = {
+      ...route,
+      coords: { lat: -33.97, lon: 18.39, zoom: 16 },
+      coordsSource: 'crawl' as const
+    };
+    render(Page, { data: { route: located } });
+    expect(screen.getByText('Location from the Mountain Meanders page.')).toBeTruthy();
+  });
+
+  it('qualifies an approximate position rather than presenting it as a point', () => {
+    // The route page and the map preview say this in the same words, because
+    // they render the same component.
+    const approx = {
+      ...route,
+      coords: { lat: -33.97, lon: 18.39, zoom: 11 },
+      coordsSource: 'area-approx' as const,
+      coordsAccuracyM: 3911
+    };
+    render(Page, { data: { route: approx } });
+    expect(
+      screen.getByText(
+        'Approximate — somewhere within about 3.9 km of this point, averaged from other routes in this area.'
+      )
+    ).toBeTruthy();
+    // ...and the coordinates are not restated to 11-metre precision beneath it.
+    expect(screen.queryByText('-33.9700, 18.3900')).toBeNull();
+  });
 });

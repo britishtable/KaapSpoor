@@ -13,9 +13,15 @@
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
+  import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import type { Coords } from '$lib/data/types';
 
-  let { coords, title }: { coords: Coords; title: string } = $props();
+  let {
+    coords,
+    title,
+    /** Metres. Set for an `area-approx` position only; see pins.ts. */
+    accuracyM = null
+  }: { coords: Coords; title: string; accuracyM?: number | null } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
 
@@ -42,6 +48,35 @@
       attributionControl: false
     });
     map.addControl(new AttributionControl({ compact: true }));
+
+    if (accuracyM) {
+      // Frame the whole circle rather than the clamped zoom above. Centring at
+      // z13 on a position known to kilometres puts the pin in the middle of a
+      // view narrower than its own error, which asserts exactly the precision
+      // the coordinate does not have. The same treatment MapView gives a
+      // selected approximate route.
+      map.fitBounds(uncertaintyBounds(coords.lon, coords.lat, accuracyM), { padding: 24 });
+      map.on('load', () => {
+        if (!map) return;
+        map.addSource('uncertainty', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [coords.lon, coords.lat] },
+            // The paint expression reads the radius off the feature, exactly as
+            // it does on the main map, so both maps size the circle identically.
+            properties: { coordsAccuracyM: accuracyM }
+          }
+        });
+        map.addLayer({
+          id: 'uncertainty',
+          type: 'circle',
+          source: 'uncertainty',
+          paint: uncertaintyPaint()
+        });
+      });
+    }
+
     try {
       // Marker.addTo() projects the coordinate immediately. If WebGL2 never
       // initialized (e.g. no GPU context, as under jsdom in unit tests), the
@@ -73,8 +108,19 @@
   <!-- The coordinates stay visible, not merely an aria-label. A map conveys
        position only to people who can see it and only where WebGL renders, so
        the text carries the same information for screen-reader users, for devices
-       without WebGL, and for anyone wanting to copy the position elsewhere. -->
-  <figcaption>{coords.lat.toFixed(4)}, {coords.lon.toFixed(4)}</figcaption>
+       without WebGL, and for anyone wanting to copy the position elsewhere.
+
+       The number of decimals is part of the claim: 4 places is ~11 m, which for
+       an area centroid good to kilometres is the most precise-looking thing on
+       the page. An approximate position gets 2 places (~1 km) and its radius
+       stated outright. -->
+  <figcaption>
+    {#if accuracyM}
+      {coords.lat.toFixed(2)}, {coords.lon.toFixed(2)} · ±{(accuracyM / 1000).toFixed(1)} km
+    {:else}
+      {coords.lat.toFixed(4)}, {coords.lon.toFixed(4)}
+    {/if}
+  </figcaption>
 </figure>
 
 <style>

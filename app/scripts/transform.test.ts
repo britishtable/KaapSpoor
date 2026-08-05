@@ -96,9 +96,12 @@ describe('transform provenance', () => {
     expect(index[0].coordsSource).toBe('curated');
   });
 
-  it('leaves a route unlocated when its only location is area-approximate', () => {
-    // The entry exists in route-locations.json but must not become a pin: its
-    // radius is kilometres and no app code renders uncertainty yet.
+  it('locates a route from an area-approximate entry, carrying its radius', () => {
+    // INVERTED in Phase 4c. This asserted the opposite until the map could draw
+    // uncertainty: an area centroid rendered as a plain pin was indistinguishable
+    // from a surveyed one, so the gate held it back. The pins layer now draws
+    // such a route hollow always, and its accuracy circle when selected, so the
+    // radius reaching the app is the point rather than the danger.
     const { index } = transform(dataset([{ slug: 'corridor-rib' }]), {
       'a--corridor-rib': {
         coords: { lat: -33.97, lon: 18.39, zoom: 11 },
@@ -106,12 +109,30 @@ describe('transform provenance', () => {
         accuracyM: 4200
       }
     });
-    expect(index[0].coords).toBeNull();
-    expect(index[0].coordsSource).toBeNull();
+    expect(index[0].coords).toEqual({ lat: -33.97, lon: 18.39, zoom: 11 });
+    expect(index[0].coordsSource).toBe('area-approx');
+    expect(index[0].coordsAccuracyM).toBe(4200);
+  });
+
+  it('carries no accuracy radius for a route located precisely', () => {
+    // coordsAccuracyM is the discriminator the app reads to decide hollow vs
+    // filled; a stray radius on a surveyed route would draw a circle around a
+    // point that has none.
+    const { index } = transform(dataset([{ slug: 'corridor-rib' }]), {
+      'a--corridor-rib': { coords: { lat: -33.97, lon: 18.39, zoom: 15 }, source: 'curated' }
+    });
     expect(index[0].coordsAccuracyM).toBeNull();
   });
 
   it('does not let an area-approximate entry override a crawl coordinate', () => {
+    // NOT inverted with the gate, and deliberately so: this one was never about
+    // the map's ability to draw uncertainty. An area centroid is strictly less
+    // information than a coordinate for the route itself, so it is a fallback
+    // for a route that has nothing, never a replacement for something better.
+    // tools/geocode only emits area-approx as a last resort -- none of the 41
+    // entries belongs to a route that already had crawl coords -- so this
+    // guards a case the current data does not contain and a future re-crawl
+    // could easily introduce.
     const raw = dataset([{ slug: 'kasteelspoort', coords: { lat: -33.97, lon: 18.39, zoom: 17 } }]);
     const { index } = transform(raw, {
       'a--kasteelspoort': {

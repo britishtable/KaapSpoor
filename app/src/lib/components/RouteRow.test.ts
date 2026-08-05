@@ -20,8 +20,27 @@ describe('RouteRow', () => {
     expect(screen.getByLabelText('done')).toBeTruthy();
   });
   it('flags routes with no location', () => {
-    render(RouteRow, { route: { ...located, coords: null }, done: false });
+    render(RouteRow, { route: { ...located, coords: null, coordsSource: null }, done: false });
     expect(screen.getByLabelText('no location')).toBeTruthy();
+  });
+
+  it('flags an approximate location distinctly from an absent one', () => {
+    // Three states, three appearances: approximate is not the same as absent,
+    // and both differ from a surveyed position. Before Phase 4c an area-approx
+    // route was gated out of the data entirely and so wore the "no location"
+    // glyph, which is now the wrong claim -- it has a location, just a loose one.
+    render(RouteRow, {
+      route: { ...located, coordsSource: 'area-approx', coordsAccuracyM: 3911 },
+      done: false
+    });
+    expect(screen.getByLabelText('approximate location')).toBeTruthy();
+    expect(screen.queryByLabelText('no location')).toBeNull();
+  });
+
+  it('gives a surveyed route no location glyph at all', () => {
+    render(RouteRow, { route: located, done: false });
+    expect(screen.queryByLabelText('no location')).toBeNull();
+    expect(screen.queryByLabelText('approximate location')).toBeNull();
   });
 });
 
