@@ -77,3 +77,32 @@ describe('RouteRow selection wiring', () => {
     expect(screen.getByTestId('route-link').getAttribute('href')).toContain('/route/a');
   });
 });
+
+describe('RouteRow click behaviour with a preview panel', () => {
+  function clickWith(init: MouseEventInit): MouseEvent {
+    render(RouteRow, { route: located, done: false });
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true, ...init });
+    screen.getByTestId('route-link').dispatchEvent(ev);
+    return ev;
+  }
+
+  it('suppresses navigation on a plain click, so the preview can open in place', () => {
+    // The panel now previews the route without leaving the map; navigating on
+    // every click would replace that preview before it could be read.
+    const ev = clickWith({});
+    expect(ev.defaultPrevented).toBe(true);
+    expect(get(selection).selectedId).toBe('a');
+  });
+
+  it.each([
+    ['ctrlKey', { ctrlKey: true }],
+    ['metaKey', { metaKey: true }],
+    ['shiftKey', { shiftKey: true }],
+    ['altKey', { altKey: true }]
+  ])('lets a %s click navigate as an ordinary link', (_name, init) => {
+    // This is why the row stays an <a href> rather than becoming a <button>:
+    // open-in-new-tab/window and "copy link address" keep working.
+    const ev = clickWith(init);
+    expect(ev.defaultPrevented).toBe(false);
+  });
+});

@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/svelte';
-import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Page from './+page.svelte';
-import type { RouteIndexEntry } from '$lib/data/types';
+import { clearSelection } from '$lib/map/selection';
+import type { RouteContent, RouteIndexEntry } from '$lib/data/types';
 
 const entries: RouteIndexEntry[] = [
   { id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
@@ -22,5 +23,57 @@ describe('library page', () => {
     render(Page, { data: { entries: [...entries, unlocated] } });
     expect(screen.getByRole('link', { name: /Nowhere/ })).toBeTruthy();
     expect(screen.getAllByLabelText('no location').length).toBe(1);
+  });
+});
+
+describe('library page selection', () => {
+  const content: RouteContent = {
+    ...entries[0],
+    sections: { Overview: 'A long walk up a big hill.' },
+    description: 'Overview:\nA long walk up a big hill.',
+    related: [], attachments: [], photoCount: 0,
+    sourceUrl: 'https://example.invalid/route'
+  };
+
+  beforeEach(() => {
+    clearSelection();
+    vi.stubGlobal('fetch', async () => ({
+      ok: true, status: 200, json: async () => content
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    clearSelection();
+  });
+
+  it('shows the route tree and no preview when nothing is selected', () => {
+    render(Page, { data: { entries } });
+    expect(screen.getByTestId('route-link')).toBeTruthy();
+    expect(screen.queryByLabelText('Route preview')).toBeNull();
+  });
+
+  it('swaps the panel to the preview when a route is selected', async () => {
+    render(Page, { data: { entries } });
+    await fireEvent.click(screen.getByTestId('route-link'));
+
+    await waitFor(() => expect(screen.getByTestId('preview-body')).toBeTruthy());
+    expect(screen.getByRole('heading', { name: 'Blind Gully' })).toBeTruthy();
+    // The tree and the filters give way to the preview: leaving the search box
+    // up would let the user filter the very route they are reading out of the list.
+    expect(screen.queryByTestId('route-link')).toBeNull();
+    expect(screen.queryByLabelText('Search routes')).toBeNull();
+  });
+
+  it('returns to the tree when the preview is closed', async () => {
+    render(Page, { data: { entries } });
+    await fireEvent.click(screen.getByTestId('route-link'));
+    await waitFor(() => expect(screen.getByTestId('preview-body')).toBeTruthy());
+
+    await fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+    await waitFor(() => expect(screen.getByTestId('route-link')).toBeTruthy());
+    expect(screen.queryByLabelText('Route preview')).toBeNull();
+    expect(screen.getByLabelText('Search routes')).toBeTruthy();
   });
 });

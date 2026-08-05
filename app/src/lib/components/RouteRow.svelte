@@ -9,6 +9,21 @@
   // single current item, so hover must not claim it.
   let hovered = $derived($selection.hoveredId === route.id);
   let selected = $derived($selection.selectedId === route.id);
+
+  // A plain click selects the route, which opens the preview panel in place --
+  // navigating to the full page instead would replace that preview before it
+  // could be read, and the map is the thing the user chose to stay on.
+  //
+  // The row nonetheless stays an <a href> rather than becoming a <button>, so
+  // ctrl/cmd/shift/alt-click, middle-click (which fires auxclick, never this
+  // handler) and "copy link address" all keep working, and the destination is
+  // visible in the status bar. The preview's own link is the plain-click route
+  // to the full page.
+  function onclick(e: MouseEvent) {
+    setSelected(route.id);
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+  }
 </script>
 
 <a
@@ -20,7 +35,7 @@
   data-testid="route-link"
   onmouseenter={() => setHovered(route.id)}
   onmouseleave={() => setHovered(null)}
-  onclick={() => setSelected(route.id)}
+  onclick={onclick}
 >
   <span class="title">{route.title}</span>
   {#if route.grade}<span class="grade">{route.grade.split(' ')[0]}</span>{/if}

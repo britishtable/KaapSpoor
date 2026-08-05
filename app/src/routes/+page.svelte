@@ -6,6 +6,8 @@
   import Filters from '$lib/components/Filters.svelte';
   import MapView from '$lib/components/MapView.svelte';
   import BottomSheet from '$lib/components/BottomSheet.svelte';
+  import RoutePreview from '$lib/components/RoutePreview.svelte';
+  import { selection, clearSelection } from '$lib/map/selection';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -23,8 +25,16 @@
     <MapView entries={shown} />
   </div>
   <BottomSheet>
-    <Filters bind:value={opts} />
-    <AreaTree nodes={tree} {doneIds} />
+    <!-- Selecting a route turns the panel into that route, filters and all:
+         leaving the search box up would let a filter drop the very route being
+         read out of the list underneath it. The filter state itself survives in
+         `opts`, so closing the preview restores the list exactly as it was. -->
+    {#if $selection.selectedId}
+      <RoutePreview routeId={$selection.selectedId} onclose={clearSelection} />
+    {:else}
+      <Filters bind:value={opts} />
+      <AreaTree nodes={tree} {doneIds} />
+    {/if}
   </BottomSheet>
 </div>
 
