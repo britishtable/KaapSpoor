@@ -17,6 +17,7 @@
   import { buildStyle, SHIPPED_BASEMAP, type Basemap } from '$lib/map/style';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
   import { pinsPaint, uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
+  import { summariseGrade } from '$lib/data/grade';
   import { selection, setHovered, setSelected } from '$lib/map/selection';
   import { journal } from '$lib/journal/store';
   import { SHIPPED_REGION } from '$lib/map/region';
@@ -179,25 +180,66 @@
         // that is a fact about today's data, not a guarantee for the next
         // re-crawl). Build the popup from DOM nodes instead of interpolating
         // into setHTML's innerHTML sink, so a future "<" cannot inject markup.
-        const content = document.createElement('div');
+        const el = (tag: string, className?: string, text?: string) => {
+          const node = document.createElement(tag);
+          if (className) node.className = className;
+          if (text !== undefined) node.textContent = text;
+          return node;
+        };
 
-        const strong = document.createElement('strong');
-        strong.textContent = f.properties?.title ?? '';
-        content.appendChild(strong);
-        content.appendChild(document.createElement('br'));
+        const content = el('div', 'rp');
 
-        content.appendChild(document.createTextNode(f.properties?.grade ?? ''));
-        content.appendChild(document.createElement('br'));
+        // The head is set like a printed guide's route list: the grade in its
+        // own column, then the name. The grade field trails long prose on most
+        // routes (up to 145 characters), so only the level and stars come here.
+        const head = el('div', 'rp-head');
+        const { level, stars } = summariseGrade(f.properties?.grade ?? null);
+        if (level) {
+          const gradeCol = el('div', 'rp-grade');
+          gradeCol.appendChild(el('span', 'rp-level', level));
+          if (stars) {
+            // The guide writes quality as asterisks. Set at the size this column
+            // needs them, asterisks render as a row of faint dots -- they sit at
+            // cap height and carry almost no ink. Drawn as the mark they mean
+            // instead, which is legible at 10px and unmistakable.
+            gradeCol.appendChild(el('span', 'rp-stars', '★'.repeat(stars.length)));
+          }
+          // Announced as one fact, or a screen reader reads "black star" per
+          // glyph. role=img makes the label replace the contents entirely.
+          gradeCol.setAttribute('role', 'img');
+          gradeCol.setAttribute(
+            'aria-label',
+            stars
+              ? `Grade ${level}, ${stars.length} ${stars.length === 1 ? 'star' : 'stars'}`
+              : `Grade ${level}`
+          );
+          head.appendChild(gradeCol);
+        }
+        // Not a heading element: the popup is a transient annotation on the map,
+        // not a section of the document, and an h3 here both pollutes the page
+        // outline and collides with the preview panel's own heading for the
+        // same route.
+        head.appendChild(el('div', 'rp-title', f.properties?.title ?? ''));
+        content.appendChild(head);
 
         // A plain anchor, not a JS-driven navigation: SvelteKit's client router
         // intercepts clicks on internal <a> hrefs anywhere in the document, so
         // this still navigates client-side rather than doing a full page load.
-        const link = document.createElement('a');
+        const link = el('a', 'rp-open') as HTMLAnchorElement;
         link.href = `${base}/route/${id}`;
-        link.textContent = 'Open route';
+        link.appendChild(el('span', undefined, 'Open route'));
+        // Decorative: the label already says what happens, so the arrow must not
+        // be announced a second time.
+        const arrow = el('span', 'rp-arrow', '→');
+        arrow.setAttribute('aria-hidden', 'true');
+        link.appendChild(arrow);
         content.appendChild(link);
 
-        new Popup({ closeButton: true })
+        // A done route's pin is green; the popup follows it rather than
+        // contradicting the thing the user just clicked.
+        if (map!.getFeatureState({ source: 'routes', id })?.done) content.classList.add('is-done');
+
+        new Popup({ closeButton: true, className: 'route-popup', maxWidth: '17rem' })
           .setLngLat((f.geometry as GeoJSON.Point).coordinates as [number, number])
           .setDOMContent(content)
           .addTo(map!);
@@ -335,4 +377,126 @@
 
 <style>
   .map { width: 100%; height: 100%; min-height: 20rem; }
+
+  /* The pin popup.
+   *
+   * :global because MapLibre builds this DOM itself, outside the component's
+   * markup, so Svelte's scoping never reaches it. Everything is under
+   * .route-popup (the className passed to the Popup constructor) so none of it
+   * escapes onto MapLibre's other UI.
+   *
+   * Deliberately light in both themes. The popup is an annotation ON the map,
+   * and buildStyle's cartography is pale whatever the chrome is doing; a dark
+   * card here would sit heavier than the pins it describes. Its colours are the
+   * pins' own — terracotta for to-do, moss for done — so nothing new is
+   * introduced to the map's vocabulary.
+   */
+  .map :global(.route-popup) {
+    --rp-paper: #f7f3ec;
+    --rp-ink: #241f1a;
+    --rp-accent: #c1663f;
+    --rp-rule: rgb(36 31 26 / 0.16);
+  }
+  .map :global(.route-popup .rp.is-done) { --rp-accent: #4a6741; }
+
+  .map :global(.route-popup .maplibregl-popup-content) {
+    background: var(--rp-paper);
+    color: var(--rp-ink);
+    border-radius: 3px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgb(36 31 26 / 0.18);
+  }
+  /* One border side per anchor carries the tip's colour; the rest are already
+     transparent. Recolour all of them and only the visible one changes. */
+  .map :global(.route-popup .maplibregl-popup-tip) {
+    border-top-color: var(--rp-paper);
+    border-bottom-color: var(--rp-paper);
+    border-left-color: var(--rp-paper);
+    border-right-color: var(--rp-paper);
+  }
+  .map :global(.route-popup .maplibregl-popup-close-button) {
+    color: var(--rp-ink);
+    opacity: 0.45;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0.3rem 0.45rem;
+  }
+  .map :global(.route-popup .maplibregl-popup-close-button:hover) {
+    background: transparent;
+    opacity: 1;
+  }
+
+  /* The signature: a grade column ruled off from the name, as a printed
+     climbing guide sets its route list. */
+  .map :global(.route-popup .rp-head) {
+    display: flex;
+    align-items: stretch;
+    gap: 0.7rem;
+    padding: 0.7rem 1.6rem 0.7rem 0.85rem;
+  }
+  .map :global(.route-popup .rp-grade) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-right: 0.7rem;
+    border-right: 1px solid var(--rp-rule);
+    min-width: 2.1rem;
+  }
+  .map :global(.route-popup .rp-level) {
+    font-size: 1.45rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .map :global(.route-popup .rp-stars) {
+    color: var(--rp-accent);
+    font-size: 0.5rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    /* Centred as a block: the tracking would otherwise push the run right of
+       the numeral by its own trailing space. */
+    margin: 0.25rem 0 0 0.06em;
+  }
+  .map :global(.route-popup .rp-title) {
+    margin: 0;
+    align-self: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .map :global(.route-popup .rp-open) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid var(--rp-rule);
+    color: var(--rp-accent);
+    text-decoration: none;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .map :global(.route-popup .rp-open:hover) {
+    background: color-mix(in srgb, var(--rp-accent) 9%, transparent);
+  }
+  .map :global(.route-popup .rp-open:focus-visible) {
+    outline: 2px solid var(--rp-accent);
+    outline-offset: -2px;
+  }
+  .map :global(.route-popup .rp-arrow) {
+    transition: transform 120ms ease-out;
+  }
+  .map :global(.route-popup .rp-open:hover .rp-arrow) {
+    transform: translateX(2px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .map :global(.route-popup .rp-arrow) { transition: none; }
+    .map :global(.route-popup .rp-open:hover .rp-arrow) { transform: none; }
+  }
 </style>

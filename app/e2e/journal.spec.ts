@@ -2,6 +2,17 @@ import { test, expect } from '@playwright/test';
 
 test('a done-toggle persists across reload', async ({ page }) => {
   await page.goto('');
+  // Wait for hydration before clicking the row. A route row is a real <a href>,
+  // and only the Svelte handler suppresses its navigation -- so a click landing
+  // before hydration follows the link straight to the route page instead of
+  // previewing, and the preview link this test then looks for never appears.
+  // (That degradation is correct for a user; it just makes the next step
+  // conditional, which a test should not have to be.) data-map-ready is the
+  // signal the rest of the suite already uses.
+  await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+    timeout: 15_000
+  });
+
   // open the first route in the tree (not a nav link like "KaapSpoor" or "Settings")
   await page.getByTestId('route-link').first().click();
   // Since Phase 4c a row click previews the route in the panel rather than

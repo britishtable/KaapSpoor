@@ -487,9 +487,11 @@ test.describe('selection and uncertainty', () => {
 
     // Scoped to the panel: the pin popup shows the title too, so an unscoped
     // assertion would pass without the preview existing at all.
-    const preview = page.getByTestId('preview-body');
-    await expect(preview).toBeVisible();
-    await expect(page.getByRole('heading', { name: KASTEELSPOORT_TITLE })).toBeVisible();
+    const preview = page.locator('.preview');
+    await expect(page.getByTestId('preview-body')).toBeVisible();
+    // Scoped to the panel: the pin popup names the route too, so an unscoped
+    // match would pass on the popup alone and prove nothing about the preview.
+    await expect(preview.getByRole('heading', { name: KASTEELSPOORT_TITLE })).toBeVisible();
     // Still on the map, which is the whole point.
     await expect(page).toHaveURL(/\/$|\/KaapSpoor\/$/);
   });
@@ -646,5 +648,45 @@ test.describe('camera ownership', () => {
     await selectFromPanel(page, APPROX_TITLE);
     const second = await centre();
     expect(second).not.toEqual(first);
+  });
+
+});
+
+test.describe('pin popup', () => {
+  test('states the grade without its trailing prose', async ({ page }) => {
+    // The grade field is "<level><stars>: <prose>", and the prose runs to 132
+    // characters on this route. A popup is an annotation on the map; dumping the
+    // whole field turned it into a paragraph floating over the terrain.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const point = await page.evaluate(async () => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const map = el.__maplibreMap!;
+      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+        id: string;
+        coords: { lon: number; lat: number } | null;
+      }>;
+      const t = routes.find((r) => r.id === 'table-mountain--atlantic-west--hairpin-route')!;
+      map.jumpTo({ center: [t.coords!.lon, t.coords!.lat], zoom: 16 });
+      await new Promise<void>((r) => map.once('idle', () => r()));
+      const p = map.project([t.coords!.lon, t.coords!.lat]);
+      return { x: p.x, y: p.y };
+    });
+
+    const box = (await page.locator('[data-testid="map"]').boundingBox())!;
+    await page.mouse.click(box.x + point.x, box.y + point.y);
+
+    const popup = page.locator('.route-popup');
+    await expect(popup).toBeVisible();
+    await expect(popup.locator('.rp-level')).toHaveText('5');
+    await expect(popup).not.toContainText('bundu-bashing');
+    // The grade reaches assistive tech as one fact, not as a run of glyph names.
+    await expect(popup.locator('.rp-grade')).toHaveAttribute('aria-label', 'Grade 5, 1 star');
+    await expect(page.getByRole('link', { name: 'Open route' })).toBeVisible();
   });
 });
