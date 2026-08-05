@@ -61,7 +61,11 @@
     <div class="body" data-testid="preview-body">
       <p class="crumb">{r.area.map(humanizeArea).join(' / ')}</p>
       <StatsStrip route={r} />
-      <ProvenanceNote route={r} />
+      <!-- Wrapped for separation: StatsStrip's values and the note both carry
+           zero margin, so unwrapped the note butts straight onto the height-gain
+           figure and reads as part of that field rather than as a statement
+           about the position. Found by looking at it, not by a test. -->
+      <div class="provenance"><ProvenanceNote route={r} /></div>
 
       {#each Object.entries(r.sections) as [heading, text]}
         {#if heading}<h3>{heading}</h3>{/if}
@@ -87,9 +91,13 @@
   .body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0.5rem 0.75rem; }
   .crumb { margin: 0 0 0.6rem; font-size: 0.85em; opacity: 0.7; }
   h3 { margin: 1rem 0 0.25rem; font-size: 0.95rem; }
-  /* Section bodies carry real newlines from the source page; the narrow panel
-     needs them kept, where the wide route page can collapse them. */
-  .prose { margin: 0.25rem 0; white-space: pre-line; }
+  .provenance { margin: 0.75rem 0; }
+  /* NOT white-space: pre-line, though the newlines in the source tempt it. They
+     are not paragraph breaks -- the crawl split label/value pairs across them,
+     so preserving them renders lines that begin with ": " and ", " (measured on
+     Spring Step-Over, whose Location section became three fragments). The route
+     page collapses them and reads as prose; this now matches it. */
+  .prose { margin: 0.5rem 0; }
   .muted { padding: 0 0.5rem; opacity: 0.6; }
   .failed { padding: 0 0.5rem; color: color-mix(in srgb, crimson 70%, currentColor); }
   .more { display: inline-block; margin-top: 1rem; color: inherit; }
