@@ -261,6 +261,18 @@
     }
   });
 
+  // The selection the camera has already responded to.
+  //
+  // Plain and non-reactive on purpose: writing it must not re-trigger the effect
+  // that reads it. The effect below has to re-run on every hover (it paints the
+  // active pin), and the pins layer's own mouseenter/mouseleave fire constantly
+  // as the pointer crosses pins -- which is exactly what panning does. Moving
+  // the camera on every run therefore yanked the map back to the selected route
+  // mid-pan, repeatedly. Measured: two flyTo calls from pointer movement alone,
+  // returning the centre to the selection exactly. The camera belongs to the
+  // user once it has arrived; it is the *change* of selection that owns it.
+  let cameraFollowedId: string | null = null;
+
   // Highlight and fly when the panel selects or hovers a route.
   $effect(() => {
     const { hoveredId, selectedId } = $selection;
@@ -289,21 +301,28 @@
         : { type: 'FeatureCollection', features: [] }
     );
 
-    if (target?.coords) {
-      if (approxRadius) {
-        // Do NOT fly to z14 here. That frames a ~1.5 km-wide view on a position
-        // known to within kilometres, which asserts precisely the precision this
-        // route does not have -- and it would push the circle far outside the
-        // pane, leaving a full-screen tint with no visible edge. Framing on the
-        // circle's own bounds instead makes the uncertainty the subject: you see
-        // its whole extent, and the pin sitting at the middle of it.
-        map.fitBounds(uncertaintyBounds(target.coords.lon, target.coords.lat, approxRadius), {
-          padding: 48,
-          // A tight radius must not zoom in further than a surveyed route does.
-          maxZoom: 14
-        });
-      } else {
-        map.flyTo({ center: [target.coords.lon, target.coords.lat], zoom: 14, speed: 1.4 });
+    // Only a change of selection moves the camera. Recorded even when there is
+    // nothing to fly to, so that selecting an unlocated route and then coming
+    // back to a located one still counts as a change and still flies.
+    if (selectedId !== cameraFollowedId) {
+      cameraFollowedId = selectedId;
+      if (target?.coords) {
+        if (approxRadius) {
+          // Do NOT fly to z14 here. That frames a ~1.5 km-wide view on a
+          // position known to within kilometres, which asserts precisely the
+          // precision this route does not have -- and it would push the circle
+          // far outside the pane, leaving a full-screen tint with no visible
+          // edge. Framing on the circle's own bounds instead makes the
+          // uncertainty the subject: you see its whole extent, and the pin
+          // sitting at the middle of it.
+          map.fitBounds(uncertaintyBounds(target.coords.lon, target.coords.lat, approxRadius), {
+            padding: 48,
+            // A tight radius must not zoom in further than a surveyed route does.
+            maxZoom: 14
+          });
+        } else {
+          map.flyTo({ center: [target.coords.lon, target.coords.lat], zoom: 14, speed: 1.4 });
+        }
       }
     }
   });

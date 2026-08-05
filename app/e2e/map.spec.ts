@@ -561,3 +561,90 @@ test.describe('selection and uncertainty', () => {
     expect(missingRadius).toBe(0);
   });
 });
+
+test.describe('camera ownership', () => {
+  test('panning is not undone by the selection, which owns the camera only once', async ({
+    page
+  }) => {
+    // The camera responds to a CHANGE of selection. It used to re-issue its move
+    // on every run of the effect that paints hover/selection state -- and that
+    // effect depends on hoveredId, which the pins layer's own mouseenter fires
+    // constantly while the pointer crosses pins. So panning away from a selected
+    // route yanked you back the moment the cursor passed a pin. Measured before
+    // the fix: two flyTo calls from pointer movement alone, returning the centre
+    // to the selection exactly.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    await page.getByTestId('route-link').filter({ hasText: KASTEELSPOORT_TITLE }).first().click();
+    await expect(page.getByTestId('preview-body')).toBeVisible();
+
+    const centre = () =>
+      page.evaluate(async () => {
+        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        const map = el.__maplibreMap!;
+        if (map.isMoving()) await new Promise<void>((r) => map.once('idle', () => r()));
+        const c = map.getCenter();
+        return { lng: +c.lng.toFixed(5), lat: +c.lat.toFixed(5) };
+      });
+
+    const settled = await centre();
+
+    const box = (await page.locator('[data-testid="map"]').boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    for (let i = 1; i <= 12; i++) await page.mouse.move(cx - i * 20, cy + i * 6, { steps: 2 });
+    await page.mouse.up();
+
+    const panned = await centre();
+    expect(panned).not.toEqual(settled);
+
+    // Sweep the pointer across pins, which is what panning does incidentally.
+    for (let i = 0; i < 30; i++) await page.mouse.move(box.x + 200 + i * 12, cy - 40, { steps: 1 });
+    await page.waitForTimeout(1500);
+
+    // The view the user panned to is still theirs.
+    expect(await centre()).toEqual(panned);
+  });
+
+  test('selecting still takes the camera to the route, and again for the next one', async ({
+    page
+  }) => {
+    // The other half of the contract above. Suppressing the camera on every
+    // re-run must not suppress it on a real change of selection -- that failure
+    // would look like "selection does nothing" and no other test would catch it.
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
+    const centre = () =>
+      page.evaluate(async () => {
+        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        const map = el.__maplibreMap!;
+        if (map.isMoving()) await new Promise<void>((r) => map.once('idle', () => r()));
+        const c = map.getCenter();
+        return { lng: +c.lng.toFixed(5), lat: +c.lat.toFixed(5) };
+      });
+
+    const opening = await centre();
+
+    await selectFromPanel(page, KASTEELSPOORT_TITLE);
+    const first = await centre();
+    expect(first).not.toEqual(opening);
+
+    // A second, different route must move it again rather than staying put.
+    await page.getByRole('button', { name: /close/i }).click();
+    await selectFromPanel(page, APPROX_TITLE);
+    const second = await centre();
+    expect(second).not.toEqual(first);
+  });
+});
