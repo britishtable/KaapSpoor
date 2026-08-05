@@ -8,12 +8,17 @@
   import BottomSheet from '$lib/components/BottomSheet.svelte';
   import RoutePreview from '$lib/components/RoutePreview.svelte';
   import { selection, clearSelection } from '$lib/map/selection';
+  import { entriesInRegion } from '$lib/map/region';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
   let opts = $state<FilterOptions>({ query: '', status: 'all', located: 'all' });
   let doneIds = $derived(new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId)));
-  let shown = $derived(filterEntries(data.entries, opts, doneIds));
+  // Only what this build can actually show. The camera is clamped to the region
+  // and there is no basemap beyond it, so the other areas offered routes that
+  // could never be reached — 51 of them, pinned over blank background.
+  let regional = $derived(entriesInRegion(data.entries));
+  let shown = $derived(filterEntries(regional, opts, doneIds));
   let tree = $derived(buildAreaTree(shown));
 </script>
 

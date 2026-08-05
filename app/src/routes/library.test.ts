@@ -4,9 +4,11 @@ import Page from './+page.svelte';
 import { clearSelection } from '$lib/map/selection';
 import type { RouteContent, RouteIndexEntry } from '$lib/data/types';
 
+// Real Table Mountain coordinates, not 0,0: the page only offers routes the
+// shipped region covers (see entriesInRegion), and 0,0 is in the Gulf of Guinea.
 const entries: RouteIndexEntry[] = [
   { id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
-    coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
+    coords: { lat: -33.97, lon: 18.39, zoom: 15 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
     grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true }
 ];
 
@@ -16,6 +18,19 @@ describe('library page', () => {
     expect(screen.getByRole('heading', { name: /KaapSpoor/i })).toBeTruthy();
     expect(screen.getByText('Table Mountain')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Blind Gully/ })).toBeTruthy();
+  });
+
+  it('offers only areas the shipped region covers', () => {
+    // The camera is clamped to the region and no basemap exists beyond it, so
+    // listing Cape Country offered 51 routes that could never be reached.
+    const capeCountry: RouteIndexEntry = {
+      ...entries[0], id: 'cc-swartberg', title: 'Swartberg', area: ['cape-country', 'cape-karoo'],
+      coords: { lat: -33.35, lon: 22.05, zoom: 15 }
+    };
+    render(Page, { data: { entries: [...entries, capeCountry] } });
+    expect(screen.getByRole('link', { name: /Blind Gully/ })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Swartberg/ })).toBeNull();
+    expect(screen.queryByText('Cape Country')).toBeNull();
   });
 
   it('lists unlocated routes alongside located ones, since the map cannot show them', () => {
