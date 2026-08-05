@@ -97,13 +97,34 @@ test.describe('map', () => {
 
   test('hovering a panel row highlights it, proving the map/panel sync', async ({ page }) => {
     await page.goto('');
+    // Wait for the map before touching the panel. Not because this test needs
+    // the map, but because it needs the page to have stopped moving: until the
+    // style loads, the sidebar is still reflowing under the pointer.
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 15_000
+    });
+
     const row = page.getByTestId('route-link').first();
-    // Hover rather than click: a click navigates away, which would end the test
-    // before the shared selection state could be observed. Assert the hovered
-    // class, not aria-current — a transient hover deliberately does not claim
-    // to be the current item.
-    await row.hover();
-    await expect(row).toHaveClass(/hovered/);
+    // Hover rather than click: a click previews the route (Phase 4c), which
+    // replaces the tree and would take the row out of the document before the
+    // shared selection state could be observed. Assert the hovered class, not
+    // aria-current — a transient hover deliberately does not claim to be the
+    // current item.
+    //
+    // The hover is retried, not just the assertion. This failed once in CI at
+    // the subpath config and passed on re-run; it could not be reproduced in
+    // isolation, nor under a 20x CPU throttle, so the mechanism is not proven.
+    // What is certain is that toHaveClass already auto-retries and still failed,
+    // so the highlight never arrived at all -- meaning the pointer was no longer
+    // over the row (a reflow moving it away fires mouseleave) or the listener
+    // was not yet attached when the event fired. Both are one-shot misses that
+    // re-asserting can never recover and re-hovering always can. If hover truly
+    // stops highlighting, this still fails: toPass exhausts its timeout.
+    await expect(async () => {
+      await row.hover();
+      await expect(row).toHaveClass(/hovered/, { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+
     await expect(row).not.toHaveAttribute('aria-current', 'true');
   });
 
