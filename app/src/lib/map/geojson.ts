@@ -1,4 +1,4 @@
-import type { RouteIndexEntry } from '$lib/data/types';
+import type { CoordsSource, RouteIndexEntry } from '$lib/data/types';
 import type { FeatureCollection, Point } from 'geojson';
 import { SHIPPED_REGION } from './region';
 
@@ -6,6 +6,11 @@ export interface RoutePinProps {
   id: string;
   title: string;
   grade: string | null;
+  /** Paint expressions can only read properties, and the pins layer draws an
+   *  `area-approx` route hollow off this one (see pins.ts). */
+  coordsSource: CoordsSource | null;
+  /** Metres, `area-approx` only. Sizes the uncertainty circle. */
+  coordsAccuracyM: number | null;
 }
 
 export function routesToGeoJSON(
@@ -20,7 +25,13 @@ export function routesToGeoJSON(
         // MapLibre requires a feature id to drive feature-state (done styling).
         id: e.id,
         geometry: { type: 'Point', coordinates: [e.coords!.lon, e.coords!.lat] },
-        properties: { id: e.id, title: e.title, grade: e.grade }
+        properties: {
+          id: e.id,
+          title: e.title,
+          grade: e.grade,
+          coordsSource: e.coordsSource,
+          coordsAccuracyM: e.coordsAccuracyM
+        }
       }))
   };
 }

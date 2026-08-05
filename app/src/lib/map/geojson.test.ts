@@ -36,6 +36,32 @@ describe('routesToGeoJSON', () => {
   it('returns an empty collection when nothing is located', () => {
     expect(routesToGeoJSON([entry('b', null)]).features).toEqual([]);
   });
+
+  // The pins layer draws an area-approx route hollow and sizes its uncertainty
+  // circle from the radius, and a paint expression can only read what is in
+  // properties -- neither is possible if these do not cross into the GeoJSON.
+  it('carries coordsSource so the pin can be drawn as approximate or surveyed', () => {
+    const approx: RouteIndexEntry = {
+      ...entry('approx', { lat: -33.97, lon: 18.39 }),
+      coordsSource: 'area-approx', coordsAccuracyM: 3911
+    };
+    const [f] = routesToGeoJSON([approx]).features;
+    expect(f.properties.coordsSource).toBe('area-approx');
+  });
+
+  it('carries coordsAccuracyM so the uncertainty circle can be sized from it', () => {
+    const approx: RouteIndexEntry = {
+      ...entry('approx', { lat: -33.97, lon: 18.39 }),
+      coordsSource: 'area-approx', coordsAccuracyM: 3911
+    };
+    expect(routesToGeoJSON([approx]).features[0].properties.coordsAccuracyM).toBe(3911);
+  });
+
+  it('leaves coordsAccuracyM null for a surveyed route, which has no radius', () => {
+    const [f] = routesToGeoJSON(entries).features;
+    expect(f.properties.coordsSource).toBe('crawl');
+    expect(f.properties.coordsAccuracyM).toBeNull();
+  });
 });
 
 describe('boundsOf', () => {

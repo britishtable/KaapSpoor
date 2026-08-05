@@ -16,6 +16,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP, type Basemap } from '$lib/map/style';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
+  import { pinsPaint, uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import { selection, setHovered, setSelected } from '$lib/map/selection';
   import { journal } from '$lib/journal/store';
   import { SHIPPED_REGION } from '$lib/map/region';
@@ -98,6 +99,20 @@
         clusterMaxZoom: 13
       });
 
+      // Added first so it sits under every pin and cluster: a translucent disc
+      // several kilometres across must never obscure the thing it describes.
+      // The filter starts matching nothing -- this layer draws the SELECTED
+      // route's circle only (see the selection effect below), because the 31
+      // approximate routes share just 9 centroids and permanent circles would
+      // be an overlapping soup. The reasoning is in pins.ts.
+      map.addLayer({
+        id: 'uncertainty',
+        type: 'circle',
+        source: 'routes',
+        filter: ['==', ['get', 'id'], ''],
+        paint: uncertaintyPaint()
+      });
+
       map.addLayer({
         id: 'pins-cluster',
         type: 'circle',
@@ -125,13 +140,7 @@
         type: 'circle',
         source: 'routes',
         filter: ['!', ['has', 'point_count']],
-        paint: {
-          // Done routes read differently from to-do ones; hover/selection grows the pin.
-          'circle-color': ['case', ['boolean', ['feature-state', 'done'], false], '#4a6741', '#c1663f'],
-          'circle-radius': ['case', ['boolean', ['feature-state', 'active'], false], 9, 6],
-          'circle-stroke-color': '#fff',
-          'circle-stroke-width': 1.5
-        }
+        paint: pinsPaint()
       });
 
       loaded = true;
@@ -252,9 +261,30 @@
       if (!e.coords) continue;
       map.setFeatureState({ source: 'routes', id: e.id }, { active: e.id === active });
     }
-    if (selectedId) {
-      const target = entries.find((e) => e.id === selectedId);
-      if (target?.coords) {
+    const target = selectedId ? entries.find((e) => e.id === selectedId) : undefined;
+    const approxRadius =
+      target?.coordsSource === 'area-approx' && target.coordsAccuracyM
+        ? target.coordsAccuracyM
+        : null;
+
+    // Show the uncertainty circle for the selected route and no other. An id
+    // that matches nothing (the empty string) is how it goes away again.
+    map.setFilter('uncertainty', ['==', ['get', 'id'], approxRadius ? selectedId : '']);
+
+    if (target?.coords) {
+      if (approxRadius) {
+        // Do NOT fly to z14 here. That frames a ~1.5 km-wide view on a position
+        // known to within kilometres, which asserts precisely the precision this
+        // route does not have -- and it would push the circle far outside the
+        // pane, leaving a full-screen tint with no visible edge. Framing on the
+        // circle's own bounds instead makes the uncertainty the subject: you see
+        // its whole extent, and the pin sitting at the middle of it.
+        map.fitBounds(uncertaintyBounds(target.coords.lon, target.coords.lat, approxRadius), {
+          padding: 48,
+          // A tight radius must not zoom in further than a surveyed route does.
+          maxZoom: 14
+        });
+      } else {
         map.flyTo({ center: [target.coords.lon, target.coords.lat], zoom: 14, speed: 1.4 });
       }
     }
