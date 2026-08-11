@@ -153,4 +153,22 @@ describe('RoutePreview', () => {
     await fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(onclose).toHaveBeenCalled();
   });
+
+  it('lists the paths the description names, beside the provenance note', async () => {
+    render(RoutePreview, { routeId: 'a' });
+    (await requestFor('a')).ok(
+      content('a', 'Blind Gully', { mentionedPaths: ['Contour Path', 'Blinkwater Ravine'] })
+    );
+    await waitFor(() => expect(screen.getByText('Paths this description names')).toBeTruthy());
+    expect(screen.getByText('Contour Path')).toBeTruthy();
+    expect(screen.getByText('Blinkwater Ravine')).toBeTruthy();
+  });
+
+  it('says a route names no mapped paths rather than leaving a gap', async () => {
+    render(RoutePreview, { routeId: 'a' });
+    (await requestFor('a')).ok(content('a', 'Blind Gully', { mentionedPaths: [] }));
+    await waitFor(() =>
+      expect(screen.getByText('No mapped paths are named in this description.')).toBeTruthy()
+    );
+  });
 });

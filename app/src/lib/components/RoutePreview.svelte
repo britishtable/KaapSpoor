@@ -4,6 +4,7 @@
   import type { RouteContent } from '../data/types';
   import StatsStrip from './StatsStrip.svelte';
   import ProvenanceNote from './ProvenanceNote.svelte';
+  import MentionedPaths from './MentionedPaths.svelte';
 
   let { routeId, onclose }: { routeId: string; onclose?: () => void } = $props();
 
@@ -66,6 +67,8 @@
            figure and reads as part of that field rather than as a statement
            about the position. Found by looking at it, not by a test. -->
       <div class="provenance"><ProvenanceNote route={r} /></div>
+
+      <MentionedPaths names={r.mentionedPaths} />
 
       {#each Object.entries(r.sections) as [heading, text]}
         {#if heading}<h3>{heading}</h3>{/if}
