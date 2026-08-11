@@ -690,3 +690,76 @@ test.describe('pin popup', () => {
     await expect(page.getByRole('link', { name: 'Open route' })).toBeVisible();
   });
 });
+
+test.describe('named paths', () => {
+  // Kasteelspoort's description names mapped paths; this is asserted rather
+  // than assumed by the first test below, so a re-crawl that changed the prose
+  // fails loudly here instead of quietly weakening every later assertion.
+  test('highlights the paths a selected route names, and clears them again', async ({ page }) => {
+    await page.goto('.');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 30_000
+    });
+
+    const namesFor = async (id: string) =>
+      page.evaluate(async (routeId) => {
+        const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+          id: string;
+          mentionedPaths: string[];
+        }>;
+        return routes.find((r) => r.id === routeId)?.mentionedPaths ?? [];
+      }, id);
+
+    const expected = await namesFor(KASTEELSPOORT_ID);
+    expect(expected.length).toBeGreaterThan(0);
+
+    await selectFromPanel(page, KASTEELSPOORT_TITLE);
+
+    const filterNames = async (layer: string) =>
+      page.evaluate((id) => {
+        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        // ['in', ['get','name'], ['literal', [...]]]
+        const filter = el.__maplibreMap!.getFilter(id) as unknown[] | undefined;
+        const literal = filter?.[2] as unknown[] | undefined;
+        return (literal?.[1] as string[]) ?? [];
+      }, layer);
+
+    for (const layer of ['paths-referenced', 'paths-referenced-casing', 'paths-referenced-label']) {
+      expect(await filterNames(layer)).toEqual(expected);
+    }
+
+    // The camera flies to z14 on selection, above the layer's z11 floor, so
+    // the highlight must actually be on screen — not merely filtered for.
+    expect(await renderedCount(page, 'paths-referenced')).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: /close preview/i }).click();
+    for (const layer of ['paths-referenced', 'paths-referenced-casing', 'paths-referenced-label']) {
+      expect(await filterNames(layer)).toEqual([]);
+    }
+    expect(await renderedCount(page, 'paths-referenced')).toBe(0);
+  });
+
+  test('labels named paths once you are close in', async ({ page }) => {
+    await page.goto('.');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 30_000
+    });
+
+    // Deliberately no assertion at the opening view: label placement there
+    // turns on viewport luck and route cluster badges win the collision, so
+    // such a test would pass or fail on pane size rather than correctness.
+    await page.evaluate(async () => {
+      const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const map = el.__maplibreMap!;
+      // Table Mountain's upper contour path network, well inside the region.
+      map.jumpTo({ center: [18.4028, -33.9575], zoom: 14 });
+      await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+    });
+
+    expect(await renderedCount(page, 'paths-named')).toBeGreaterThan(0);
+  });
+});

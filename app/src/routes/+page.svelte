@@ -20,6 +20,10 @@
   let regional = $derived(entriesInRegion(data.entries));
   let shown = $derived(filterEntries(regional, opts, doneIds));
   let tree = $derived(buildAreaTree(shown));
+  // The union of every in-region route's named paths. Derived from `regional`,
+  // NOT `shown`: searching the list must not un-label the mountain underneath
+  // it. See the MapView effect that consumes this.
+  let pathVocabulary = $derived([...new Set(regional.flatMap((e) => e.mentionedPaths))]);
 </script>
 
 <h1 class="visually-hidden">KaapSpoor</h1>
@@ -27,7 +31,7 @@
 <div class="split">
   <div class="map-pane">
     <!-- Pins follow the filters, so filtering the list filters the map too. -->
-    <MapView entries={shown} />
+    <MapView entries={shown} {pathVocabulary} />
   </div>
   <BottomSheet>
     <!-- Selecting a route turns the panel into that route, filters and all:

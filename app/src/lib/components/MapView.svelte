@@ -14,7 +14,10 @@
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { buildStyle, SHIPPED_BASEMAP, type Basemap } from '$lib/map/style';
+  import {
+    buildStyle, SHIPPED_BASEMAP, pathNameFilter,
+    REFERENCED_PATH_LAYERS, NAMED_PATH_LAYER, type Basemap
+  } from '$lib/map/style';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
   import { pinsPaint, uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import { summariseGrade } from '$lib/data/grade';
@@ -23,7 +26,11 @@
   import { SHIPPED_REGION } from '$lib/map/region';
   import type { RouteIndexEntry } from '$lib/data/types';
 
-  let { entries, basemap = SHIPPED_BASEMAP }: { entries: RouteIndexEntry[]; basemap?: Basemap } = $props();
+  let {
+    entries,
+    pathVocabulary = [],
+    basemap = SHIPPED_BASEMAP
+  }: { entries: RouteIndexEntry[]; pathVocabulary?: string[]; basemap?: Basemap } = $props();
 
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
@@ -292,6 +299,16 @@
     dataVersion = ++dataVersionCounter;
   });
 
+  // The quiet label tier. Driven from the FULL in-region vocabulary the page
+  // passes in, deliberately not from `entries` — `entries` is already narrowed
+  // by the panel's search and filters, and narrowing the list must not
+  // un-label the mountain underneath it.
+  $effect(() => {
+    const names = pathVocabulary;
+    if (!map || !loaded) return;
+    map.setFilter(NAMED_PATH_LAYER, pathNameFilter(names));
+  });
+
   // Paint done state from the journal.
   $effect(() => {
     const done = new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId));
@@ -326,6 +343,14 @@
       map.setFeatureState({ source: 'routes', id: e.id }, { active: e.id === active });
     }
     const target = selectedId ? entries.find((e) => e.id === selectedId) : undefined;
+    // The paths this route's description names. Hover deliberately does NOT
+    // trigger this: hovering fires constantly while panning, and re-filtering
+    // three layers on every pointer move would thrash the map for a signal the
+    // user did not ask for. Selection is the deliberate act.
+    const referenced = target?.mentionedPaths ?? [];
+    for (const id of REFERENCED_PATH_LAYERS) {
+      map.setFilter(id, pathNameFilter(referenced));
+    }
     const approxRadius =
       target?.coordsSource === 'area-approx' && target.coordsAccuracyM
         ? target.coordsAccuracyM
