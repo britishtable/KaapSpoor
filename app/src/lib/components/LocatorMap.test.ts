@@ -33,6 +33,10 @@ vi.mock('maplibre-gl', () => {
       calls.push({ name: 'addLayer', args });
       return this;
     }
+    setFilter(...args: unknown[]) {
+      calls.push({ name: 'setFilter', args });
+      return this;
+    }
     fitBounds(...args: unknown[]) {
       calls.push({ name: 'fitBounds', args });
       return this;
@@ -132,5 +136,31 @@ describe('LocatorMap for an approximate position', () => {
     expect(container.querySelector('figcaption')!.textContent).toContain('-33.9000');
     expect(calls.find((c) => c.name === 'addLayer')).toBeUndefined();
     expect(calls.find((c) => c.name === 'fitBounds')).toBeUndefined();
+  });
+});
+
+describe('LocatorMap referenced paths', () => {
+  const coords = { lat: -33.95, lon: 18.4, zoom: 15 };
+
+  it('filters all three referenced layers to the names it was given', () => {
+    // Filtering the line but not its casing leaves a pale halo round nothing,
+    // so all three move together or none do.
+    render(LocatorMap, { coords, title: 'Kasteelspoort', referencedPaths: ['Contour Path'] });
+    const filtered = calls.filter((c) => c.name === 'setFilter');
+    expect(filtered.map((c) => c.args[0])).toEqual([
+      'paths-referenced-casing',
+      'paths-referenced',
+      'paths-referenced-label'
+    ]);
+    for (const call of filtered) {
+      expect(call.args[1]).toEqual(['in', ['get', 'name'], ['literal', ['Contour Path']]]);
+    }
+  });
+
+  it('touches no filter for a route that names nothing', () => {
+    // The layers already ship filtering nothing, so there is no work to do —
+    // and no way for an empty list to be mistaken for "show everything".
+    render(LocatorMap, { coords, title: 'Kasteelspoort', referencedPaths: [] });
+    expect(calls.filter((c) => c.name === 'setFilter')).toEqual([]);
   });
 });

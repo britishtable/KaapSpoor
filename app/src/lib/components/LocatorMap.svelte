@@ -12,7 +12,9 @@
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
+  import {
+    buildStyle, SHIPPED_BASEMAP, pathNameFilter, REFERENCED_PATH_LAYERS
+  } from '$lib/map/style';
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import type { Coords } from '$lib/data/types';
 
@@ -20,8 +22,15 @@
     coords,
     title,
     /** Metres. Set for an `area-approx` position only; see pins.ts. */
-    accuracyM = null
-  }: { coords: Coords; title: string; accuracyM?: number | null } = $props();
+    accuracyM = null,
+    /** OSM names of paths this route's description mentions; see MentionedPaths.svelte. */
+    referencedPaths = []
+  }: {
+    coords: Coords;
+    title: string;
+    accuracyM?: number | null;
+    referencedPaths?: string[];
+  } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
 
@@ -48,6 +57,20 @@
       attributionControl: false
     });
     map.addControl(new AttributionControl({ compact: true }));
+
+    // Light the paths this route's description names, exactly as the main map
+    // does on selection. The layers ship with an empty filter, so this only
+    // ever swaps a filter — it never adds a layer, and a route naming nothing
+    // simply leaves them empty. The style is shared, so both maps cannot
+    // disagree about what a referenced path looks like.
+    if (referencedPaths.length) {
+      map.on('load', () => {
+        if (!map) return;
+        for (const id of REFERENCED_PATH_LAYERS) {
+          map.setFilter(id, pathNameFilter(referencedPaths));
+        }
+      });
+    }
 
     if (accuracyM) {
       // Frame the whole circle rather than the clamped zoom above. Centring at

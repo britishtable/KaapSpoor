@@ -22,7 +22,12 @@
   <!-- Every route states how its position is known, in the same component the
        map's preview panel uses, so the two can never word it differently. -->
   {#if r.coords}
-    <LocatorMap coords={r.coords} title={r.title} accuracyM={r.coordsAccuracyM} />
+    <LocatorMap
+      coords={r.coords}
+      title={r.title}
+      accuracyM={r.coordsAccuracyM}
+      referencedPaths={r.mentionedPaths}
+    />
   {/if}
   <ProvenanceNote route={r} />
 
