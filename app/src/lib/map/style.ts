@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import type { FilterSpecification, StyleSpecification } from 'maplibre-gl';
 import { SHIPPED_REGION } from './region';
 
 export type Basemap = 'opentopo' | 'selfhosted';
@@ -17,6 +17,31 @@ const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, elevation data from Copernicus DEM
 // fetched into app/static/fonts/ by tools/tiles/fetch-fonts.sh.
 // Both basemaps share this so switching cannot silently drop every label.
 const glyphs = (base: string) => `${base}/fonts/{fontstack}/{range}.pbf`;
+
+/**
+ * The layers showing the paths a selected route's description names. Filtered
+ * together, always: filtering the line but not its casing leaves a pale halo
+ * round nothing.
+ */
+export const REFERENCED_PATH_LAYERS = [
+  'paths-referenced-casing',
+  'paths-referenced',
+  'paths-referenced-label'
+] as const;
+
+/** The quiet tier labelling every path the guides name anywhere. */
+export const NAMED_PATH_LAYER = 'paths-named';
+
+/**
+ * Match paths by OSM name. An empty list matches nothing, which is how the
+ * unselected state is expressed — the layers exist from style load and only
+ * their filter changes, so nothing is added or removed at runtime.
+ */
+export function pathNameFilter(names: string[]): FilterSpecification {
+  return ['in', ['get', 'name'], ['literal', names]];
+}
+
+const NO_PATHS = pathNameFilter([]);
 
 function openTopo(base: string): StyleSpecification {
   return {
@@ -244,6 +269,78 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
+        // A pale casing under the referenced line. Without it the highlight is
+        // hard to separate from the 100 m contours it crosses — they share a
+        // hue family by design, and a brown line over brown lines reads as
+        // more contour, not as emphasis.
+        id: 'paths-referenced-casing',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'paths',
+        // The archive's own floor: trails-profile.yml builds paths from z11.
+        // Below this there is nothing to filter, so a lower value would be a
+        // highlight that silently never draws.
+        minzoom: 11,
+        filter: NO_PATHS,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#f4f1ea',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 4.5, 14, 7],
+          'line-opacity': 0.85
+        }
+      },
+      {
+        // The paths the selected route's description names. SOLID, where
+        // ordinary paths are dashed — that contrast is the whole signal, and it
+        // says "this path, emphasised" rather than "a different kind of thing".
+        //
+        // Deliberately NOT the pin colours: green means done and nothing else,
+        // and terracotta means to-do. These paths are neither. They are what
+        // the text refers to, which includes escape routes and paths merely
+        // crossed — see the spec on why they are never presented as the route.
+        id: 'paths-referenced',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'paths',
+        minzoom: 11,
+        filter: NO_PATHS,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#6b3f24',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 3.5]
+        }
+      },
+      {
+        // The quiet tier: every path the guides name somewhere, labelled once
+        // you are close enough to follow one. Held to z13 — a zoom later than
+        // the paths themselves — because a label needs more room than a line.
+        id: 'paths-named',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'paths',
+        minzoom: 13,
+        filter: NO_PATHS,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'symbol-placement': 'line',
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12],
+          // A name repeats along its trail at this interval. Names here are
+          // fragmented (Contour Path is 27 features), so each feature offers a
+          // placement and collision thins them — which is ordinary topographic
+          // cartography, and why text-allow-overlap must stay off.
+          'symbol-spacing': 400,
+          'text-max-angle': 30,
+          // Lower wins a collision. The referenced tier scores 0.
+          'symbol-sort-key': 1
+        },
+        paint: {
+          'text-color': '#7a5a42',
+          'text-halo-color': '#f4f1ea',
+          'text-halo-width': 1.4
+        }
+      },
+      {
         // The four highest summits on the peninsula (Table Mountain 1086 m
         // down to Devil's Peak ~1000 m), anchoring the overview from the
         // opening view. The old >=1500 m threshold was set for the Cederberg,
@@ -374,6 +471,38 @@ function selfHosted(base: string): StyleSpecification {
           'text-color': '#6b6b6b',
           'text-halo-color': '#f4f1ea',
           'text-halo-width': 1.4
+        }
+      },
+      {
+        // Placed after every other label on purpose. MapLibre places LATER
+        // symbol layers FIRST, so lateness is what wins a collision: the paths
+        // a selected route names must outrank a suburb or a minor peak. It
+        // still loses to the route pins, which MapView appends at runtime after
+        // the whole style — which is why the line beneath, and the panel text,
+        // carry the information this label only decorates.
+        id: 'paths-referenced-label',
+        type: 'symbol',
+        source: 'trails',
+        'source-layer': 'paths',
+        minzoom: 12,
+        filter: NO_PATHS,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'symbol-placement': 'line',
+          'text-size': ['interpolate', ['linear'], ['zoom'], 12, 11, 16, 14],
+          'symbol-spacing': 250,
+          'text-max-angle': 30,
+          'symbol-sort-key': 0
+        },
+        paint: {
+          // Darker than the quiet tier, with a heavier halo. Only Open Sans
+          // Regular ships (tools/tiles/fetch-fonts.sh fetches one stack), so
+          // weight is not available to separate these — size, darkness and
+          // halo do that work.
+          'text-color': '#4a2c18',
+          'text-halo-color': '#f4f1ea',
+          'text-halo-width': 1.8
         }
       },
       {

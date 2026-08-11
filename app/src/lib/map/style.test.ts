@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildStyle, ATTRIBUTION_OSM, SHIPPED_BASEMAP } from './style';
+import {
+  buildStyle, ATTRIBUTION_OSM, SHIPPED_BASEMAP,
+  pathNameFilter, REFERENCED_PATH_LAYERS, NAMED_PATH_LAYER
+} from './style';
 import { SHIPPED_REGION } from './region';
 
 describe('buildStyle(opentopo)', () => {
@@ -538,5 +541,123 @@ describe('region mask', () => {
     const [outer, hole] = maskSource.data.geometry.coordinates;
     expect(outer[0]).toEqual(outer[outer.length - 1]);
     expect(hole[0]).toEqual(hole[hole.length - 1]);
+  });
+});
+
+describe('named and referenced paths', () => {
+  const style = buildStyle('selfhosted', '');
+  const ids = style.layers.map((l) => l.id);
+  const layer = (id: string) =>
+    style.layers.find((l) => l.id === id) as {
+      minzoom?: number;
+      filter?: unknown;
+      layout?: Record<string, unknown>;
+      paint?: Record<string, unknown>;
+      'source-layer'?: string;
+    };
+
+  it('adds all four layers, reading the paths source-layer', () => {
+    for (const id of [
+      'paths-referenced-casing', 'paths-referenced', 'paths-referenced-label', 'paths-named'
+    ]) {
+      expect(ids).toContain(id);
+      expect(layer(id)['source-layer']).toBe('paths');
+    }
+  });
+
+  it('draws referenced lines above ordinary paths and below the mask', () => {
+    // Ordering is not cosmetic: region-mask paints over everything below it,
+    // and a highlight drawn under `paths` would sit beneath the dashes it is
+    // meant to emphasise.
+    for (const id of ['paths-referenced-casing', 'paths-referenced', 'paths-named']) {
+      expect(ids.indexOf(id)).toBeGreaterThan(ids.indexOf('paths'));
+      expect(ids.indexOf(id)).toBeLessThan(ids.indexOf('region-mask'));
+    }
+    expect(ids.indexOf('paths-referenced-casing')).toBeLessThan(ids.indexOf('paths-referenced'));
+  });
+
+  it('places the referenced label last, so it outranks peak and place labels', () => {
+    // MapLibre places LATER symbol layers first, so being late is what wins a
+    // collision. A selected route's own path names must beat a suburb name.
+    expect(ids.indexOf('paths-referenced-label')).toBeGreaterThan(ids.indexOf('places-suburb'));
+    expect(ids.indexOf('paths-referenced-label')).toBeGreaterThan(ids.indexOf('peaks-minor'));
+    expect(ids.indexOf('paths-referenced-label')).toBeLessThan(ids.indexOf('region-mask'));
+  });
+
+  it("floors referenced paths at the archive's own minimum zoom", () => {
+    // trails-profile.yml builds the paths layer from z11. Lowering this would
+    // filter a layer that has no features down there — a highlight that
+    // silently never appears.
+    expect(layer('paths-referenced-casing').minzoom).toBe(11);
+    expect(layer('paths-referenced').minzoom).toBe(11);
+  });
+
+  it('holds path labels back until they are legible', () => {
+    expect(layer('paths-referenced-label').minzoom).toBe(12);
+    expect(layer('paths-named').minzoom).toBe(13);
+  });
+
+  it('starts every path filter matching nothing', () => {
+    // The layers exist from style load and only their filter changes, so
+    // MapView never adds or removes layers at runtime.
+    for (const id of [
+      'paths-referenced-casing', 'paths-referenced', 'paths-referenced-label', 'paths-named'
+    ]) {
+      expect(layer(id).filter).toEqual(['in', ['get', 'name'], ['literal', []]]);
+    }
+  });
+
+  it('builds a filter that matches exactly the names given', () => {
+    expect(pathNameFilter(['Contour Path', 'Ledges'])).toEqual([
+      'in', ['get', 'name'], ['literal', ['Contour Path', 'Ledges']]
+    ]);
+  });
+
+  it('names the referenced layers so callers cannot filter only some of them', () => {
+    // Filtering the line but not its casing leaves a halo round nothing.
+    expect([...REFERENCED_PATH_LAYERS]).toEqual([
+      'paths-referenced-casing', 'paths-referenced', 'paths-referenced-label'
+    ]);
+    expect(NAMED_PATH_LAYER).toBe('paths-named');
+  });
+
+  it('draws the referenced line solid, and wider than the ordinary dashes', () => {
+    // Solid-vs-dashed IS the signal that this path is the one being talked
+    // about; a dasharray here would erase the distinction.
+    expect(layer('paths-referenced').paint?.['line-dasharray']).toBeUndefined();
+    const firstStop = (id: string) =>
+      ((layer(id).paint?.['line-width'] as unknown[])[4]) as number;
+    expect(firstStop('paths-referenced')).toBeGreaterThan(firstStop('paths'));
+    expect(firstStop('paths-referenced-casing')).toBeGreaterThan(firstStop('paths-referenced'));
+  });
+
+  it('makes the referenced layers visibly on at their own minzoom', () => {
+    const firstStop = (id: string) =>
+      ((layer(id).paint?.['line-width'] as unknown[])[4]) as number;
+    expect(firstStop('paths-referenced')).toBeGreaterThanOrEqual(0.8);
+    expect(firstStop('paths-referenced-casing')).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('never forces path labels to overlap', () => {
+    // Contour Path is 27 features; allow-overlap would draw 27 labels.
+    for (const id of ['paths-referenced-label', 'paths-named']) {
+      expect(layer(id).layout?.['text-allow-overlap']).toBeFalsy();
+      expect(layer(id).layout?.['text-ignore-placement']).toBeFalsy();
+    }
+  });
+
+  it('sets both label layers along the line, in the only fontstack that ships', () => {
+    for (const id of ['paths-referenced-label', 'paths-named']) {
+      expect(layer(id).layout?.['symbol-placement']).toBe('line');
+      expect(layer(id).layout?.['text-font']).toEqual(['Open Sans Regular']);
+      expect(layer(id).layout?.['text-field']).toEqual(['get', 'name']);
+    }
+  });
+
+  it('ranks a referenced label above a merely-named one in a collision', () => {
+    // Lower sort key wins.
+    const referenced = layer('paths-referenced-label').layout?.['symbol-sort-key'] as number;
+    const named = layer('paths-named').layout?.['symbol-sort-key'] as number;
+    expect(referenced).toBeLessThan(named);
   });
 });
