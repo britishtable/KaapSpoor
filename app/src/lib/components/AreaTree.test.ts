@@ -6,6 +6,7 @@ import type { RouteIndexEntry } from '../data/types';
 
 function entry(id: string, area: string[]): RouteIndexEntry {
   return { id, title: id, area, coords: null, coordsSource: null, coordsAccuracyM: null, coordsOsm: null,
+    mentionedPaths: [],
     grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
 }
 

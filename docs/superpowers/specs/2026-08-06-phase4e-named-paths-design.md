@@ -20,26 +20,34 @@ against `data/routes.json`.
 | Carrying a `name` | **3.2%** |
 | Distinct path names | **364** |
 | Of those, single-word | 16 |
-| Distinct names appearing in guide prose | **81** |
-| **Routes whose description names ≥1 mapped path** | **109 / 133** |
-| Named paths per route | median **2**, p75 3, p90 5, max **8** |
-| Routes naming none | 24 |
+| Distinct names appearing in guide prose | **83** |
+| **Routes whose description names ≥1 mapped path** | **101 / 133** |
+| Named paths per route | median **2**, p75 3, p90 4, max **8** |
+| Routes naming none | 32 |
 | Route titles that are exactly an OSM path name | **45 / 133** |
 
-Two numbers decide the design. **109 of 133** is why this is worth building: the guides and OSM
+Two numbers decide the design. **101 of 133** is why this is worth building: the guides and OSM
 speak the same language about this mountain. **Median 2, max 8** is why the highlight can follow
 the selection without becoming clutter.
 
-`Contour Path` is named by 41 route descriptions, `Pipe Track` by 20, `Platteklip Gorge` and
-`Tafelberg Road` by 10 each.
+`Pipe Track` is named by 19 route descriptions, `Ledges` by 15, `Contour Path` by 11,
+`Platteklip Gorge` and `Nursery Ravine` by 9 each.
 
-**These counts predate the matching rules below and will shift slightly.** They were measured with
-case-insensitive matching and a two-word minimum — the rule set this document goes on to reject.
-Case sensitivity will remove a few false positives; dropping the word minimum admits single-word
-names such as *Ledges* and *Simonsberg*; longest-match-wins collapses *Twelve Apostles* into
-*Twelve Apostles Path*. The direction of each change is known and none is large, but **the first
-task of the plan is to recompute these figures under the final rules**, and the spec's numbers are
-the starting estimate, not the acceptance criteria.
+**These are the recomputed figures, measured under the final matching rules** by
+`npm run build:data` on 2026-08-11 — they replace the case-insensitive, two-word-minimum
+estimates this spec was drafted from (109 / 133, 81 names, p90 5). Treat them as the true ones.
+Across all 184 routes the build reports 108 naming a mapped path and 83 distinct names used of
+the 364 available.
+
+**Case sensitivity costs more than the estimate assumed, and the cost is concentrated in one
+name.** `Contour Path` fell from 41 route descriptions to 11: 26 in-region descriptions write
+*contour path* in lower case and 24 of those never write it any other way, so the rule that
+separates *Ledges* the path from *ledges* the rock feature also discards them. The headline
+barely moved (109 → 101) because those routes name something else as well, and the rule is kept
+as specified — a false highlight is a wrong claim about the mountain, where a missing one is only
+a quieter map. Recorded here because it is the obvious candidate for a later refinement: a
+case-insensitive pass restricted to multi-word names would recover most of the 24 without
+readmitting the single-word false positives the rule exists to stop.
 
 ### A finding this phase does not act on
 

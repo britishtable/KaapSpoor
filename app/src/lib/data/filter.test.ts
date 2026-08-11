@@ -5,6 +5,7 @@ import type { RouteIndexEntry } from './types';
 function e(id: string, title: string, located: boolean): RouteIndexEntry {
   return { id, title, area: ['x'], coords: located ? { lat: 0, lon: 0, zoom: 1 } : null,
     coordsSource: located ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
+    mentionedPaths: [],
     grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
 }
 const entries = [e('a', 'Blind Gully', true), e('b', 'Kasteelspoort', false)];

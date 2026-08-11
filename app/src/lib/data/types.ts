@@ -47,6 +47,14 @@ export interface RouteIndexEntry {
   coordsAccuracyM: number | null;
   /** Set for `osm-match` only. */
   coordsOsm: OsmRef | null;
+  /**
+   * OSM names of paths this route's description mentions, in the order the
+   * prose introduces them. Empty when it names none — 24 of the 133 in-region
+   * routes do. These are paths the description REFERS TO, which includes
+   * escape routes and paths merely crossed; they are not the route's own line.
+   * See docs/superpowers/specs/2026-08-06-phase4e-named-paths-design.md.
+   */
+  mentionedPaths: string[];
   grade: string | null;
   gradeSource: 'label' | 'prose' | null;
   time: string | null;

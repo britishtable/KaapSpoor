@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeId } from '../src/lib/data/ids';
+import { mentionedPaths, type OsmPathName } from '../src/lib/data/path-mentions';
 import type { RouteIndexEntry, RouteContent, RouteLocation } from '../src/lib/data/types';
 
 interface RawRoute {
@@ -22,7 +23,8 @@ export function statValue(stats: Record<string, string>, name: string): string |
 
 export function transform(
   raw: RawDataset,
-  locations: Record<string, RouteLocation> = {}
+  locations: Record<string, RouteLocation> = {},
+  pathNames: OsmPathName[] = []
 ): { index: RouteIndexEntry[]; content: RouteContent[] } {
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
   // The source's `related` field is the full site nav (every page links to
@@ -75,6 +77,12 @@ export function transform(
       // types.ts is what makes reading it off any other source impossible.
       coordsAccuracyM: location?.source === 'area-approx' ? location.accuracyM : null,
       coordsOsm: location?.osm ?? null,
+      // Matched against the prose, not the title: this is what the description
+      // TALKS ABOUT, which is what makes the map readable beside it. Lives on
+      // the index rather than the per-route content because the map needs the
+      // union of all of them at load time to label the static tier, and
+      // `npm test` runs before `build:data` has ever produced anything.
+      mentionedPaths: mentionedPaths(Object.values(r.sections).join(' '), pathNames),
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
@@ -103,16 +111,26 @@ async function main() {
   const locations = existsSync(locationsPath)
     ? (JSON.parse(readFileSync(locationsPath, 'utf-8')).locations as Record<string, RouteLocation>)
     : {};
-  const { index, content } = transform(raw, locations);
+  // Absent on a clone that has not run tools/pathnames; every route then names
+  // no paths, which is the pre-Phase-4e behaviour and builds fine.
+  const pathNamesPath = resolve(here, '../../data/osm-path-names.json');
+  const pathNames = existsSync(pathNamesPath)
+    ? (JSON.parse(readFileSync(pathNamesPath, 'utf-8')).names as OsmPathName[])
+    : [];
+  const { index, content } = transform(raw, locations, pathNames);
   const out = resolve(here, '../static/data');
   await mkdir(resolve(out, 'routes'), { recursive: true });
   await writeFile(resolve(out, 'routes-index.json'), JSON.stringify(index));
   for (const c of content) await writeFile(resolve(out, `routes/${c.id}.json`), JSON.stringify(c));
   const bySource = new Map<string, number>();
   for (const e of index) if (e.coordsSource) bySource.set(e.coordsSource, (bySource.get(e.coordsSource) ?? 0) + 1);
+  const withPaths = index.filter((e) => e.mentionedPaths.length).length;
+  const vocabulary = new Set(index.flatMap((e) => e.mentionedPaths));
   console.log(
     `transform: ${index.length} routes, ${index.filter((e) => e.coords).length} located ` +
-      `(${[...bySource].map(([k, v]) => `${k}=${v}`).join(', ')})`
+      `(${[...bySource].map(([k, v]) => `${k}=${v}`).join(', ')}); ` +
+      `${withPaths} name a mapped path, ${vocabulary.size} distinct names used ` +
+      `of ${pathNames.length} available`
   );
 }
 

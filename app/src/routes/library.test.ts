@@ -9,6 +9,7 @@ import type { RouteContent, RouteIndexEntry } from '$lib/data/types';
 const entries: RouteIndexEntry[] = [
   { id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
     coords: { lat: -33.97, lon: 18.39, zoom: 15 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
+    mentionedPaths: [],
     grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true }
 ];
 

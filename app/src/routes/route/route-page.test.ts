@@ -8,6 +8,7 @@ import type { RouteContent } from '$lib/data/types';
 const route: RouteContent = {
   id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
   coords: null, coordsSource: null, coordsAccuracyM: null, coordsOsm: null,
+  mentionedPaths: [],
   grade: 'B', gradeSource: 'prose', time: null, heightGain: null, isFullEntry: false,
   sections: { Overview: 'A scramble.' }, description: 'A scramble.',
   related: [], attachments: [], photoCount: 2, sourceUrl: 'https://example.invalid'

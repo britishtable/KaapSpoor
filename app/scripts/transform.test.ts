@@ -181,3 +181,65 @@ describe('transform provenance', () => {
     expect(content[0].coordsOsm).toEqual({ type: 'node', id: 7, name: 'Newlands Ravine' });
   });
 });
+
+describe('mentionedPaths', () => {
+  const pathNames = [
+    { name: 'Contour Path', segments: 27 },
+    { name: 'India Venster', segments: 6 },
+    { name: 'B', segments: 1 }
+  ];
+
+  const raw = (sections: Record<string, string>): RawDataset => ({
+    routes: [
+      {
+        slug: 'a-route', title: 'A Route', url: 'https://example.invalid/a',
+        area: ['Table-Mountain', 'atlantic-west'], coords: { lat: -33.95, lon: 18.4, zoom: 15 },
+        grade: null, grade_source: null, stats: {}, sections,
+        description: Object.values(sections).join('\n'), related: [], attachments: [],
+        photos: { deck_ids: [], inline_urls: [] }
+      }
+    ]
+  });
+
+  it('records the paths a description names', () => {
+    const { index } = transform(raw({ '': 'Join the Contour Path, then up India Venster.' }), {}, pathNames);
+    expect(index[0].mentionedPaths).toEqual(['Contour Path', 'India Venster']);
+  });
+
+  it('is an empty array when a description names none', () => {
+    const { index } = transform(raw({ '': 'A pleasant stroll.' }), {}, pathNames);
+    expect(index[0].mentionedPaths).toEqual([]);
+  });
+
+  it("does not treat the grade 'B' as a path name", () => {
+    const { index } = transform(raw({ '': "A fun 'B' grade scramble." }), {}, pathNames);
+    expect(index[0].mentionedPaths).toEqual([]);
+  });
+
+  it('searches every section, not only the first', () => {
+    const { index } = transform(
+      raw({ '': 'Preamble.', 'Route Description': 'Follow the Contour Path.' }),
+      {}, pathNames
+    );
+    expect(index[0].mentionedPaths).toEqual(['Contour Path']);
+  });
+
+  it('emits only names that were supplied — never an invented one', () => {
+    // The anti-drift guarantee: whatever ends up on the map came from the
+    // committed artifact, so the style and the data cannot disagree.
+    const { index } = transform(raw({ '': 'Join the Contour Path.' }), {}, pathNames);
+    const supplied = new Set(pathNames.map((p) => p.name));
+    for (const name of index[0].mentionedPaths) expect(supplied.has(name)).toBe(true);
+  });
+
+  it('defaults to empty when no path names are supplied at all', () => {
+    // A clean clone that has not run tools/pathnames must still build.
+    const { index } = transform(raw({ '': 'Join the Contour Path.' }), {});
+    expect(index[0].mentionedPaths).toEqual([]);
+  });
+
+  it('carries the same names onto the route content', () => {
+    const { content } = transform(raw({ '': 'Up India Venster.' }), {}, pathNames);
+    expect(content[0].mentionedPaths).toEqual(['India Venster']);
+  });
+});

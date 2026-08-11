@@ -7,6 +7,7 @@ import { selection, clearSelection } from '../map/selection';
 
 const located: RouteIndexEntry = { id: 'a', title: 'Blind Gully', area: ['x'],
   coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
+  mentionedPaths: [],
   grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true };
 
 describe('RouteRow', () => {

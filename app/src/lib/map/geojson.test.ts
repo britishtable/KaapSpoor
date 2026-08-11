@@ -8,6 +8,7 @@ function entry(id: string, coords: { lat: number; lon: number } | null): RouteIn
     id, title: id.toUpperCase(), area: ['x'],
     coords: coords ? { ...coords, zoom: 16 } : null,
     coordsSource: coords ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
+    mentionedPaths: [],
     grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true
   };
 }
