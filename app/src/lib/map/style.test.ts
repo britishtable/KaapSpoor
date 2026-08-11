@@ -654,6 +654,16 @@ describe('named and referenced paths', () => {
     }
   });
 
+  it('lets the referenced label bend further than the quiet tier, because it is bigger', () => {
+    // Found in a browser at z15, not by a test: at max-angle 30 this layer
+    // placed nothing on the Pipe Track while paths-named placed the same name,
+    // because larger text advances further per glyph around a bend. The strong
+    // tier must not be the one that silently fails to draw.
+    const angle = (id: string) => layer(id).layout?.['text-max-angle'] as number;
+    expect(angle('paths-referenced-label')).toBe(45);
+    expect(angle('paths-referenced-label')).toBeGreaterThan(angle('paths-named'));
+  });
+
   it('ranks a referenced label above a merely-named one in a collision', () => {
     // Lower sort key wins.
     const referenced = layer('paths-referenced-label').layout?.['symbol-sort-key'] as number;

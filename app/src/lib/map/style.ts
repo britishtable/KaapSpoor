@@ -492,7 +492,14 @@ function selfHosted(base: string): StyleSpecification {
           'symbol-placement': 'line',
           'text-size': ['interpolate', ['linear'], ['zoom'], 12, 11, 16, 14],
           'symbol-spacing': 250,
-          'text-max-angle': 30,
+          // 45 (MapLibre's default), NOT the quiet tier's 30. Measured in the
+          // browser at z15 on the Pipe Track: at 30 this layer placed ZERO
+          // labels while `paths-named` placed the same name fine — bigger text
+          // advances further per glyph around a bend, so the same mountain
+          // path breaches the same angle limit only at this tier's size. The
+          // effect was the promotion running backwards: the pale tier labelled
+          // the selected route's path and the strong one drew nothing.
+          'text-max-angle': 45,
           'symbol-sort-key': 0
         },
         paint: {
