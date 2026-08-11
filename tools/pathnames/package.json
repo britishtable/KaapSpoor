@@ -1,0 +1,14 @@
+{
+  "name": "kaapspoor-pathnames",
+  "private": true,
+  "type": "module",
+  "description": "Extracts named paths from the shipped trails PMTiles archive.",
+  "scripts": {
+    "extract": "node extract.mjs"
+  },
+  "dependencies": {
+    "@mapbox/vector-tile": "^2.0.3",
+    "pbf": "^5.1.2",
+    "pmtiles": "^4.4.1"
+  }
+}

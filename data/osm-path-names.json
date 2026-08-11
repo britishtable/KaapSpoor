@@ -1,0 +1,1463 @@
+{
+  "region": "cape-town",
+  "source": "trails-cape-town.pmtiles",
+  "generated": "2026-08-11",
+  "names": [
+    {
+      "name": "Contour Path",
+      "segments": 27
+    },
+    {
+      "name": "Pipe Track",
+      "segments": 18
+    },
+    {
+      "name": "Twelve Apostles Path",
+      "segments": 18
+    },
+    {
+      "name": "Jammie Steps",
+      "segments": 13
+    },
+    {
+      "name": "Hoerikwaggo Trail",
+      "segments": 11
+    },
+    {
+      "name": "Liesbeeck River Trail",
+      "segments": 11
+    },
+    {
+      "name": "Twelve Apostles",
+      "segments": 11
+    },
+    {
+      "name": "Alphen Trail",
+      "segments": 9
+    },
+    {
+      "name": "Drostdy Steps",
+      "segments": 9
+    },
+    {
+      "name": "Silverhurst Trail",
+      "segments": 9
+    },
+    {
+      "name": "Elephant's Eye Trail",
+      "segments": 8
+    },
+    {
+      "name": "Liesbeek River Trail",
+      "segments": 8
+    },
+    {
+      "name": "Muizenberg Buttress",
+      "segments": 8
+    },
+    {
+      "name": "Pink Route",
+      "segments": 8
+    },
+    {
+      "name": "Cleft Peak",
+      "segments": 7
+    },
+    {
+      "name": "Disa Gorge",
+      "segments": 7
+    },
+    {
+      "name": "Karbonkelberg Traverse",
+      "segments": 7
+    },
+    {
+      "name": "Yellowwood Trail",
+      "segments": 7
+    },
+    {
+      "name": "Bay Road",
+      "segments": 6
+    },
+    {
+      "name": "India Venster",
+      "segments": 6
+    },
+    {
+      "name": "Klaasenbosch Trail",
+      "segments": 6
+    },
+    {
+      "name": "Lower Kloof corner link",
+      "segments": 6
+    },
+    {
+      "name": "Newlands Ravine",
+      "segments": 6
+    },
+    {
+      "name": "North Peak",
+      "segments": 6
+    },
+    {
+      "name": "Old Wagon Road",
+      "segments": 6
+    },
+    {
+      "name": "Outer Orange Kloof Ring Road",
+      "segments": 6
+    },
+    {
+      "name": "Platteklip Gorge",
+      "segments": 6
+    },
+    {
+      "name": "Ravine Steps",
+      "segments": 6
+    },
+    {
+      "name": "Simonstown to Smitswinkel via Swartkop",
+      "segments": 6
+    },
+    {
+      "name": "Echo Valley",
+      "segments": 5
+    },
+    {
+      "name": "Klaasenbosch Trail North Bank",
+      "segments": 5
+    },
+    {
+      "name": "Smuts Track",
+      "segments": 5
+    },
+    {
+      "name": "Suther Peak",
+      "segments": 5
+    },
+    {
+      "name": "Willis Walk",
+      "segments": 5
+    },
+    {
+      "name": "580m Traverse",
+      "segments": 4
+    },
+    {
+      "name": "7 Buttresses Traverse",
+      "segments": 4
+    },
+    {
+      "name": "Blinkwater Ravine",
+      "segments": 4
+    },
+    {
+      "name": "Deurdrift Walk",
+      "segments": 4
+    },
+    {
+      "name": "Grotto Ravine",
+      "segments": 4
+    },
+    {
+      "name": "Hiddingh Ascension",
+      "segments": 4
+    },
+    {
+      "name": "Inner Orange Kloof Ring Road",
+      "segments": 4
+    },
+    {
+      "name": "Kasteelspoort Path",
+      "segments": 4
+    },
+    {
+      "name": "Lions Head Path",
+      "segments": 4
+    },
+    {
+      "name": "Mount Nelson Steps",
+      "segments": 4
+    },
+    {
+      "name": "Orange Kloof Trail",
+      "segments": 4
+    },
+    {
+      "name": "Right Face Arrow Face Traverse",
+      "segments": 4
+    },
+    {
+      "name": "Shipwreck Trail",
+      "segments": 4
+    },
+    {
+      "name": "Silvertree Trail",
+      "segments": 4
+    },
+    {
+      "name": "Skeleton Gorge / Smuts Track",
+      "segments": 4
+    },
+    {
+      "name": "Skorsteenberg Sub",
+      "segments": 4
+    },
+    {
+      "name": "Skye Way",
+      "segments": 4
+    },
+    {
+      "name": "Steenberg Buttress",
+      "segments": 4
+    },
+    {
+      "name": "Trappieskop Base Circular",
+      "segments": 4
+    },
+    {
+      "name": "Alfies path",
+      "segments": 3
+    },
+    {
+      "name": "Bantry Steps",
+      "segments": 3
+    },
+    {
+      "name": "Bethal Shortcut",
+      "segments": 3
+    },
+    {
+      "name": "Cissie Gool Plaza",
+      "segments": 3
+    },
+    {
+      "name": "Clovelly Steps",
+      "segments": 3
+    },
+    {
+      "name": "Constantia Corner",
+      "segments": 3
+    },
+    {
+      "name": "Constantiaberg West Ridge",
+      "segments": 3
+    },
+    {
+      "name": "Dark Gorge",
+      "segments": 3
+    },
+    {
+      "name": "Dassies Kasteel",
+      "segments": 3
+    },
+    {
+      "name": "Diagonal Route",
+      "segments": 3
+    },
+    {
+      "name": "Els Buttress",
+      "segments": 3
+    },
+    {
+      "name": "Erica Buttress",
+      "segments": 3
+    },
+    {
+      "name": "FarmersCliffsWalkMiddle",
+      "segments": 3
+    },
+    {
+      "name": "Fynbos Walk",
+      "segments": 3
+    },
+    {
+      "name": "Jacobs Ladder",
+      "segments": 3
+    },
+    {
+      "name": "Jagers Walk",
+      "segments": 3
+    },
+    {
+      "name": "Kingfisher Lane",
+      "segments": 3
+    },
+    {
+      "name": "Kleintuinkop Direct",
+      "segments": 3
+    },
+    {
+      "name": "Kloof Corner Ridge",
+      "segments": 3
+    },
+    {
+      "name": "Left Face B",
+      "segments": 3
+    },
+    {
+      "name": "Level 5",
+      "segments": 3
+    },
+    {
+      "name": "Misteriosa",
+      "segments": 3
+    },
+    {
+      "name": "Mongoose Meander",
+      "segments": 3
+    },
+    {
+      "name": "Mount Road",
+      "segments": 3
+    },
+    {
+      "name": "Nordhoek Minor",
+      "segments": 3
+    },
+    {
+      "name": "Pimple Traverse",
+      "segments": 3
+    },
+    {
+      "name": "Pine Road",
+      "segments": 3
+    },
+    {
+      "name": "Reserve Peak",
+      "segments": 3
+    },
+    {
+      "name": "Silvermine Greenbelt",
+      "segments": 3
+    },
+    {
+      "name": "Silverstream Ravine",
+      "segments": 3
+    },
+    {
+      "name": "Skortseenberg Direct",
+      "segments": 3
+    },
+    {
+      "name": "Stinkwood Trail",
+      "segments": 3
+    },
+    {
+      "name": "Tafelberg Road",
+      "segments": 3
+    },
+    {
+      "name": "Vasbyt",
+      "segments": 3
+    },
+    {
+      "name": "Woodbine Road",
+      "segments": 3
+    },
+    {
+      "name": "700m Traverse",
+      "segments": 2
+    },
+    {
+      "name": "Admirals Footpath",
+      "segments": 2
+    },
+    {
+      "name": "Amphitheathre Path",
+      "segments": 2
+    },
+    {
+      "name": "Ash Valley",
+      "segments": 2
+    },
+    {
+      "name": "Avenue Suzanne",
+      "segments": 2
+    },
+    {
+      "name": "Axis Road",
+      "segments": 2
+    },
+    {
+      "name": "Beach Path",
+      "segments": 2
+    },
+    {
+      "name": "Blackburn Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Blackhill River Walk",
+      "segments": 2
+    },
+    {
+      "name": "Blackhill Sandpit",
+      "segments": 2
+    },
+    {
+      "name": "Boekenhout Trail",
+      "segments": 2
+    },
+    {
+      "name": "Boulders",
+      "segments": 2
+    },
+    {
+      "name": "Cairns Steps",
+      "segments": 2
+    },
+    {
+      "name": "Chelsea Walk",
+      "segments": 2
+    },
+    {
+      "name": "Clovelly Road",
+      "segments": 2
+    },
+    {
+      "name": "Corridor Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Da Gama Park Path",
+      "segments": 2
+    },
+    {
+      "name": "Dassenberg Path",
+      "segments": 2
+    },
+    {
+      "name": "De Hel Trail",
+      "segments": 2
+    },
+    {
+      "name": "Diagonal Route / Porcupine Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Dreyer Road",
+      "segments": 2
+    },
+    {
+      "name": "Faerie Garden",
+      "segments": 2
+    },
+    {
+      "name": "Fernwood Track",
+      "segments": 2
+    },
+    {
+      "name": "Glencairn Labyrinth",
+      "segments": 2
+    },
+    {
+      "name": "Glencairn Stables Pathway",
+      "segments": 2
+    },
+    {
+      "name": "Gloucester Road",
+      "segments": 2
+    },
+    {
+      "name": "Grotto Fountain Cairn Traverse",
+      "segments": 2
+    },
+    {
+      "name": "Grove Walk",
+      "segments": 2
+    },
+    {
+      "name": "Heytor Road",
+      "segments": 2
+    },
+    {
+      "name": "Hobbs Steps",
+      "segments": 2
+    },
+    {
+      "name": "Japonica Walk",
+      "segments": 2
+    },
+    {
+      "name": "Just Chute me",
+      "segments": 2
+    },
+    {
+      "name": "Kasteels Buttress B",
+      "segments": 2
+    },
+    {
+      "name": "Klip Street",
+      "segments": 2
+    },
+    {
+      "name": "Kloof Corner",
+      "segments": 2
+    },
+    {
+      "name": "Lakeside Pinnacle",
+      "segments": 2
+    },
+    {
+      "name": "Ledges",
+      "segments": 2
+    },
+    {
+      "name": "Lekkerwater Traverse",
+      "segments": 2
+    },
+    {
+      "name": "Level 4",
+      "segments": 2
+    },
+    {
+      "name": "Liesbeel Trail",
+      "segments": 2
+    },
+    {
+      "name": "Lizard",
+      "segments": 2
+    },
+    {
+      "name": "Milner Avenue",
+      "segments": 2
+    },
+    {
+      "name": "Mimetes Valley",
+      "segments": 2
+    },
+    {
+      "name": "Myburgh's Waterfall Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Newlands Link",
+      "segments": 2
+    },
+    {
+      "name": "Norman Road",
+      "segments": 2
+    },
+    {
+      "name": "Obelisk Walk",
+      "segments": 2
+    },
+    {
+      "name": "Old Mule Track",
+      "segments": 2
+    },
+    {
+      "name": "Old Railway Track",
+      "segments": 2
+    },
+    {
+      "name": "Oldfield Road",
+      "segments": 2
+    },
+    {
+      "name": "Otters Walk",
+      "segments": 2
+    },
+    {
+      "name": "Penguin Viewing Path",
+      "segments": 2
+    },
+    {
+      "name": "Ponder Road",
+      "segments": 2
+    },
+    {
+      "name": "Poyser Road",
+      "segments": 2
+    },
+    {
+      "name": "Red Hill alt return",
+      "segments": 2
+    },
+    {
+      "name": "Red Hill Direct",
+      "segments": 2
+    },
+    {
+      "name": "Rocket Road",
+      "segments": 2
+    },
+    {
+      "name": "Saint Jame's Road",
+      "segments": 2
+    },
+    {
+      "name": "Sandhurst Road",
+      "segments": 2
+    },
+    {
+      "name": "Silverstream-Ledges Traverse",
+      "segments": 2
+    },
+    {
+      "name": "Simonsberg",
+      "segments": 2
+    },
+    {
+      "name": "Skortseenberg Sub",
+      "segments": 2
+    },
+    {
+      "name": "Son Street",
+      "segments": 2
+    },
+    {
+      "name": "Steenberg Ridge Path",
+      "segments": 2
+    },
+    {
+      "name": "Swartkop Left Face B",
+      "segments": 2
+    },
+    {
+      "name": "The Other Woman",
+      "segments": 2
+    },
+    {
+      "name": "Toll Road",
+      "segments": 2
+    },
+    {
+      "name": "Trappies Surprise",
+      "segments": 2
+    },
+    {
+      "name": "Victoria Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Vygie Street",
+      "segments": 2
+    },
+    {
+      "name": "Welkom Road",
+      "segments": 2
+    },
+    {
+      "name": "Woody Buttress",
+      "segments": 2
+    },
+    {
+      "name": "Woody Ravine",
+      "segments": 2
+    },
+    {
+      "name": "Wright Way",
+      "segments": 2
+    },
+    {
+      "name": "Yellowwood Trail / Smuts Track",
+      "segments": 2
+    },
+    {
+      "name": "Zoarvlei Park Walking Path",
+      "segments": 2
+    },
+    {
+      "name": "580 m Traverse",
+      "segments": 1
+    },
+    {
+      "name": "580m Devil's Peak Traverse",
+      "segments": 1
+    },
+    {
+      "name": "580m Traverse Link",
+      "segments": 1
+    },
+    {
+      "name": "A. Franch Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Acorn Street",
+      "segments": 1
+    },
+    {
+      "name": "Agatha's Gully",
+      "segments": 1
+    },
+    {
+      "name": "Airlie Lane",
+      "segments": 1
+    },
+    {
+      "name": "Amber Way Greenbelt",
+      "segments": 1
+    },
+    {
+      "name": "Amberley Road",
+      "segments": 1
+    },
+    {
+      "name": "Apostle Steps",
+      "segments": 1
+    },
+    {
+      "name": "Arcadia Road",
+      "segments": 1
+    },
+    {
+      "name": "Arcadia Steps",
+      "segments": 1
+    },
+    {
+      "name": "Arthurs Road",
+      "segments": 1
+    },
+    {
+      "name": "Avenue Coeur de Lion",
+      "segments": 1
+    },
+    {
+      "name": "Avenue Saint Leon",
+      "segments": 1
+    },
+    {
+      "name": "B",
+      "segments": 1
+    },
+    {
+      "name": "Bailey's Kloof",
+      "segments": 1
+    },
+    {
+      "name": "Bascule Bridge",
+      "segments": 1
+    },
+    {
+      "name": "Beach Path Gate 1",
+      "segments": 1
+    },
+    {
+      "name": "Beach Path Gate 2",
+      "segments": 1
+    },
+    {
+      "name": "Beach Path Gate 3",
+      "segments": 1
+    },
+    {
+      "name": "Belle Ombre Road",
+      "segments": 1
+    },
+    {
+      "name": "Biskop Steps",
+      "segments": 1
+    },
+    {
+      "name": "Blackburn Major",
+      "segments": 1
+    },
+    {
+      "name": "Blind Gully",
+      "segments": 1
+    },
+    {
+      "name": "Boomslang",
+      "segments": 1
+    },
+    {
+      "name": "Boomslang Cave Path (Underground)",
+      "segments": 1
+    },
+    {
+      "name": "Braille Trail",
+      "segments": 1
+    },
+    {
+      "name": "Bridge",
+      "segments": 1
+    },
+    {
+      "name": "Bridge Street",
+      "segments": 1
+    },
+    {
+      "name": "Broken Road",
+      "segments": 1
+    },
+    {
+      "name": "Brounger Road",
+      "segments": 1
+    },
+    {
+      "name": "Buffalo Road",
+      "segments": 1
+    },
+    {
+      "name": "Bypass",
+      "segments": 1
+    },
+    {
+      "name": "Cairn Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Cairn Steps",
+      "segments": 1
+    },
+    {
+      "name": "Cape Point",
+      "segments": 1
+    },
+    {
+      "name": "Capri Road",
+      "segments": 1
+    },
+    {
+      "name": "Caracal Course",
+      "segments": 1
+    },
+    {
+      "name": "Carks Steps",
+      "segments": 1
+    },
+    {
+      "name": "Carstens Street",
+      "segments": 1
+    },
+    {
+      "name": "Castle Street",
+      "segments": 1
+    },
+    {
+      "name": "Cecilia Ridge",
+      "segments": 1
+    },
+    {
+      "name": "Challenging Path",
+      "segments": 1
+    },
+    {
+      "name": "Chasmay Road",
+      "segments": 1
+    },
+    {
+      "name": "Chigwell Lane",
+      "segments": 1
+    },
+    {
+      "name": "Clifford Road",
+      "segments": 1
+    },
+    {
+      "name": "Clifton Steps",
+      "segments": 1
+    },
+    {
+      "name": "Clingford Lane",
+      "segments": 1
+    },
+    {
+      "name": "Club Lane",
+      "segments": 1
+    },
+    {
+      "name": "Cobra",
+      "segments": 1
+    },
+    {
+      "name": "Coral Close",
+      "segments": 1
+    },
+    {
+      "name": "Crystal Towers Bridge",
+      "segments": 1
+    },
+    {
+      "name": "D.F. Malan Street",
+      "segments": 1
+    },
+    {
+      "name": "Dalebrook Road",
+      "segments": 1
+    },
+    {
+      "name": "De Anker Road",
+      "segments": 1
+    },
+    {
+      "name": "Dingaans Ridge",
+      "segments": 1
+    },
+    {
+      "name": "Disa River",
+      "segments": 1
+    },
+    {
+      "name": "Disa River Nature Area",
+      "segments": 1
+    },
+    {
+      "name": "Doris Road",
+      "segments": 1
+    },
+    {
+      "name": "Dragon's Passage",
+      "segments": 1
+    },
+    {
+      "name": "Duiker Ridge",
+      "segments": 1
+    },
+    {
+      "name": "Duncan Road",
+      "segments": 1
+    },
+    {
+      "name": "Earl Street",
+      "segments": 1
+    },
+    {
+      "name": "Echo Steps",
+      "segments": 1
+    },
+    {
+      "name": "Essex Road",
+      "segments": 1
+    },
+    {
+      "name": "Exit Via the Gift Shop",
+      "segments": 1
+    },
+    {
+      "name": "Faure Street",
+      "segments": 1
+    },
+    {
+      "name": "Ferny Dell",
+      "segments": 1
+    },
+    {
+      "name": "Firmount Road",
+      "segments": 1
+    },
+    {
+      "name": "Flagship Way",
+      "segments": 1
+    },
+    {
+      "name": "Flora Steps",
+      "segments": 1
+    },
+    {
+      "name": "Florida Steps",
+      "segments": 1
+    },
+    {
+      "name": "Frank Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Frustratiion Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Frustration Buttress",
+      "segments": 1
+    },
+    {
+      "name": "Gill Road",
+      "segments": 1
+    },
+    {
+      "name": "Gilmour Hill Road",
+      "segments": 1
+    },
+    {
+      "name": "Glenhill Valley extension",
+      "segments": 1
+    },
+    {
+      "name": "Glenhill Valley Trail",
+      "segments": 1
+    },
+    {
+      "name": "Gresham Road",
+      "segments": 1
+    },
+    {
+      "name": "Highlands Lane",
+      "segments": 1
+    },
+    {
+      "name": "Hill Climb Ocean Contour Path",
+      "segments": 1
+    },
+    {
+      "name": "Hillrise Road",
+      "segments": 1
+    },
+    {
+      "name": "Hilltop Street",
+      "segments": 1
+    },
+    {
+      "name": "Ibis Road",
+      "segments": 1
+    },
+    {
+      "name": "Intake Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Joubert Steps",
+      "segments": 1
+    },
+    {
+      "name": "Kalk Bay Kam",
+      "segments": 1
+    },
+    {
+      "name": "Kasteel Step",
+      "segments": 1
+    },
+    {
+      "name": "Knife's Edge",
+      "segments": 1
+    },
+    {
+      "name": "Lakeside Pinnacle Path",
+      "segments": 1
+    },
+    {
+      "name": "Lakeview Lane",
+      "segments": 1
+    },
+    {
+      "name": "Landdrost Street",
+      "segments": 1
+    },
+    {
+      "name": "Leeuwenhof Road",
+      "segments": 1
+    },
+    {
+      "name": "Ley Road",
+      "segments": 1
+    },
+    {
+      "name": "Little Forrest Track",
+      "segments": 1
+    },
+    {
+      "name": "Littlewort Trail",
+      "segments": 1
+    },
+    {
+      "name": "Llandudno Buttress",
+      "segments": 1
+    },
+    {
+      "name": "Llandudno Ravine",
+      "segments": 1
+    },
+    {
+      "name": "LongKloof Shortcut",
+      "segments": 1
+    },
+    {
+      "name": "Lower Burg Road",
+      "segments": 1
+    },
+    {
+      "name": "Mac Roberts Heights",
+      "segments": 1
+    },
+    {
+      "name": "Mamba",
+      "segments": 1
+    },
+    {
+      "name": "Manila Steps",
+      "segments": 1
+    },
+    {
+      "name": "Mercurius",
+      "segments": 1
+    },
+    {
+      "name": "Milner Road",
+      "segments": 1
+    },
+    {
+      "name": "Moray Place",
+      "segments": 1
+    },
+    {
+      "name": "Mother in Law",
+      "segments": 1
+    },
+    {
+      "name": "Mount Pleasant Steps",
+      "segments": 1
+    },
+    {
+      "name": "Mountain Rise",
+      "segments": 1
+    },
+    {
+      "name": "Mowbray Ridge",
+      "segments": 1
+    },
+    {
+      "name": "Muizenberg Crag",
+      "segments": 1
+    },
+    {
+      "name": "Navy Trail",
+      "segments": 1
+    },
+    {
+      "name": "Neiderlands Lane",
+      "segments": 1
+    },
+    {
+      "name": "New trail / bypass",
+      "segments": 1
+    },
+    {
+      "name": "Nordhoek West Ridge",
+      "segments": 1
+    },
+    {
+      "name": "North Peak to Simonsberg",
+      "segments": 1
+    },
+    {
+      "name": "North Peak via Baboon's Armchair",
+      "segments": 1
+    },
+    {
+      "name": "Northumbria",
+      "segments": 1
+    },
+    {
+      "name": "Norwich Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Nursery Buttress",
+      "segments": 1
+    },
+    {
+      "name": "Nursery Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Ocean View Path",
+      "segments": 1
+    },
+    {
+      "name": "Opal Way Greenbelt",
+      "segments": 1
+    },
+    {
+      "name": "Oudekraal Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Parkchester Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Path in Disa River nature arae",
+      "segments": 1
+    },
+    {
+      "name": "Pentrich Road",
+      "segments": 1
+    },
+    {
+      "name": "Phalo Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Pipe Bridge",
+      "segments": 1
+    },
+    {
+      "name": "Pipe Track (alternative route, closed off)",
+      "segments": 1
+    },
+    {
+      "name": "Porcupine Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Possible connection to Disa River paths",
+      "segments": 1
+    },
+    {
+      "name": "Potters Lane",
+      "segments": 1
+    },
+    {
+      "name": "Prestwich Lane",
+      "segments": 1
+    },
+    {
+      "name": "Princes Road",
+      "segments": 1
+    },
+    {
+      "name": "Puff Adder",
+      "segments": 1
+    },
+    {
+      "name": "Quarry path",
+      "segments": 1
+    },
+    {
+      "name": "Railway Level Crossing",
+      "segments": 1
+    },
+    {
+      "name": "Rectory Lane",
+      "segments": 1
+    },
+    {
+      "name": "Red Hill alternate return via One Bollock",
+      "segments": 1
+    },
+    {
+      "name": "Redhill Direct",
+      "segments": 1
+    },
+    {
+      "name": "Repens Valley",
+      "segments": 1
+    },
+    {
+      "name": "Repens Valley extension",
+      "segments": 1
+    },
+    {
+      "name": "Rhinkals",
+      "segments": 1
+    },
+    {
+      "name": "Rice Lane",
+      "segments": 1
+    },
+    {
+      "name": "Rim Track",
+      "segments": 1
+    },
+    {
+      "name": "Robyn's way",
+      "segments": 1
+    },
+    {
+      "name": "Rooikrans Trail",
+      "segments": 1
+    },
+    {
+      "name": "Rosmead Road",
+      "segments": 1
+    },
+    {
+      "name": "Rouxville Road",
+      "segments": 1
+    },
+    {
+      "name": "Ruby Way Greenbelt",
+      "segments": 1
+    },
+    {
+      "name": "Sandown Motors' Jeep Track",
+      "segments": 1
+    },
+    {
+      "name": "Sea Cottage Green Belt",
+      "segments": 1
+    },
+    {
+      "name": "Sea View Road",
+      "segments": 1
+    },
+    {
+      "name": "Secluse Lane",
+      "segments": 1
+    },
+    {
+      "name": "Shortcut to Elephants Eye",
+      "segments": 1
+    },
+    {
+      "name": "Smitswinkel Footpath",
+      "segments": 1
+    },
+    {
+      "name": "Smuts' Track",
+      "segments": 1
+    },
+    {
+      "name": "Snake Eyes",
+      "segments": 1
+    },
+    {
+      "name": "Southern Approach",
+      "segments": 1
+    },
+    {
+      "name": "Spes Bona Valley",
+      "segments": 1
+    },
+    {
+      "name": "Spilhaus Buttress",
+      "segments": 1
+    },
+    {
+      "name": "Spring Buttress",
+      "segments": 1
+    },
+    {
+      "name": "St James Buttress",
+      "segments": 1
+    },
+    {
+      "name": "Strathcona Road",
+      "segments": 1
+    },
+    {
+      "name": "Sunny Cove Steps",
+      "segments": 1
+    },
+    {
+      "name": "Taliep Petersen Bridge",
+      "segments": 1
+    },
+    {
+      "name": "Talma Road",
+      "segments": 1
+    },
+    {
+      "name": "The Crossing",
+      "segments": 1
+    },
+    {
+      "name": "The Lost Crusade",
+      "segments": 1
+    },
+    {
+      "name": "The Passage",
+      "segments": 1
+    },
+    {
+      "name": "Thomas Street",
+      "segments": 1
+    },
+    {
+      "name": "Three Firs",
+      "segments": 1
+    },
+    {
+      "name": "Top Road",
+      "segments": 1
+    },
+    {
+      "name": "Tortoise Track",
+      "segments": 1
+    },
+    {
+      "name": "Traverse of the Gods",
+      "segments": 1
+    },
+    {
+      "name": "Tredree Steps",
+      "segments": 1
+    },
+    {
+      "name": "Tree Canopy Walkway",
+      "segments": 1
+    },
+    {
+      "name": "Twisted Roots Trail",
+      "segments": 1
+    },
+    {
+      "name": "Union Ravine",
+      "segments": 1
+    },
+    {
+      "name": "Union Street",
+      "segments": 1
+    },
+    {
+      "name": "Upper Angelina Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Upper Deane Road",
+      "segments": 1
+    },
+    {
+      "name": "Upper Isabel Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Upper Paradise Road",
+      "segments": 1
+    },
+    {
+      "name": "Vesperdene Road",
+      "segments": 1
+    },
+    {
+      "name": "Victor Road",
+      "segments": 1
+    },
+    {
+      "name": "Victoria Avenue",
+      "segments": 1
+    },
+    {
+      "name": "Wagtail Way",
+      "segments": 1
+    },
+    {
+      "name": "Waterkant Street",
+      "segments": 1
+    },
+    {
+      "name": "Wesley Road",
+      "segments": 1
+    },
+    {
+      "name": "West Coast Cycle Path",
+      "segments": 1
+    },
+    {
+      "name": "Westray Road",
+      "segments": 1
+    },
+    {
+      "name": "Wexford Road",
+      "segments": 1
+    },
+    {
+      "name": "Whalers Way",
+      "segments": 1
+    },
+    {
+      "name": "Woodcutters Trail",
+      "segments": 1
+    },
+    {
+      "name": "Yellowstone Gully",
+      "segments": 1
+    },
+    {
+      "name": "Yellowwood Traverse",
+      "segments": 1
+    }
+  ]
+}
