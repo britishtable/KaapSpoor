@@ -103,9 +103,10 @@ better than borrowed geometry.
 ## Architecture
 
 ```
-tools/geocode/extract-osm-features.sh   NOW ALSO keeps r/type=route
+tools/geocode/extract-osm-features.sh   NOW ALSO keeps walkable ways + relations
   (WSL, osmium, hand-run)               emits work/named-features.geojsonl
-        │                                     + work/route-relations.geojsonl
+        │                                     + work/walkable-ways.geojsonl
+        │                                     + work/route-relations.json
         ▼
 tools/routelines/  (Python, hand-run)   builds the walk graph, stitches both tiers
         │                               emits  data/route-lines.geojson   ← COMMITTED
@@ -157,6 +158,12 @@ output, not their internals. Python for both, so the reader and the pytest setup
 the report — every route title whose normalised form contains, or is contained by, a relation name
 — and refuses to promote any of them on its own. A proposal in the report is a question; only the
 JSON file is an answer.
+
+**Relations are read as OSM JSON, not as exported geometry.** `osmium export` writes a relation as
+a MultiLineString and drops both the member way ids and their roles on the way through — which
+would cost the provenance every drawn line has to carry, and the role distinction below. The
+relation file therefore carries ids and roles, and member geometry is joined back on by way id
+from the walkable-ways export. (Found while writing the implementation plan, not while running it.)
 
 Stitching a relation: take member ways in relation order, join on shared endpoints, and emit a
 `LineString` where the members form one connected run, a `MultiLineString` where they do not.
