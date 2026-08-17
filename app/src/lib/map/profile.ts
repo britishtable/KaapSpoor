@@ -30,6 +30,17 @@ type Elevated = [number, number, number];
 
 const isElevated = (p: Point3): p is Elevated => p.length === 3;
 
+/**
+ * Narrows a raw GeoJSON position — `number[]`, per the spec, with no upper
+ * bound on its length — to the two- or three-ordinate shape this module
+ * works in. A type predicate rather than a cast: fetched JSON is untyped at
+ * the boundary, and a position with a fourth ordinate (GeoJSON allows one)
+ * would silently pass an `as Point3[]`.
+ */
+export function isPoint3(p: number[]): p is Point3 {
+  return p.length === 2 || p.length === 3;
+}
+
 export function cumulativeDistanceM(coords: Point3[]): number[] {
   const out: number[] = [];
   let running = 0;

@@ -6,9 +6,46 @@
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import RouteVariants from '$lib/components/RouteVariants.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
+  import RouteProfile from '$lib/components/RouteProfile.svelte';
+  import { isPoint3, type Point3 } from '$lib/map/profile';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
+  let scrubDistanceM = $state<number | null>(null);
+  let lineCoords = $state<Point3[]>([]);
+
+  // The route's own drawn line, fetched once per route so the elevation
+  // profile can plot it and the locator map can carry the same marker along
+  // it as the reader scrubs the chart.
+  $effect(() => {
+    const id = r.id;
+    if (!r.hasLine) {
+      lineCoords = [];
+      return;
+    }
+    let abandoned = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${base}/data/route-lines.geojson`);
+        if (!res.ok) return;
+        const collection = (await res.json()) as {
+          features: { geometry: { coordinates: number[][] }; properties: { routeId: string } }[];
+        };
+        // The longest variant is the one the figures describe, so the profile
+        // shows the same walk the stats do.
+        const mine = collection.features.filter((f) => f.properties.routeId === id);
+        const longest = mine.sort(
+          (a, b) => b.geometry.coordinates.length - a.geometry.coordinates.length
+        )[0];
+        if (!abandoned) lineCoords = (longest?.geometry.coordinates ?? []).filter(isPoint3);
+      } catch {
+        if (!abandoned) lineCoords = [];
+      }
+    })();
+    return () => {
+      abandoned = true;
+    };
+  });
 </script>
 
 <div class="page">
@@ -29,7 +66,11 @@
       accuracyM={r.coordsAccuracyM}
       routeId={r.id}
       hasLine={r.hasLine}
+      {scrubDistanceM}
     />
+  {/if}
+  {#if r.hasLine}
+    <RouteProfile coords={lineCoords} onscrub={(d) => (scrubDistanceM = d)} />
   {/if}
   <ProvenanceNote route={r} />
   <RouteVariants lines={r.lines} />
