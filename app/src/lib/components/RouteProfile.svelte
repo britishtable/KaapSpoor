@@ -12,7 +12,7 @@
    * (the same terracotta accent as RouteVariants and the route pins, the same
    * ink as the line-icon halo).
    */
-  import { profilePoints, totalDistanceM, type Point3 } from '$lib/map/profile';
+  import { profilePoints, totalAscentM, totalDistanceM, type Point3 } from '$lib/map/profile';
 
   let {
     coords,
@@ -27,7 +27,12 @@
   let totalM = $derived(totalDistanceM(coords));
   let lowest = $derived(points.length ? Math.min(...points.map((p) => p.elevationM)) : 0);
   let highest = $derived(points.length ? Math.max(...points.map((p) => p.elevationM)) : 0);
-  let climb = $derived(Math.round(highest - lowest));
+  // Cumulative ascent, not elevation range: a line that climbs, descends and
+  // climbs again must not collapse to a single max-minus-min figure. Null
+  // when no coordinate carries a height — guarded here even though the
+  // {#if points.length} below already implies at least one does, because
+  // that invariant belongs to profile.ts, not to this component's memory of it.
+  let climb = $derived(totalAscentM(coords));
   let marker = $state<number | null>(null);
 
   const plotW = WIDTH - PAD.left - PAD.right;
@@ -51,8 +56,8 @@
   }
 
   function fromPointer(event: PointerEvent): void {
-    const svg = event.currentTarget as SVGSVGElement;
-    const box = svg.getBoundingClientRect();
+    if (!(event.currentTarget instanceof SVGSVGElement)) return;
+    const box = event.currentTarget.getBoundingClientRect();
     // jsdom reports a zero-width box; guard so the component is testable.
     const usable = box.width || WIDTH;
     const fraction = (((event.clientX - box.left) / usable) * WIDTH - PAD.left) / plotW;
@@ -86,10 +91,12 @@
       viewBox="0 0 {WIDTH} {HEIGHT}"
       role="slider"
       tabindex="0"
-      aria-label="Elevation profile: {(totalM / 1000).toFixed(1)} km, about {climb} m of climb. Use the arrow keys to move the marker along the walk."
+      aria-label="Elevation profile: {(totalM / 1000).toFixed(1)} km{climb !== null
+        ? `, about ${climb} m of climb`
+        : ''}. Use the arrow keys to move the marker along the walk."
       aria-valuemin="0"
       aria-valuemax={totalM}
-      aria-valuenow={marker ?? 0}
+      aria-valuenow={marker ?? undefined}
       aria-valuetext={markerPoint
         ? `${(markerPoint.distanceM / 1000).toFixed(2)} km, ${Math.round(markerPoint.elevationM)} m`
         : 'no point selected'}
@@ -113,7 +120,7 @@
       {/if}
     </svg>
     <figcaption>
-      {(totalM / 1000).toFixed(1)} km · ≈ {climb} m of climb
+      {(totalM / 1000).toFixed(1)} km{#if climb !== null} · ≈ {climb} m of climb{/if}
       {#if markerPoint}
         · at {(markerPoint.distanceM / 1000).toFixed(2)} km: {Math.round(markerPoint.elevationM)} m
       {/if}
