@@ -56,21 +56,22 @@ export interface RouteIndexEntry {
    */
   mentionedPaths: string[];
   /**
-   * How this route's own line was derived, or null when it has none.
-   *
-   * `osm-relation` is a mapper-authored hiking relation; `osm-stitch` is the
-   * ordered corridor walk through the paths the description names. A route
-   * that passed neither gate has NO line and draws nothing — see
-   * docs/superpowers/specs/2026-08-16-phase4d-route-geometry-design.md.
+   * True when the author has drawn this route's line. The geometry itself
+   * lives in one static file the map fetches once — see
+   * docs/superpowers/specs/2026-08-17-drawn-route-lines-design.md.
    */
-  lineSource: 'osm-relation' | 'osm-stitch' | null;
-  /** Never true when `lineSource` is null, and vice versa. */
   hasLine: boolean;
   grade: string | null;
   gradeSource: 'label' | 'prose' | null;
   time: string | null;
   heightGain: string | null;
   isFullEntry: boolean;
+}
+
+/** One drawn line of a route: an alternative, with a caption saying what it is. */
+export interface RouteLine {
+  variant: string | null;
+  note: string | null;
 }
 
 export interface RouteContent extends RouteIndexEntry {
@@ -80,6 +81,8 @@ export interface RouteContent extends RouteIndexEntry {
   attachments: string[];
   photoCount: number;
   sourceUrl: string;
+  /** Empty when nothing is drawn. One entry per variant, in file order. */
+  lines: RouteLine[];
 }
 
 export interface JournalEntry {

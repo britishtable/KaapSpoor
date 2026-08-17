@@ -34,17 +34,14 @@
   // How the LINE is known, which is a separate claim from how the position is.
   // One component owns both sentences so no two surfaces can word the same
   // relationship differently — the reason this component exists at all.
-  let lineText = $derived.by(() => {
-    if (!route.hasLine) return null;
-    switch (route.lineSource) {
-      case 'osm-relation':
-        return 'Line drawn from a hiking route in OpenStreetMap.';
-      case 'osm-stitch':
-        return 'Line stitched from OpenStreetMap paths, following the order this description names them.';
-      default:
-        return null;
-    }
-  });
+  // One sentence, because there is now one way a line comes to exist. The two
+  // Phase 4d sentences named a tier because there were two tiers; naming a
+  // single source tells the reader nothing they cannot see.
+  let lineText = $derived(
+    route.hasLine
+      ? 'Line drawn from the Mountain Meanders description and from walking the route.'
+      : null
+  );
 </script>
 
 <p class="note" class:approx>{text}</p>

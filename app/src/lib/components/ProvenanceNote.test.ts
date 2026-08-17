@@ -6,7 +6,6 @@ import type { RouteIndexEntry } from '../data/types';
 const base: RouteIndexEntry = { id: 'a', title: 'Blind Gully', area: ['x'],
   coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
   mentionedPaths: [],
-  lineSource: null,
   hasLine: false,
   grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
 
@@ -59,24 +58,16 @@ describe('ProvenanceNote', () => {
 describe('how the line is known', () => {
   const entry = (overrides: Partial<RouteIndexEntry>): RouteIndexEntry => ({ ...base, ...overrides });
 
-  it('says when a line came from a mapper-authored hiking route', () => {
-    render(ProvenanceNote, { route: entry({ hasLine: true, lineSource: 'osm-relation' }) });
+  it('says the line was drawn from the guide and from walking it', () => {
+    render(ProvenanceNote, { route: entry({ hasLine: true }) });
     expect(screen.getByTestId('line-provenance').textContent).toMatch(
-      /hiking route in OpenStreetMap/i
-    );
-  });
-
-  it('says when a line was stitched from the order the description names paths', () => {
-    render(ProvenanceNote, { route: entry({ hasLine: true, lineSource: 'osm-stitch' }) });
-    expect(screen.getByTestId('line-provenance').textContent).toMatch(
-      /order this description names them/i
+      /drawn from the Mountain Meanders description/i
     );
   });
 
   it('says nothing at all when there is no line', () => {
-    // The absence of a line is not an error to explain on every page — 160 of
-    // 184 routes have none, and a sentence on each would be noise.
-    render(ProvenanceNote, { route: entry({ hasLine: false, lineSource: null }) });
+    // Most routes have none, and a sentence on each would be noise.
+    render(ProvenanceNote, { route: entry({ hasLine: false }) });
     expect(screen.queryByTestId('line-provenance')).toBeNull();
   });
 });

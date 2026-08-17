@@ -10,7 +10,6 @@ const entries: RouteIndexEntry[] = [
   { id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
     coords: { lat: -33.97, lon: 18.39, zoom: 15 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
-    lineSource: null,
     hasLine: false,
     grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true }
 ];
@@ -50,7 +49,8 @@ describe('library page selection', () => {
     sections: { Overview: 'A long walk up a big hill.' },
     description: 'Overview:\nA long walk up a big hill.',
     related: [], attachments: [], photoCount: 0,
-    sourceUrl: 'https://example.invalid/route'
+    sourceUrl: 'https://example.invalid/route',
+    lines: []
   };
 
   beforeEach(() => {

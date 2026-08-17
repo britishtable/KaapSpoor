@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeId } from '../src/lib/data/ids';
 import { mentionedPaths, type OsmPathName } from '../src/lib/data/path-mentions';
-import type { RouteIndexEntry, RouteContent, RouteLocation } from '../src/lib/data/types';
+import type { RouteIndexEntry, RouteContent, RouteLine, RouteLocation } from '../src/lib/data/types';
 
 interface RawRoute {
   slug: string; title: string; url: string; area: string[];
@@ -22,7 +22,7 @@ export function statValue(stats: Record<string, string>, name: string): string |
 }
 
 export interface RouteLineFeature {
-  properties: { routeId: string; source: 'osm-relation' | 'osm-stitch' };
+  properties: { routeId: string; variant?: string; note?: string };
 }
 export interface RouteLines {
   features: RouteLineFeature[];
@@ -34,9 +34,18 @@ export function transform(
   pathNames: OsmPathName[] = [],
   lines: RouteLines = { features: [] }
 ): { index: RouteIndexEntry[]; content: RouteContent[] } {
-  const lineSources = new Map(
-    lines.features.map((f) => [f.properties.routeId, f.properties.source])
-  );
+  // Grouped per route: an entry may carry several drawn alternatives, and the
+  // panel needs each one's name and caption. The geometry stays out of the
+  // per-route JSON — only the map fetches that.
+  const linesByRoute = new Map<string, RouteLine[]>();
+  for (const feature of lines.features) {
+    const list = linesByRoute.get(feature.properties.routeId) ?? [];
+    list.push({
+      variant: feature.properties.variant ?? null,
+      note: feature.properties.note ?? null
+    });
+    linesByRoute.set(feature.properties.routeId, list);
+  }
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
   // The source's `related` field is the full site nav (every page links to
   // every other), so it is useless as relations. Instead relate routes that
@@ -97,8 +106,7 @@ export function transform(
       // A flag rather than the geometry: the line itself is fetched once,
       // lazily, from a single static file the first time a selection needs it
       // — so 184 index entries do not each carry a few hundred coordinates.
-      lineSource: lineSources.get(id) ?? null,
-      hasLine: lineSources.has(id),
+      hasLine: linesByRoute.has(id),
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
@@ -112,7 +120,8 @@ export function transform(
       ...entry, sections: r.sections, description: r.description,
       related, attachments: r.attachments,
       photoCount: r.photos.deck_ids.length + r.photos.inline_urls.length,
-      sourceUrl: r.url
+      sourceUrl: r.url,
+      lines: linesByRoute.get(id) ?? []
     });
   }
   return { index, content };
@@ -156,7 +165,7 @@ async function main() {
       `(${[...bySource].map(([k, v]) => `${k}=${v}`).join(', ')}); ` +
       `${withPaths} name a mapped path, ${vocabulary.size} distinct names used ` +
       `of ${pathNames.length} available; ` +
-      `${index.filter((e) => e.hasLine).length} have a line`
+      `${index.filter((e) => e.hasLine).length} have a drawn line`
   );
 }
 

@@ -41,7 +41,6 @@ describe('entriesInRegion', () => {
     coords: coords ? { ...coords, zoom: 15 } : null,
     coordsSource: coords ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
-    lineSource: null,
     hasLine: false,
     grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true
   });

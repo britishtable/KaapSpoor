@@ -9,11 +9,11 @@ const route: RouteContent = {
   id: 'tm-aw-blind-gully', title: 'Blind Gully', area: ['Table-Mountain', 'atlantic-west'],
   coords: null, coordsSource: null, coordsAccuracyM: null, coordsOsm: null,
   mentionedPaths: [],
-  lineSource: null,
   hasLine: false,
   grade: 'B', gradeSource: 'prose', time: null, heightGain: null, isFullEntry: false,
   sections: { Overview: 'A scramble.' }, description: 'A scramble.',
-  related: [], attachments: [], photoCount: 2, sourceUrl: 'https://example.invalid'
+  related: [], attachments: [], photoCount: 2, sourceUrl: 'https://example.invalid',
+  lines: []
 };
 
 beforeEach(async () => { await replaceAll([]); });
