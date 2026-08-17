@@ -21,11 +21,22 @@ export function statValue(stats: Record<string, string>, name: string): string |
   return hit ? hit[1] : null;
 }
 
+export interface RouteLineFeature {
+  properties: { routeId: string; source: 'osm-relation' | 'osm-stitch' };
+}
+export interface RouteLines {
+  features: RouteLineFeature[];
+}
+
 export function transform(
   raw: RawDataset,
   locations: Record<string, RouteLocation> = {},
-  pathNames: OsmPathName[] = []
+  pathNames: OsmPathName[] = [],
+  lines: RouteLines = { features: [] }
 ): { index: RouteIndexEntry[]; content: RouteContent[] } {
+  const lineSources = new Map(
+    lines.features.map((f) => [f.properties.routeId, f.properties.source])
+  );
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
   // The source's `related` field is the full site nav (every page links to
   // every other), so it is useless as relations. Instead relate routes that
@@ -83,6 +94,11 @@ export function transform(
       // union of all of them at load time to label the static tier, and
       // `npm test` runs before `build:data` has ever produced anything.
       mentionedPaths: mentionedPaths(Object.values(r.sections).join(' '), pathNames),
+      // A flag rather than the geometry: the line itself is fetched once,
+      // lazily, from a single static file the first time a selection needs it
+      // — so 184 index entries do not each carry a few hundred coordinates.
+      lineSource: lineSources.get(id) ?? null,
+      hasLine: lineSources.has(id),
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
@@ -117,10 +133,19 @@ async function main() {
   const pathNames = existsSync(pathNamesPath)
     ? (JSON.parse(readFileSync(pathNamesPath, 'utf-8')).names as OsmPathName[])
     : [];
-  const { index, content } = transform(raw, locations, pathNames);
+  // Absent on a clone that has not run tools/routelines; every route then has
+  // no line, which is the pre-Phase-4d behaviour and builds fine.
+  const linesPath = resolve(here, '../../data/route-lines.geojson');
+  const lines = existsSync(linesPath)
+    ? (JSON.parse(readFileSync(linesPath, 'utf-8')) as RouteLines)
+    : { features: [] };
+  const { index, content } = transform(raw, locations, pathNames, lines);
   const out = resolve(here, '../static/data');
   await mkdir(resolve(out, 'routes'), { recursive: true });
   await writeFile(resolve(out, 'routes-index.json'), JSON.stringify(index));
+  // Copied rather than imported by the app: it is one static asset the map
+  // fetches at runtime, and copying keeps data/ the single source of truth.
+  await writeFile(resolve(out, 'route-lines.geojson'), JSON.stringify(lines));
   for (const c of content) await writeFile(resolve(out, `routes/${c.id}.json`), JSON.stringify(c));
   const bySource = new Map<string, number>();
   for (const e of index) if (e.coordsSource) bySource.set(e.coordsSource, (bySource.get(e.coordsSource) ?? 0) + 1);
@@ -130,7 +155,8 @@ async function main() {
     `transform: ${index.length} routes, ${index.filter((e) => e.coords).length} located ` +
       `(${[...bySource].map(([k, v]) => `${k}=${v}`).join(', ')}); ` +
       `${withPaths} name a mapped path, ${vocabulary.size} distinct names used ` +
-      `of ${pathNames.length} available`
+      `of ${pathNames.length} available; ` +
+      `${index.filter((e) => e.hasLine).length} have a line`
   );
 }
 

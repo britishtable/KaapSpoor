@@ -55,6 +55,17 @@ export interface RouteIndexEntry {
    * See docs/superpowers/specs/2026-08-06-phase4e-named-paths-design.md.
    */
   mentionedPaths: string[];
+  /**
+   * How this route's own line was derived, or null when it has none.
+   *
+   * `osm-relation` is a mapper-authored hiking relation; `osm-stitch` is the
+   * ordered corridor walk through the paths the description names. A route
+   * that passed neither gate has NO line and draws nothing — see
+   * docs/superpowers/specs/2026-08-16-phase4d-route-geometry-design.md.
+   */
+  lineSource: 'osm-relation' | 'osm-stitch' | null;
+  /** Never true when `lineSource` is null, and vice versa. */
+  hasLine: boolean;
   grade: string | null;
   gradeSource: 'label' | 'prose' | null;
   time: string | null;

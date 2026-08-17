@@ -15,6 +15,8 @@ function content(id: string, title: string, over: Partial<RouteContent> = {}): R
     related: [], attachments: [], photoCount: 0,
     sourceUrl: 'https://example.invalid/route',
     mentionedPaths: [],
+    lineSource: null,
+    hasLine: false,
     ...over
   };
 }
