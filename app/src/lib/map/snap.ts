@@ -2,15 +2,23 @@
  * Snapping a click to the trail network, and walking the trails between two
  * clicks.
  *
- * A port of tools/routelines/kaap_routelines/{geo,graph}.py, whose behaviour is
- * pinned by that tool's tests. The source of lines here is the vector tiles the
- * map has already loaded, so the editor needs no extra download and no server.
+ * Adapted from tools/routelines/kaap_routelines/{geo,graph}.py, whose node key
+ * and Dijkstra this keeps. The source of lines here is the vector tiles the map
+ * has already loaded, so the editor needs no extra download and no server.
  *
- * `splitAtJunctions` is the load-bearing piece. Measured over 29 z14 tiles of
- * Table Mountain's path network: 2,063 junctions are visible endpoint-to-
- * endpoint and 1,027 are interior vertices of some feature. Joining only at
- * endpoints would therefore miss a third of them and leave the network in
- * pieces a click cannot route across.
+ * EVERY VERTEX IS A NODE, which differs from the Python tool and matters twice.
+ *
+ * The Python tool made whole ways its edges, so it had to cut them wherever
+ * another way met one mid-span — measured over 29 z14 tiles, 1,027 of 3,090
+ * junctions are interior vertices, and missing those leaves the network in
+ * pieces nothing can route across. Per-vertex edges make that splitting step
+ * unnecessary: two lines sharing an interior vertex meet at a node already.
+ *
+ * It is also what makes the editor usable. Junctions are hundreds of metres
+ * apart, so a graph of junctions alone can only be clicked at junctions — every
+ * click on the trail between two of them lands too far from a node and is
+ * refused. Tile vertices are ~2.5 m apart, so snapping to them is continuous
+ * for a hand holding a mouse.
  */
 
 export type Point = [number, number]; // [lon, lat]
@@ -31,31 +39,6 @@ export function haversineM(a: Point, b: Point): number {
     Math.sin((lat2 - lat1) / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2;
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
-}
-
-/** Cut every line at the vertices it shares with a DIFFERENT line. */
-export function splitAtJunctions(lines: Point[][]): Point[][] {
-  const carrying = new Map<NodeKey, number>();
-  for (const line of lines) {
-    // One vote per line, so a line touching itself makes no junction.
-    const own = new Set(line.map(nodeKey));
-    for (const key of own) carrying.set(key, (carrying.get(key) ?? 0) + 1);
-  }
-
-  const pieces: Point[][] = [];
-  for (const line of lines) {
-    const keys = line.map(nodeKey);
-    const cuts = [0];
-    for (let i = 1; i < keys.length - 1; i++) {
-      if ((carrying.get(keys[i]) ?? 0) > 1) cuts.push(i);
-    }
-    cuts.push(keys.length - 1);
-    for (let c = 0; c < cuts.length - 1; c++) {
-      const piece = line.slice(cuts[c], cuts[c + 1] + 1);
-      if (piece.length >= 2) pieces.push(piece);
-    }
-  }
-  return pieces;
 }
 
 export interface Edge {
@@ -79,18 +62,22 @@ export function buildGraph(lines: Point[][]): SnapGraph {
     else adjacency.set(key, [edge]);
   };
 
-  for (const coords of lines) {
-    if (coords.length < 2) continue;
-    const a = nodeKey(coords[0]);
-    const b = nodeKey(coords[coords.length - 1]);
-    let lengthM = 0;
-    for (let i = 1; i < coords.length; i++) lengthM += haversineM(coords[i - 1], coords[i]);
-    const edge: Edge = { a, b, coords, lengthM };
-    nodes.set(a, coords[0]);
-    nodes.set(b, coords[coords.length - 1]);
-    push(a, edge);
-    // A closed loop would otherwise list itself twice from one node.
-    if (b !== a) push(b, edge);
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    for (let i = 1; i < line.length; i++) {
+      const from = line[i - 1];
+      const to = line[i];
+      const a = nodeKey(from);
+      const b = nodeKey(to);
+      // A zero-length segment (a repeated coordinate) is not an edge, and it
+      // would put a self-loop in the adjacency for nothing.
+      if (a === b) continue;
+      const edge: Edge = { a, b, coords: [from, to], lengthM: haversineM(from, to) };
+      nodes.set(a, from);
+      nodes.set(b, to);
+      push(a, edge);
+      push(b, edge);
+    }
   }
   return { adjacency, nodes };
 }
@@ -108,6 +95,50 @@ export function nearestNode(graph: SnapGraph, point: Point, withinM: number): No
   return best;
 }
 
+/** The smallest heap that does the job; nothing here needs decrease-key. */
+class MinHeap {
+  private items: { key: NodeKey; cost: number }[] = [];
+
+  get size(): number {
+    return this.items.length;
+  }
+
+  push(key: NodeKey, cost: number): void {
+    this.items.push({ key, cost });
+    let i = this.items.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.items[parent].cost <= this.items[i].cost) break;
+      [this.items[parent], this.items[i]] = [this.items[i], this.items[parent]];
+      i = parent;
+    }
+  }
+
+  pop(): { key: NodeKey; cost: number } | undefined {
+    const top = this.items[0];
+    const last = this.items.pop();
+    if (this.items.length && last) {
+      this.items[0] = last;
+      let i = 0;
+      for (;;) {
+        const left = 2 * i + 1;
+        const right = left + 1;
+        let smallest = i;
+        if (left < this.items.length && this.items[left].cost < this.items[smallest].cost) {
+          smallest = left;
+        }
+        if (right < this.items.length && this.items[right].cost < this.items[smallest].cost) {
+          smallest = right;
+        }
+        if (smallest === i) break;
+        [this.items[smallest], this.items[i]] = [this.items[i], this.items[smallest]];
+        i = smallest;
+      }
+    }
+    return top;
+  }
+}
+
 /** The coordinates walked from `from` to `to` along the trails, or null. */
 export function routeBetween(graph: SnapGraph, from: NodeKey, to: NodeKey): Point[] | null {
   const start = graph.nodes.get(from);
@@ -116,14 +147,14 @@ export function routeBetween(graph: SnapGraph, from: NodeKey, to: NodeKey): Poin
 
   const best = new Map<NodeKey, number>([[from, 0]]);
   const cameBy = new Map<NodeKey, { edge: Edge; prev: NodeKey }>();
-  // A plain array used as a priority queue: the editor's graph is the loaded
-  // tiles, thousands of edges, and a binary heap would be more machinery than
-  // the problem needs.
-  const queue: { key: NodeKey; cost: number }[] = [{ key: from, cost: 0 }];
+  // A binary heap, not a sorted array. Every tile vertex is a node, so a view
+  // of Table Mountain is tens of thousands of them, and re-sorting the queue on
+  // each pop turned a click into a visible pause.
+  const queue = new MinHeap();
+  queue.push(from, 0);
 
-  while (queue.length) {
-    queue.sort((x, y) => x.cost - y.cost);
-    const next = queue.shift();
+  while (queue.size) {
+    const next = queue.pop();
     if (!next) break;
     const { key, cost } = next;
     if (key === to) break;
@@ -134,7 +165,7 @@ export function routeBetween(graph: SnapGraph, from: NodeKey, to: NodeKey): Poin
       if (nextCost < (best.get(other) ?? Infinity)) {
         best.set(other, nextCost);
         cameBy.set(other, { edge, prev: key });
-        queue.push({ key: other, cost: nextCost });
+        queue.push(other, nextCost);
       }
     }
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nodeKey, haversineM, splitAtJunctions, buildGraph, nearestNode, routeBetween,
+  nodeKey, haversineM, buildGraph, nearestNode, routeBetween,
   type Point
 } from './snap';
 
@@ -29,25 +29,26 @@ describe('haversineM', () => {
   });
 });
 
-describe('splitAtJunctions', () => {
-  it('leaves a line with no junction inside it alone', () => {
-    expect(splitAtJunctions([[A, B, C]])).toEqual([[A, B, C]]);
+describe('buildGraph connectivity', () => {
+  it('joins two lines that meet at an INTERIOR vertex of one of them', () => {
+    // A third of junctions in the shipped tiles are interior vertices. Every
+    // vertex being a node is what makes them usable without a separate
+    // splitting step — a side path ending mid-way along a through path meets
+    // it at a node already.
+    const graph = buildGraph([[A, B, C], [B, NORTH]]);
+    expect(routeBetween(graph, nodeKey(A), nodeKey(NORTH))).toEqual([A, B, NORTH]);
   });
 
-  it('cuts a line where another meets it mid-span', () => {
-    // THE reason this function exists. A third of junctions in the shipped
-    // tiles are interior vertices of some feature, so joining only at feature
-    // endpoints leaves the network in disconnected pieces and no click can
-    // route across them.
-    const pieces = splitAtJunctions([[A, B, C], [B, NORTH]]);
-    expect(pieces).toHaveLength(3);
-    expect(pieces).toContainEqual([A, B]);
-    expect(pieces).toContainEqual([B, C]);
+  it('gives a click something to snap to between the junctions', () => {
+    // The defect this replaced: with only line endpoints as nodes, a click on
+    // the trail between two junctions had nothing within reach and was refused.
+    const graph = buildGraph([[A, B, C]]);
+    expect(graph.nodes.has(nodeKey(B))).toBe(true);
   });
 
-  it('does not cut a line where it touches only itself', () => {
-    // A lollipop shares a coordinate with itself, not with another line.
-    expect(splitAtJunctions([[A, B, C, B, NORTH]])).toHaveLength(1);
+  it('ignores a repeated coordinate rather than making a self-loop', () => {
+    const graph = buildGraph([[A, A, B]]);
+    expect(graph.adjacency.get(nodeKey(A))).toHaveLength(1);
   });
 });
 
@@ -80,11 +81,6 @@ describe('routeBetween', () => {
   it('follows the trails across a join', () => {
     const graph = buildGraph([[A, B], [B, C]]);
     expect(routeBetween(graph, nodeKey(A), nodeKey(C))).toEqual([A, B, C]);
-  });
-
-  it('walks a split line, so an interior junction is usable', () => {
-    const graph = buildGraph(splitAtJunctions([[A, B, C], [B, NORTH]]));
-    expect(routeBetween(graph, nodeKey(A), nodeKey(NORTH))).toEqual([A, B, NORTH]);
   });
 
   it('takes the shorter of two ways round', () => {
