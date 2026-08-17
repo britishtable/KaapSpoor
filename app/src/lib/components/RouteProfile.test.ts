@@ -46,6 +46,21 @@ describe('RouteProfile', () => {
     expect(screen.queryByText(/≈ 300 m/)).toBeNull();
   });
 
+  it('rounds the climb to whole metres', () => {
+    // Real DEM samples are floats, so the sum of them almost never lands on an
+    // integer. This shipped once as "≈ 380.59999999999997 m of climb" and was
+    // only caught by looking at a browser: every other fixture here climbs by
+    // round numbers, so they pass with or without the rounding. A 30 m model
+    // cannot justify a decimal metre anyway.
+    const fractional: Point3[] = [
+      [18.4, -34.0, 100.25],
+      [18.401, -34.0, 480.85]
+    ];
+    render(RouteProfile, { coords: fractional });
+    expect(screen.getByText(/≈ 381 m/)).toBeTruthy();
+    expect(screen.queryByText(/380\./)).toBeNull();
+  });
+
   it('reports the distance under the cursor while scrubbing', () => {
     const onscrub = vi.fn();
     const { container } = render(RouteProfile, { coords: climb, onscrub });
