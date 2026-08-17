@@ -145,6 +145,26 @@
           'line-width': 4
         }
       });
+      // Label EVERY named trail. The shipped style filters `paths-named` to
+      // the routes' own vocabulary and the app fills it at runtime; the editor
+      // never does, so every ravine and traverse was anonymous. Routes are
+      // named after the trail they use, so the name is how the author finds
+      // the right line to click.
+      map.setFilter('paths-named', ['has', 'name']);
+      // Darker than the public map's quiet tier: here the names are the thing
+      // being read, not a background fact.
+      map.setPaintProperty('paths-named', 'text-color', '#3f2d1d');
+      map.setPaintProperty('paths-named', 'text-halo-width', 1.8);
+      // Repeat them more often, so a long trail is identifiable wherever the
+      // author happens to be looking along it.
+      map.setLayoutProperty('paths-named', 'symbol-spacing', 220);
+      map.setLayoutProperty('paths-named', 'text-size', [
+        'interpolate', ['linear'], ['zoom'], 13, 11, 16, 14
+      ]);
+      // 30 refused to place a label on a bending trail at all (Phase 4e's own
+      // finding); 45 is MapLibre's default and places on the switchbacks these
+      // routes are made of.
+      map.setLayoutProperty('paths-named', 'text-max-angle', 45);
       rebuildGraph();
     });
     map.on('idle', rebuildGraph);
