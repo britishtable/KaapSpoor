@@ -60,15 +60,20 @@ export function transform(
   const toPoint3 = (coord: number[]): Point3 =>
     coord.length >= 3 ? [coord[0], coord[1], coord[2]] : [coord[0], coord[1]];
   // The LONGEST variant, not the sum: an entry's alternatives are options, and
-  // a reader walks one of them.
+  // a reader walks one of them. Compared RAW against RAW -- rounding before
+  // comparing let two variants within a metre of each other order differently
+  // here than on the route page, which compares the fetched line's own raw
+  // totalDistanceM with no rounding at all.
   const statsByRoute = new Map<string, RouteLineStats>();
+  const rawDistanceByRoute = new Map<string, number>();
   for (const feature of lines.features) {
     const coords = (feature.geometry?.coordinates ?? []).map(toPoint3);
     if (coords.length < 2) continue;
     const distanceM = totalDistanceM(coords);
-    const previous = statsByRoute.get(feature.properties.routeId);
-    if (!previous || distanceM > previous.distanceM) {
+    const previousRaw = rawDistanceByRoute.get(feature.properties.routeId);
+    if (previousRaw === undefined || distanceM > previousRaw) {
       const ascent = totalAscentM(coords);
+      rawDistanceByRoute.set(feature.properties.routeId, distanceM);
       statsByRoute.set(feature.properties.routeId, {
         distanceM: Math.round(distanceM),
         ascentM: ascent === null ? null : Math.round(ascent)

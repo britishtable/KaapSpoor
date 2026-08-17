@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { transform, statValue, type RawDataset, type RouteLines } from './transform';
+import { totalDistanceM, type Point3 } from '../src/lib/map/profile';
 
 const raw = {
   attribution: 'x', source: 'y', license: 'z', generated: 'g', areas: [],
@@ -288,6 +289,35 @@ describe('route lines', () => {
     // The LONGEST variant, not the sum: a reader picking one walks one of them.
     expect(content[0].lineStats!.distanceM).toBeGreaterThan(160);
     expect(content[0].lineStats!.distanceM).toBeLessThan(200);
+  });
+
+  it('compares raw distance to raw distance, not raw to an already-rounded figure', () => {
+    // Two variants under a metre apart: the FIRST (processed first, becomes
+    // `previous`) is genuinely longer, but rounds DOWN past the second's raw
+    // distance. Comparing the second's raw metres against the first's
+    // ROUNDED metres would wrongly prefer the second (shorter) variant here
+    // -- exactly the ordering the route page's own raw-to-raw comparison
+    // would not make, since it never rounds until StatsStrip renders.
+    const first: Point3[] = [[18.4, -34.0, 100], [18.40109, -34.0, 130]];
+    const second: Point3[] = [[18.4, -34.0, 400], [18.401085, -34.0, 450]];
+    const firstRaw = totalDistanceM(first);
+    const secondRaw = totalDistanceM(second);
+    // The fixture only proves the bug if the two raw distances actually sit
+    // either side of Math.round(firstRaw) -- assert the setup, not just the
+    // outcome.
+    expect(firstRaw).toBeGreaterThan(secondRaw);
+    expect(secondRaw).toBeGreaterThan(Math.round(firstRaw));
+
+    const lines = {
+      features: [
+        { geometry: { type: 'LineString' as const, coordinates: first }, properties: { routeId: 'area--x', variant: 'First' } },
+        { geometry: { type: 'LineString' as const, coordinates: second }, properties: { routeId: 'area--x', variant: 'Second' } }
+      ]
+    };
+    const { content } = transform(rawWith(['x']), {}, [], lines);
+    // The genuinely longer variant (30 m of ascent) wins, not the shorter one
+    // that merely looked bigger next to a rounded figure (50 m of ascent).
+    expect(content[0].lineStats!.ascentM).toBe(30);
   });
 
   // Deliberately NOT a staleness check against the OSM extract. CI has no PBF
