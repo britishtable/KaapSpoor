@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nodeKey, haversineM, buildGraph, nearestNode, routeBetween,
+  nodeKey, haversineM, buildGraph, nearestNode, routeBetween, snapToGraph,
   type Point
 } from './snap';
 
@@ -61,6 +61,42 @@ describe('buildGraph', () => {
   it('records every node so a click has something to snap to', () => {
     const graph = buildGraph([[A, B]]);
     expect([...graph.nodes.keys()].sort()).toEqual([nodeKey(A), nodeKey(B)].sort());
+  });
+});
+
+describe('snapToGraph', () => {
+  it('snaps to a point ON the line, not to its nearest corner', () => {
+    // THE defect this replaced. A straight run of trail carries two vertices,
+    // one at each end. Clicking the middle of a visibly dashed line was refused
+    // because the nearest VERTEX was hundreds of metres away, even though the
+    // click was on the path. What is on screen is the line, so the line is what
+    // a click must snap to.
+    const graph = buildGraph([[A, C]]); // ~1.8 km, two vertices
+    const middle: Point = [18.410, -34.0005]; // on the line, ~50 m south
+    const hit = snapToGraph(graph, middle, 100);
+    expect(hit).not.toBe(null);
+    expect(hit!.point[0]).toBeCloseTo(18.410, 4);
+    expect(hit!.point[1]).toBeCloseTo(-34.0, 4);
+  });
+
+  it('still refuses a click that is genuinely off any trail', () => {
+    const graph = buildGraph([[A, C]]);
+    expect(snapToGraph(graph, [18.41, -34.05], 100)).toBe(null);
+  });
+
+  it('makes the snapped point routable, so the next click can walk from it', () => {
+    // Snapping mid-segment has to add a node, or the walk has nowhere to start.
+    const graph = buildGraph([[A, C]]);
+    const hit = snapToGraph(graph, [18.410, -34.0005], 100)!;
+    expect(routeBetween(graph, hit.key, nodeKey(C))).not.toBe(null);
+  });
+
+  it('reuses an existing node when the click is already on one', () => {
+    const graph = buildGraph([[A, B], [B, C]]);
+    const before = graph.nodes.size;
+    const hit = snapToGraph(graph, B, 50)!;
+    expect(hit.key).toBe(nodeKey(B));
+    expect(graph.nodes.size).toBe(before);
   });
 });
 

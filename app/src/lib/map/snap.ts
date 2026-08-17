@@ -51,11 +51,14 @@ export interface Edge {
 export interface SnapGraph {
   adjacency: Map<NodeKey, Edge[]>;
   nodes: Map<NodeKey, Point>;
+  /** Every edge once, for snapping a click onto the line rather than a vertex. */
+  edges: Edge[];
 }
 
 export function buildGraph(lines: Point[][]): SnapGraph {
   const adjacency = new Map<NodeKey, Edge[]>();
   const nodes = new Map<NodeKey, Point>();
+  const edges: Edge[] = [];
   const push = (key: NodeKey, edge: Edge) => {
     const list = adjacency.get(key);
     if (list) list.push(edge);
@@ -77,9 +80,95 @@ export function buildGraph(lines: Point[][]): SnapGraph {
       nodes.set(b, to);
       push(a, edge);
       push(b, edge);
+      edges.push(edge);
     }
   }
-  return { adjacency, nodes };
+  return { adjacency, nodes, edges };
+}
+
+/** Where a click landed on the network: a point on a line, and its node. */
+export interface Snapped {
+  key: NodeKey;
+  point: Point;
+  distanceM: number;
+}
+
+/**
+ * The nearest point ON A LINE to `click`, or null if none is within `withinM`.
+ *
+ * Snapping to vertices alone was the editor's first real defect: a straight run
+ * of trail carries two vertices, one at each end, so clicking the middle of a
+ * plainly visible dashed line was refused because the nearest CORNER was
+ * hundreds of metres off. What the author sees is the line, so the line is what
+ * a click has to find.
+ *
+ * A click landing between two vertices SPLITS that edge, so the snapped point
+ * is a real node the walk can start from. The graph is rebuilt whenever the map
+ * settles, so these extra nodes never accumulate.
+ */
+export function snapToGraph(graph: SnapGraph, click: Point, withinM: number): Snapped | null {
+  let best: { edge: Edge; point: Point; t: number; distanceM: number } | null = null;
+
+  for (const edge of graph.edges) {
+    const [from, to] = edge.coords;
+    // Planar projection with longitude scaled by latitude: over a segment of a
+    // few hundred metres the error is far below the click tolerance.
+    const k = Math.cos((click[1] * Math.PI) / 180);
+    const ax = (from[0] - click[0]) * k;
+    const ay = from[1] - click[1];
+    const bx = (to[0] - click[0]) * k;
+    const by = to[1] - click[1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 ? -(ax * dx + ay * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const point: Point = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+    const distanceM = haversineM(click, point);
+    if (distanceM <= withinM && (!best || distanceM < best.distanceM)) {
+      best = { edge, point, t, distanceM };
+    }
+  }
+
+  if (!best) return null;
+
+  const key = nodeKey(best.point);
+  // Landing on (or within rounding of) an existing node needs no split.
+  if (graph.nodes.has(key)) return { key, point: graph.nodes.get(key)!, distanceM: best.distanceM };
+
+  splitEdge(graph, best.edge, key, best.point);
+  return { key, point: best.point, distanceM: best.distanceM };
+}
+
+/** Replace `edge` with two edges meeting at a new node. */
+function splitEdge(graph: SnapGraph, edge: Edge, key: NodeKey, point: Point): void {
+  const [from, to] = edge.coords;
+  const first: Edge = { a: edge.a, b: key, coords: [from, point], lengthM: haversineM(from, point) };
+  const second: Edge = { a: key, b: edge.b, coords: [point, to], lengthM: haversineM(point, to) };
+
+  const drop = (node: NodeKey) => {
+    const list = graph.adjacency.get(node);
+    if (!list) return;
+    const at = list.indexOf(edge);
+    if (at >= 0) list.splice(at, 1);
+  };
+  const add = (node: NodeKey, next: Edge) => {
+    const list = graph.adjacency.get(node);
+    if (list) list.push(next);
+    else graph.adjacency.set(node, [next]);
+  };
+
+  drop(edge.a);
+  drop(edge.b);
+  add(edge.a, first);
+  add(key, first);
+  add(key, second);
+  add(edge.b, second);
+
+  graph.nodes.set(key, point);
+  const at = graph.edges.indexOf(edge);
+  if (at >= 0) graph.edges.splice(at, 1, first, second);
+  else graph.edges.push(first, second);
 }
 
 export function nearestNode(graph: SnapGraph, point: Point, withinM: number): NodeKey | null {

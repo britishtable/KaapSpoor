@@ -8,7 +8,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import {
-    buildGraph, nearestNode, routeBetween, nodeKey,
+    buildGraph, snapToGraph, routeBetween,
     type Point, type SnapGraph
   } from '$lib/map/snap';
   import { newVariant, undoLeg, variantCoords, type Variant } from '$lib/draw/state';
@@ -77,23 +77,36 @@
       return;
     }
     const click: Point = [lngLat.lng, lngLat.lat];
-    const node = nearestNode(graph, click, snapRadiusM());
-    if (!node) {
+    // Snaps onto the LINE, not to its nearest vertex — a straight run of trail
+    // has vertices only at its ends, and snapping to those refused clicks that
+    // plainly landed on the path.
+    const hit = snapToGraph(graph, click, snapRadiusM());
+    if (!hit) {
       // Refused rather than dropped free-hand: an off-trail point would be
       // indistinguishable from a snapped one afterwards, and off-path geometry
       // is deliberately out of scope (see the spec).
       message = `No trail within ${SNAP_PX} px of that click.`;
       return;
     }
-    const point = graph.nodes.get(node);
-    if (!point) return;
+    const node = hit.key;
+    const point = hit.point;
     const variant = variants[active];
     if (variant.legs.length === 0) {
       variant.legs.push({ at: point, coords: [point] });
       message = '';
     } else {
-      const from = nodeKey(variant.legs[variant.legs.length - 1].at);
-      const walked = routeBetween(graph, from, node);
+      // Re-snap the previous point into the CURRENT graph rather than trusting
+      // the key it had when it was clicked. The graph is rebuilt whenever the
+      // map settles — which happens after every click — and a node created by
+      // splitting an edge does not survive that, so routing from the old key
+      // failed on every second click wherever it landed.
+      const previous = variant.legs[variant.legs.length - 1].at;
+      const from = snapToGraph(graph, previous, snapRadiusM());
+      if (!from) {
+        message = 'The previous point is off the loaded map — pan back to it.';
+        return;
+      }
+      const walked = routeBetween(graph, from.key, node);
       if (!walked) {
         message = 'No trail connects that to the last point.';
         return;
