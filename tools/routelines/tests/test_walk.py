@@ -175,6 +175,35 @@ def test_takes_the_run_nearest_the_route_not_the_longest():
     assert result.way_ids == (1,)
 
 
+def test_a_walk_that_retraces_itself_is_rejected():
+    # Found by looking at the map: Kasteels Buttress and Llandudno Ravine drew
+    # lines that ran out along a fork and back down it. A trail's run can
+    # branch and rejoin, and the greedy follow walks all of it — but a hike
+    # does not walk the same ground twice, so the shape is not the route.
+    ways = [
+        w(1, P[0], P[1], name="Fork Path"),
+        w(2, P[1], P[2], name="Fork Path"),
+        w(3, P[2], P[1], name="Fork Path"),  # branch back to P[1]
+    ]
+    trails, graph = _world(ways)
+    result = walk_route(P[0], ["Fork Path"], trails, graph)
+    assert isinstance(result, Rejected)
+    assert "retraces" in result.reason
+
+
+def test_a_circular_route_returning_to_its_start_is_allowed():
+    # Closing the loop is one repeated point and a real thing a hike does.
+    ways = [
+        w(1, P[0], P[1], name="Loop"),
+        w(2, P[1], (18.4015, -33.9995), name="Loop"),
+        w(3, (18.4015, -33.9995), P[0], name="Loop"),
+    ]
+    trails, graph = _world(ways)
+    result = walk_route(P[0], ["Loop"], trails, graph)
+    assert isinstance(result, WalkResult)
+    assert result.coords[0] == result.coords[-1]
+
+
 def test_no_names_is_rejected():
     trails, graph = _world([w(1, P[0], P[1], name="First Path")])
     result = walk_route(P[0], [], trails, graph)

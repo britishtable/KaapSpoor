@@ -2,7 +2,7 @@
 
 OSM extract: 2026-08-17
 
-**24 routes have a line**; 160 were rejected.
+**21 routes have a line**; 163 were rejected.
 A rejected route keeps its pin and draws nothing, which is the design:
 a wrong line is a wrong claim about the mountain.
 
@@ -12,12 +12,9 @@ a wrong line is a wrong claim about the mountain.
 |---|---|---|---|---|---|
 | `table-mountain--atlantic-west--corridor-ravine` | osm-relation | 0.6 km | 0.0 km | 1 | 7057852 |
 | `table-mountain--atlantic-west--diagonal-route` | osm-relation | 1.8 km | 0.0 km | 4 | 6198096 |
-| `table-mountain--atlantic-west--kasteels-buttress` | osm-stitch | 1.4 km | 0.1 km | 5 | — |
 | `table-mountain--atlantic-west--kasteelspoort` | osm-relation | 1.3 km | 0.0 km | 3 | 7057855 |
 | `table-mountain--atlantic-west--llandudno-buttress` | osm-stitch | 0.4 km | 0.0 km | 4 | — |
-| `table-mountain--atlantic-west--llandudno-ravine` | osm-stitch | 0.7 km | 0.1 km | 6 | — |
 | `table-mountain--atlantic-west--not-woody-buttress` | osm-stitch | 1.8 km | 0.0 km | 3 | — |
-| `table-mountain--atlantic-west--porcupine-anvil` | osm-stitch | 9.5 km | 1.5 km | 50 | — |
 | `table-mountain--atlantic-west--valken-ravine` | osm-stitch | 0.5 km | 0.0 km | 1 | — |
 | `table-mountain--atlantic-west--wood-ravine` | osm-relation | 2.7 km | 0.0 km | 6 | 6682368 |
 | `table-mountain--devils-peak--mobray-ridge` | osm-relation | 1.4 km | 0.0 km | 3 | 7057976 |
@@ -41,7 +38,7 @@ a wrong line is a wrong claim about the mountain.
 |---|---|
 | `table-mountain--atlantic-west--7-buttresses-apostles-traverse` | connector: a single 712 m bridge exceeds 500 m before '7 Buttresses Traverse' |
 | `table-mountain--atlantic-west--blind-gully` | connectors: 659 m of 1761 m is over the 20% cap |
-| `table-mountain--atlantic-west--blind-gully-porcupine-traverse` | connectors: 872 m of 2848 m is over the 20% cap |
+| `table-mountain--atlantic-west--blind-gully-porcupine-traverse` | retraces: the walk covers 80 point(s) twice, so it runs out and back rather than along the route |
 | `table-mountain--atlantic-west--blinkawater-ravine` | anchor: no path within 250 m of the position |
 | `table-mountain--atlantic-west--boschkloof-traverse-needle` | area-approx position: an area centroid cannot anchor a line |
 | `table-mountain--atlantic-west--cairn-ravine` | connector: a single 743 m bridge exceeds 500 m before 'Pipe Track' |
@@ -53,15 +50,18 @@ a wrong line is a wrong claim about the mountain.
 | `table-mountain--atlantic-west--hairpin-route` | anchor: no path within 250 m of the position |
 | `table-mountain--atlantic-west--hout-bay-corner` | connector: a single 510 m bridge exceeds 500 m before 'Llandudno Ravine' |
 | `table-mountain--atlantic-west--jubilee-buttress` | connector: a single 537 m bridge exceeds 500 m before 'Diagonal Route' |
+| `table-mountain--atlantic-west--kasteels-buttress` | retraces: the walk covers 3 point(s) twice, so it runs out and back rather than along the route |
 | `table-mountain--atlantic-west--kasteels-gully` | area-approx position: an area centroid cannot anchor a line |
 | `table-mountain--atlantic-west--lekkerwater-traverse` | connector: a single 512 m bridge exceeds 500 m before 'Grove Walk' |
+| `table-mountain--atlantic-west--llandudno-ravine` | retraces: the walk covers 2 point(s) twice, so it runs out and back rather than along the route |
 | `table-mountain--atlantic-west--oudekraal-ravine` | connector: a single 692 m bridge exceeds 500 m before 'Corridor Ravine' |
 | `table-mountain--atlantic-west--pimple-traverse` | connector: a single 512 m bridge exceeds 500 m before 'Victoria Ravine' |
+| `table-mountain--atlantic-west--porcupine-anvil` | retraces: the walk covers 1 point(s) twice, so it runs out and back rather than along the route |
 | `table-mountain--atlantic-west--postern-south-face-b` | area-approx position: an area centroid cannot anchor a line |
 | `table-mountain--atlantic-west--separation-buttress` | connector: a single 512 m bridge exceeds 500 m before 'Llandudno Ravine' |
 | `table-mountain--atlantic-west--slangolie-ravine` | area-approx position: an area centroid cannot anchor a line |
 | `table-mountain--atlantic-west--spring-buttress` | connector: a single 876 m bridge exceeds 500 m before 'Three Firs' |
-| `table-mountain--atlantic-west--spring-step-over` | connectors: 2329 m of 9824 m is over the 20% cap |
+| `table-mountain--atlantic-west--spring-step-over` | retraces: the walk covers 174 point(s) twice, so it runs out and back rather than along the route |
 | `table-mountain--atlantic-west--three-firs` | connector: a single 842 m bridge exceeds 500 m before 'Pipe Track' |
 | `table-mountain--atlantic-west--wood-spring-traverse` | area-approx position: an area centroid cannot anchor a line |
 | `table-mountain--atlantic-west--woody-buttress` | connector: a single 876 m bridge exceeds 500 m before 'Woody Ravine' |
@@ -193,10 +193,10 @@ a wrong line is a wrong claim about the mountain.
 | `peninsula--silvermine--wolfkop` | no names: the description names no mapped path |
 | `peninsula--simonstown--elsies-pk-brakkloof-ridge` | no names: the description names no mapped path |
 | `peninsula--simonstown--elsies-pk-circumnavigation-traverse` | no names in range: every trail named is over 5 km from the route's position |
-| `peninsula--simonstown--north-peak` | connectors: 886 m of 1772 m is over the 20% cap |
+| `peninsula--simonstown--north-peak` | retraces: the walk covers 27 point(s) twice, so it runs out and back rather than along the route |
 | `peninsula--simonstown--outlook-ridge-1` | no names in range: every trail named is over 5 km from the route's position |
 | `peninsula--simonstown--redhill-direct-from-the-sea` | anchor: no path within 250 m of the position |
-| `peninsula--simonstown--simonsberg` | connectors: 1187 m of 3259 m is over the 20% cap |
+| `peninsula--simonstown--simonsberg` | retraces: the walk covers 25 point(s) twice, so it runs out and back rather than along the route |
 | `peninsula--simonstown--slangkop-kommetjie` | no names in range: every trail named is over 5 km from the route's position |
 | `peninsula--simonstown--swartkops-traverse` | anchor: no path within 250 m of the position |
 

@@ -170,6 +170,19 @@ def walk_route(
     if len(coords) < 2:
         return Rejected("empty: the walk covered no ground")
 
+    # A hike does not walk the same ground twice. A trail's run can branch and
+    # rejoin, and the follow above walks every piece of it, so a fork comes out
+    # as a line that runs up one side and back down the other. Closing a loop —
+    # first point equal to last — is the one repeat a real route has.
+    keys = [node_key(point) for point in coords]
+    closure = 1 if keys[0] == keys[-1] else 0
+    retraced = len(keys) - len(set(keys)) - closure
+    if retraced > 0:
+        return Rejected(
+            f"retraces: the walk covers {retraced} point(s) twice, so it runs out "
+            "and back rather than along the route"
+        )
+
     from .geo import length_m as measure
 
     total = measure(coords)
