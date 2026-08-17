@@ -103,4 +103,44 @@ describe('direction', () => {
     expect(image.height).toBe(image.width);
     expect(image.data.length).toBe(image.width * image.height * 4);
   });
+
+  it('draws a chevron pointing +x, not -x', () => {
+    // A pixel-content check, not just a shape check: mirroring the image
+    // (vertex at low x instead of high x) must fail this test. For each
+    // column, count how many rows are lit -- the vertex column has the
+    // fewest lit rows (the strokes haven't fanned out yet), and the columns
+    // near the open tail have the most. If the chevron pointed the wrong
+    // way, the narrowest column would sit in the low-x half instead.
+    const image = arrowImage();
+    const litRowsByColumn = (img: ImageData): number[] => {
+      const counts: number[] = [];
+      for (let x = 0; x < img.width; x++) {
+        let n = 0;
+        for (let y = 0; y < img.height; y++) {
+          if (img.data[(y * img.width + x) * 4 + 3] > 0) n++;
+        }
+        counts.push(n);
+      }
+      return counts;
+    };
+    const counts = litRowsByColumn(image);
+    // Only columns the chevron actually touches -- the far side of the image
+    // is deliberately blank (the strokes fan out from the vertex, they don't
+    // reach across the whole width).
+    const litColumns = counts
+      .map((n, x) => ({ x, n }))
+      .filter(({ n }) => n > 0);
+    expect(litColumns.length).toBeGreaterThan(0);
+
+    const vertex = litColumns.reduce((min, c) => (c.n < min.n ? c : min));
+    // The vertex column is in the high-x half of the image -- the leading
+    // edge, since icon-rotation-alignment: 'map' rotates the image's own +x
+    // axis to match the line's bearing.
+    expect(vertex.x).toBeGreaterThanOrEqual(image.width / 2);
+
+    // A column near the open tail (low x) has strictly more lit rows than
+    // the vertex -- the strokes have visibly spread apart by then.
+    const tailColumn = litColumns.reduce((min, c) => (c.x < min.x ? c : min));
+    expect(tailColumn.n).toBeGreaterThan(vertex.n);
+  });
 });

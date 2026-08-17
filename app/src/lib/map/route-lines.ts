@@ -104,12 +104,19 @@ export function arrowImage(size = 16): ImageData {
     data[at + 2] = 255;
     data[at + 3] = 255;
   };
-  // A chevron: two strokes meeting at the leading point, pointing +x.
+  // A chevron: two strokes trailing back from a single vertex at the
+  // LEADING (high-x) edge — the image's own +x axis is "forward". The
+  // vertex sits near x = size-1 at the vertical centre; the strokes fan out
+  // toward -x as they approach the top and bottom rows. Fixed from an
+  // earlier version whose vertex sat at low x with the strokes opening
+  // toward high x, which drew a chevron pointing backward (-x).
   const mid = Math.floor(size / 2);
+  const tip = size - 1;
   for (let i = 0; i < mid; i++) {
     for (let t = 0; t < 2; t++) {
-      put(Math.min(size - 1, mid + i - 1 + t), Math.max(0, mid - i));
-      put(Math.min(size - 1, mid + i - 1 + t), Math.min(size - 1, mid + i));
+      const x = Math.max(0, tip - i - t);
+      put(x, Math.max(0, mid - i));
+      put(x, Math.min(size - 1, mid + i));
     }
   }
   // jsdom has no ImageData constructor, and this module must import cleanly
