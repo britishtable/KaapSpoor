@@ -8,7 +8,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import {
-    buildGraph, snapToGraph, routeBetween,
+    buildGraph, snapToGraph, walkOrBridge,
     type Point, type SnapGraph
   } from '$lib/map/snap';
   import {
@@ -140,7 +140,7 @@
         message = 'The previous point is off the loaded map — pan back to it.';
         return;
       }
-      const walked = routeBetween(graph, from.key, node);
+      const walked = walkOrBridge(graph, from.point, point);
       if (!walked) {
         message =
           'No trail connects those two points yet — if the trail between them ' +

@@ -223,6 +223,39 @@ export function nearestNode(graph: SnapGraph, point: Point, withinM: number): No
   return best;
 }
 
+/**
+ * Two clicks this close are one step, whatever the network says.
+ *
+ * OSM routinely has two ways passing within metres without sharing a node, so
+ * the graph has no link between them and the only route is the long way round.
+ * Measured on Lekkerwater Traverse: a click 10 m past the top of Grove Walk
+ * sent the line 2 km back through Pimple Traverse and Victoria Ravine. At this
+ * range a straight join is what the author plainly means, and it is visually
+ * indistinguishable from the trail anyway.
+ */
+const BRIDGE_M = 30;
+
+/**
+ * The trail between two points — or a straight join where routing would be
+ * absurd. Returns null only when the two are genuinely far apart and nothing
+ * connects them.
+ */
+export function walkOrBridge(graph: SnapGraph, from: Point, to: Point): Point[] | null {
+  const direct = haversineM(from, to);
+  if (direct <= BRIDGE_M) return [from, to];
+
+  const walked = routeBetween(graph, nodeKey(from), nodeKey(to));
+  if (!walked) return null;
+
+  // Connected, but only by a detour out of all proportion to the gap: the two
+  // ways almost certainly do not meet, and the long way round is not the route.
+  let length = 0;
+  for (let i = 1; i < walked.length; i++) length += haversineM(walked[i - 1], walked[i]);
+  if (length > Math.max(4 * direct, direct + 200)) return [from, to];
+
+  return walked;
+}
+
 /** The smallest heap that does the job; nothing here needs decrease-key. */
 class MinHeap {
   private items: { key: NodeKey; cost: number }[] = [];

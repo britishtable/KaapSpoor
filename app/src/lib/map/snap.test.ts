@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nodeKey, haversineM, buildGraph, nearestNode, routeBetween, snapToGraph,
+  nodeKey, haversineM, buildGraph, nearestNode, routeBetween, snapToGraph, walkOrBridge,
   type Point
 } from './snap';
 
@@ -157,5 +157,39 @@ describe('routeBetween', () => {
   it('returns a single point when asked to route to where it already is', () => {
     const graph = buildGraph([[A, B]]);
     expect(routeBetween(graph, nodeKey(A), nodeKey(A))).toEqual([A]);
+  });
+});
+
+describe('walkOrBridge', () => {
+  const NEAR_A: Point = [18.4000000, -34.0000000];
+  // ~9 m north: two ways that pass close without sharing a node, which is
+  // ordinary in OSM.
+  const NEAR_B: Point = [18.4000000, -33.9999190];
+
+  it('joins two points a few metres apart directly, whatever the network says', () => {
+    // THE bug this exists for: clicking 10 m on from the last point sent the
+    // line 2 km round by Pimple Traverse and Victoria Ravine, because the two
+    // ways share no node and the only route between them is the long way. At
+    // this range a straight join is what the author plainly means.
+    const graph = buildGraph([[A, NEAR_A], [NEAR_B, C]]);
+    const walked = walkOrBridge(graph, NEAR_A, NEAR_B);
+    expect(walked).toEqual([NEAR_A, NEAR_B]);
+  });
+
+  it('still follows the trails when the two points are properly apart', () => {
+    const graph = buildGraph([[A, B], [B, C]]);
+    expect(walkOrBridge(graph, A, C)).toEqual([A, B, C]);
+  });
+
+  it('bridges rather than detouring when the network route is absurdly long', () => {
+    // Connected, but only the long way round: A->B->C is far longer than the
+    // few metres between the two clicks.
+    const graph = buildGraph([[NEAR_A, A], [A, B], [B, C], [C, NEAR_B]]);
+    expect(walkOrBridge(graph, NEAR_A, NEAR_B)).toEqual([NEAR_A, NEAR_B]);
+  });
+
+  it('gives up when the points are far apart and nothing connects them', () => {
+    const graph = buildGraph([[A, B], [FAR, FAR_EAST]]);
+    expect(walkOrBridge(graph, A, FAR)).toBe(null);
   });
 });
