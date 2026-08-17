@@ -4,7 +4,14 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeId } from '../src/lib/data/ids';
 import { mentionedPaths, type OsmPathName } from '../src/lib/data/path-mentions';
-import type { RouteIndexEntry, RouteContent, RouteLine, RouteLocation } from '../src/lib/data/types';
+import type {
+  RouteIndexEntry,
+  RouteContent,
+  RouteLine,
+  RouteLineStats,
+  RouteLocation
+} from '../src/lib/data/types';
+import { totalAscentM, totalDistanceM, type Point3 } from '../src/lib/map/profile';
 
 interface RawRoute {
   slug: string; title: string; url: string; area: string[];
@@ -22,6 +29,7 @@ export function statValue(stats: Record<string, string>, name: string): string |
 }
 
 export interface RouteLineFeature {
+  geometry?: { type: 'LineString'; coordinates: number[][] };
   properties: { routeId: string; variant?: string; note?: string };
 }
 export interface RouteLines {
@@ -45,6 +53,27 @@ export function transform(
       note: feature.properties.note ?? null
     });
     linesByRoute.set(feature.properties.routeId, list);
+  }
+  // GeoJSON positions are number[] by spec; narrow each one explicitly to
+  // Point3 rather than casting, since a coordinate may or may not carry the
+  // elevation sampled at Save.
+  const toPoint3 = (coord: number[]): Point3 =>
+    coord.length >= 3 ? [coord[0], coord[1], coord[2]] : [coord[0], coord[1]];
+  // The LONGEST variant, not the sum: an entry's alternatives are options, and
+  // a reader walks one of them.
+  const statsByRoute = new Map<string, RouteLineStats>();
+  for (const feature of lines.features) {
+    const coords = (feature.geometry?.coordinates ?? []).map(toPoint3);
+    if (coords.length < 2) continue;
+    const distanceM = totalDistanceM(coords);
+    const previous = statsByRoute.get(feature.properties.routeId);
+    if (!previous || distanceM > previous.distanceM) {
+      const ascent = totalAscentM(coords);
+      statsByRoute.set(feature.properties.routeId, {
+        distanceM: Math.round(distanceM),
+        ascentM: ascent === null ? null : Math.round(ascent)
+      });
+    }
   }
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
   // The source's `related` field is the full site nav (every page links to
@@ -121,7 +150,8 @@ export function transform(
       related, attachments: r.attachments,
       photoCount: r.photos.deck_ids.length + r.photos.inline_urls.length,
       sourceUrl: r.url,
-      lines: linesByRoute.get(id) ?? []
+      lines: linesByRoute.get(id) ?? [],
+      lineStats: statsByRoute.get(id) ?? null
     });
   }
   return { index, content };

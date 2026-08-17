@@ -233,6 +233,63 @@ describe('route lines', () => {
     expect(content[0].lines).toEqual([]);
   });
 
+  it('measures a drawn line so the panel can state it without the geometry', () => {
+    const lines = {
+      features: [
+        {
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: [[18.4, -34.0, 100], [18.401, -34.0, 200]]
+          },
+          properties: { routeId: 'area--x' }
+        }
+      ]
+    };
+    const { content } = transform(rawWith(['x']), {}, [], lines);
+    expect(content[0].lineStats!.distanceM).toBeGreaterThan(80);
+    expect(content[0].lineStats!.ascentM).toBe(100);
+  });
+
+  it('reports no ascent for a line drawn before heights were sampled', () => {
+    // null, not zero: "we did not measure" and "it is flat" are different
+    // claims, and the page must not make the second one.
+    const lines = {
+      features: [
+        {
+          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.401, -34.0]] },
+          properties: { routeId: 'area--x' }
+        }
+      ]
+    };
+    const { content } = transform(rawWith(['x']), {}, [], lines);
+    expect(content[0].lineStats!.ascentM).toBe(null);
+    expect(content[0].lineStats!.distanceM).toBeGreaterThan(80);
+  });
+
+  it('has no stats at all for a route with nothing drawn', () => {
+    const { content } = transform(rawWith(['x']), {}, []);
+    expect(content[0].lineStats).toBe(null);
+  });
+
+  it('takes the longest variant, since a reader walks one', () => {
+    const lines = {
+      features: [
+        {
+          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.401, -34.0]] },
+          properties: { routeId: 'area--x', variant: 'Left Hand' }
+        },
+        {
+          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.402, -34.0]] },
+          properties: { routeId: 'area--x', variant: 'Right Hand' }
+        }
+      ]
+    };
+    const { content } = transform(rawWith(['x']), {}, [], lines);
+    // The LONGEST variant, not the sum: a reader picking one walks one of them.
+    expect(content[0].lineStats!.distanceM).toBeGreaterThan(160);
+    expect(content[0].lineStats!.distanceM).toBeLessThan(200);
+  });
+
   // Deliberately NOT a staleness check against the OSM extract. CI has no PBF
   // when unit tests run, so such a check could only ever take the degraded path
   // and fail for being right.

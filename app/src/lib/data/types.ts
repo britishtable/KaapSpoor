@@ -74,6 +74,15 @@ export interface RouteLine {
   note: string | null;
 }
 
+/**
+ * What the drawn line measures. `ascentM` is null when the line carries no
+ * heights — "not measured" and "flat" are different claims.
+ */
+export interface RouteLineStats {
+  distanceM: number;
+  ascentM: number | null;
+}
+
 export interface RouteContent extends RouteIndexEntry {
   sections: Record<string, string>;
   description: string;
@@ -83,6 +92,8 @@ export interface RouteContent extends RouteIndexEntry {
   sourceUrl: string;
   /** Empty when nothing is drawn. One entry per variant, in file order. */
   lines: RouteLine[];
+  /** Null when nothing is drawn. The longest variant, since a reader walks one. */
+  lineStats: RouteLineStats | null;
 }
 
 export interface JournalEntry {
