@@ -46,3 +46,15 @@ XML rather than OSM JSON because osmium's JSON writer is a compile-time option
 Ubuntu's package does not enable: `osmium cat -f json` fails with "No support
 for writing this format in this program" on 1.16, and a newer release does not
 change that. `relations.py` accepts either.
+
+## The DEM the editor samples
+
+`/draw` writes elevation into each drawn line. It reads
+`data/dem/dem-<region>.tif`, which is gitignored — copy it once out of the tiles
+work directory after running `tools/tiles/build-contours.sh`:
+
+    mkdir -p data/dem
+    cp ~/kaapspoor-tiles/work/dem-cape-town.tif data/dem/
+
+Set `KAAPSPOOR_DEM` to override the path. Without it the editor still draws and
+saves; the lines simply carry no heights and no profile renders.

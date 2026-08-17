@@ -10,6 +10,7 @@
  */
 
 import type { Point } from '../map/snap';
+import type { Point3 } from '../map/profile';
 
 export interface Leg {
   /** Where the author clicked (already snapped to a trail node). */
@@ -26,7 +27,10 @@ export interface Variant {
 
 export interface RouteLineFeature {
   type: 'Feature';
-  geometry: { type: 'LineString'; coordinates: Point[] };
+  // Point3, not Point: a line already saved once carries elevation as its
+  // third ordinate (dem-sample, sampled at Save), and re-reading it must not
+  // throw that away.
+  geometry: { type: 'LineString'; coordinates: Point3[] };
   properties: {
     routeId: string;
     variant?: string;
@@ -34,6 +38,9 @@ export interface RouteLineFeature {
     drawn: string;
   };
 }
+
+/** Ground position, elevation dropped — the editor draws and edits in 2D. */
+const ground = (p: Point3): Point => [p[0], p[1]];
 
 export function newVariant(name = ''): Variant {
   return { name, note: '', legs: [] };
@@ -85,6 +92,8 @@ export function fromFeatures(routeId: string, features: RouteLineFeature[]): Var
       note: f.properties.note ?? '',
       // Read back as one leg: the trail it followed is already in the file, and
       // an author re-editing an old line redraws it rather than un-clicking it.
-      legs: [{ at: f.geometry.coordinates[0], coords: f.geometry.coordinates }]
+      // Elevation is dropped here — it is resampled from the DEM at the next
+      // Save, not carried through the edit.
+      legs: [{ at: ground(f.geometry.coordinates[0]), coords: f.geometry.coordinates.map(ground) }]
     }));
 }

@@ -18,3 +18,4 @@ tools/tiles/work/
 tools/geocode/work/
 app/static/tiles/
 app/static/fonts/
+data/dem/

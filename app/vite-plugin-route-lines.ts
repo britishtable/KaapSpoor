@@ -12,8 +12,35 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import type { RouteLineFeature } from './src/lib/draw/state';
+import { openDem, type Dem } from './dem-sample';
 
 const FILE = resolve(process.cwd(), '..', 'data', 'route-lines.geojson');
+
+/** Where the DEM lives. Copy it out of the tiles work directory once. */
+const DEM = process.env.KAAPSPOOR_DEM ?? resolve(process.cwd(), '..', 'data', 'dem', 'dem-cape-town.tif');
+
+/**
+ * Heights for every coordinate of every line, written as the third ordinate.
+ *
+ * Sampled here, once, rather than in the reader's browser: the line does not
+ * move after it is drawn, so neither do its numbers.
+ */
+export function elevate(features: RouteLineFeature[], dem: Dem | null): RouteLineFeature[] {
+  if (!dem) return features;
+  return features.map((feature) => ({
+    ...feature,
+    geometry: {
+      ...feature.geometry,
+      coordinates: feature.geometry.coordinates.map((position) => {
+        const [lon, lat] = position;
+        const elevation = dem.sample(lon, lat);
+        // A point outside the model keeps two ordinates rather than a made-up
+        // height; profile.ts renders nothing rather than a wrong shape.
+        return elevation === null ? [lon, lat] : [lon, lat, elevation];
+      })
+    }
+  }));
+}
 
 /** The whole collection after saving one route's variants over its old ones. */
 export function saveRouteLines(
@@ -40,7 +67,7 @@ export function routeLinesPlugin(): Plugin {
         }
         let body = '';
         req.on('data', (chunk) => (body += chunk));
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             const { routeId, features } = JSON.parse(body) as {
               routeId: string;
@@ -49,7 +76,8 @@ export function routeLinesPlugin(): Plugin {
             const existing = existsSync(FILE)
               ? (JSON.parse(readFileSync(FILE, 'utf-8')).features as RouteLineFeature[])
               : [];
-            const merged = saveRouteLines(existing, features, routeId);
+            const dem = await openDem(DEM);
+            const merged = saveRouteLines(existing, elevate(features, dem), routeId);
             writeFileSync(
               FILE,
               JSON.stringify({ type: 'FeatureCollection', features: merged }, null, 1) + '\n',

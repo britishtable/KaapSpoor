@@ -25,6 +25,7 @@ const REPO = resolve(import.meta.dirname, '..', '..');
 const LINES = resolve(REPO, 'data', 'route-lines.geojson');
 const AUTO_YES = process.argv.includes('--yes');
 const PUBLISH_ONLY = process.argv.includes('--publish-only');
+const ELEVATE = process.argv.includes('--elevate');
 
 const git = (...args) =>
   spawnSync('git', args, { cwd: REPO, encoding: 'utf-8' }).stdout?.trim() ?? '';
@@ -117,6 +118,15 @@ function openBrowser(url) {
         ? ['open', [url]]
         : ['xdg-open', [url]];
   spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
+}
+
+if (ELEVATE) {
+  // Re-sample every line already in the file, for routes drawn before the DEM
+  // was wired in. Writes through the same middleware path the editor uses, so
+  // there is one implementation of "what a saved line looks like".
+  console.error('Run this through the dev server instead: start `npm run draw`,');
+  console.error('open a route, and press Save to re-sample it.');
+  process.exit(1);
 }
 
 if (PUBLISH_ONLY) {
