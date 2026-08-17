@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         default=HERE.parent / "geocode" / "work" / "route-relations.osm",
     )
     parser.add_argument("--relations-map", type=Path, default=DATA / "route-relations.json")
+    parser.add_argument("--locations", type=Path, default=DATA / "route-locations.json")
     parser.add_argument("--out", type=Path, default=DATA / "route-lines.geojson")
     parser.add_argument("--report", type=Path, default=DATA / "route-lines-report.md")
     args = parser.parse_args(argv)
@@ -64,6 +65,14 @@ def main(argv: list[str] | None = None) -> int:
     confirmed: dict[str, dict] = {}
     if args.relations_map.exists():
         confirmed = json.loads(args.relations_map.read_text(encoding="utf-8")).get("confirmed", {})
+
+    # The anchor has to come off the same ladder the app draws pins from, not
+    # off the raw crawl: only 125 of 184 routes carry a crawl coordinate, so
+    # reading routes.json alone rejected 59 routes as unpositioned that this
+    # project has perfectly good positions for. Mirrors transform.ts.
+    locations: dict[str, dict] = {}
+    if args.locations.exists():
+        locations = json.loads(args.locations.read_text(encoding="utf-8")).get("locations", {})
 
     trails = build_trails(ways, relations)
     graph = build_graph(ways)
@@ -140,7 +149,26 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         # Tier 2: the ordered corridor walk.
-        coords = raw.get("coords")
+        #
+        # The anchor follows the app's own ladder (transform.ts): a recorded
+        # location wins over the crawl coordinate, except an `area-approx` one
+        # where a crawl coordinate exists — an area centroid is strictly less
+        # information than a coordinate for the route itself.
+        recorded = locations.get(rid)
+        if recorded and recorded.get("source") == "area-approx" and raw.get("coords"):
+            recorded = None
+        # An area centroid is refused as an anchor outright, even when it is
+        # all there is. These carry a radius of kilometres; snapping one to
+        # whatever path happens to lie within 250 m would start the line
+        # somewhere nobody claimed the route goes, which is exactly the wrong
+        # trade under a right-or-absent bar.
+        if recorded and recorded.get("source") == "area-approx":
+            outcome.rejected.append({
+                "routeId": rid,
+                "reason": "area-approx position: an area centroid cannot anchor a line",
+            })
+            continue
+        coords = (recorded or {}).get("coords") or raw.get("coords")
         if not coords:
             outcome.rejected.append({"routeId": rid, "reason": "no recorded position"})
             continue

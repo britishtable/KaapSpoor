@@ -130,6 +130,66 @@ def test_a_relation_missing_member_geometry_draws_nothing(tmp_path):
     assert "missing 1 member" in report.read_text(encoding="utf-8")
 
 
+def _locations(tmp_path, locations):
+    path = tmp_path / "route-locations.json"
+    path.write_text(json.dumps({"locations": locations}), encoding="utf-8")
+    return path
+
+
+def test_anchors_on_a_recorded_location_when_the_crawl_has_none(tmp_path):
+    # Only 125 of 184 routes carry a crawl coordinate; the rest are located by
+    # tools/geocode. Reading routes.json alone rejected 59 routes as having no
+    # position at all, which is not true of this project's data.
+    routes = _routes(tmp_path, [{
+        "slug": "geocoded", "area": ["Area"], "title": "Geocoded Route", "coords": None,
+        "sections": {"Route": "Go up First Path then along Second Path."},
+    }])
+    ways = _ways(tmp_path, [
+        _way_feature(1, [P[0], P[1]], "First Path"),
+        _way_feature(2, [P[1], P[2]], "Second Path"),
+    ])
+    locations = _locations(tmp_path, {
+        "area--geocoded": {"coords": {"lat": -34.0, "lon": 18.400}, "source": "osm-match"}
+    })
+    out = tmp_path / "route-lines.geojson"
+
+    main(["--routes", str(routes), "--ways", str(ways), "--locations", str(locations),
+          "--out", str(out), "--report", str(tmp_path / "r.md"),
+          "--relations-map", str(tmp_path / "missing.json"),
+          "--relations", str(tmp_path / "none.json")])
+
+    features = json.loads(out.read_text(encoding="utf-8"))["features"]
+    assert [f["properties"]["routeId"] for f in features] == ["area--geocoded"]
+
+
+def test_refuses_to_anchor_a_line_on_an_area_centroid(tmp_path):
+    # An area-approx position carries a radius of kilometres. Snapping it to
+    # whatever path lies within 250 m would start the line somewhere nobody
+    # claimed the route goes.
+    routes = _routes(tmp_path, [{
+        "slug": "vague", "area": ["Area"], "title": "Vague Route", "coords": None,
+        "sections": {"Route": "Go up First Path then along Second Path."},
+    }])
+    ways = _ways(tmp_path, [
+        _way_feature(1, [P[0], P[1]], "First Path"),
+        _way_feature(2, [P[1], P[2]], "Second Path"),
+    ])
+    locations = _locations(tmp_path, {
+        "area--vague": {"coords": {"lat": -34.0, "lon": 18.400},
+                        "source": "area-approx", "accuracyM": 5543}
+    })
+    out = tmp_path / "route-lines.geojson"
+    report = tmp_path / "r.md"
+
+    main(["--routes", str(routes), "--ways", str(ways), "--locations", str(locations),
+          "--out", str(out), "--report", str(report),
+          "--relations-map", str(tmp_path / "missing.json"),
+          "--relations", str(tmp_path / "none.json")])
+
+    assert json.loads(out.read_text(encoding="utf-8"))["features"] == []
+    assert "area centroid cannot anchor" in report.read_text(encoding="utf-8")
+
+
 def test_runs_without_an_extract_and_writes_an_empty_collection(tmp_path):
     # A clone that has never run WSL must not crash the pipeline.
     routes = _routes(tmp_path, [{
