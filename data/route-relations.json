@@ -1,0 +1,4 @@
+{
+  "comment": "Route id -> OSM hiking relation id, confirmed by hand. The tool proposes candidates in data/route-lines-report.md and refuses to promote any of them on its own: a title containing a relation's name is a question, and this file is the only answer. 'Devil's Peak contour paths' contains 'Contour Path' and is NOT that relation.",
+  "confirmed": {}
+}
