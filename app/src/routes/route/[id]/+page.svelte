@@ -7,7 +7,7 @@
   import RouteVariants from '$lib/components/RouteVariants.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
-  import { isPoint3, type Point3 } from '$lib/map/profile';
+  import { isPoint3, totalDistanceM, type Point3 } from '$lib/map/profile';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -31,13 +31,17 @@
         const collection = (await res.json()) as {
           features: { geometry: { coordinates: number[][] }; properties: { routeId: string } }[];
         };
-        // The longest variant is the one the figures describe, so the profile
-        // shows the same walk the stats do.
-        const mine = collection.features.filter((f) => f.properties.routeId === id);
-        const longest = mine.sort(
-          (a, b) => b.geometry.coordinates.length - a.geometry.coordinates.length
-        )[0];
-        if (!abandoned) lineCoords = (longest?.geometry.coordinates ?? []).filter(isPoint3);
+        // The longest variant BY GROUND DISTANCE, not by point count: a
+        // variant with fewer but wider-spaced points can still cover more
+        // ground. transform.ts picks the same route's ascentM/distanceM by
+        // this same measure (totalDistanceM), so the profile the reader
+        // scrubs and the StatsStrip figures beside it describe one line, not
+        // two that happen to share a routeId.
+        const mine = collection.features
+          .filter((f) => f.properties.routeId === id)
+          .map((f) => f.geometry.coordinates.filter(isPoint3));
+        const longest = mine.sort((a, b) => totalDistanceM(b) - totalDistanceM(a))[0];
+        if (!abandoned) lineCoords = longest ?? [];
       } catch {
         if (!abandoned) lineCoords = [];
       }

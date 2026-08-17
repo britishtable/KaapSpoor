@@ -82,6 +82,7 @@ vi.mock('pmtiles', () => {
 });
 
 import LocatorMap from './LocatorMap.svelte';
+import { pointAtDistance } from '$lib/map/profile';
 
 beforeEach(() => {
   calls.length = 0;
@@ -189,5 +190,116 @@ describe('LocatorMap route line', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(calls.filter((c) => c.name === 'setFilter')).toEqual([]);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('LocatorMap scrub marker', () => {
+  const coords = { lat: -33.95, lon: 18.4, zoom: 15 };
+  // Three points, real spacing, so pointAtDistance has something to interpolate.
+  const lineCoords: [number, number, number][] = [
+    [18.4, -33.95, 100],
+    [18.41, -33.95, 150],
+    [18.42, -33.95, 200]
+  ];
+
+  function stubLineFetch() {
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { routeId: 'a--b--c' },
+            geometry: { type: 'LineString', coordinates: lineCoords }
+          }
+        ]
+      })
+    }));
+  }
+
+  it('adds the scrub source and layer once the line has loaded', async () => {
+    stubLineFetch();
+    render(LocatorMap, { coords, title: 'X', routeId: 'a--b--c', hasLine: true });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'scrub')).toBe(true)
+    );
+    const layer = calls.find(
+      (c) => c.name === 'addLayer' && (c.args[0] as { id: string }).id === 'scrub'
+    );
+    expect(layer).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  it('moves the marker to the point the scrub distance projects onto', async () => {
+    stubLineFetch();
+    const { rerender } = render(LocatorMap, {
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: null
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'scrub')).toBe(true)
+    );
+    calls.length = 0; // isolate the setData the prop change below causes
+
+    await rerender({
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: 1000
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'scrub')).toBe(true)
+    );
+    const setData = calls.find((c) => c.name === 'setData' && c.args[0] === 'scrub');
+    expect(setData!.args[1]).toEqual({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: pointAtDistance(lineCoords, 1000) },
+      properties: {}
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('clears the marker to an empty FeatureCollection when the scrub ends', async () => {
+    stubLineFetch();
+    const { rerender } = render(LocatorMap, {
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: 1000
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'scrub')).toBe(true)
+    );
+    calls.length = 0;
+
+    await rerender({
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: null
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'scrub')).toBe(true)
+    );
+    const setData = calls.find((c) => c.name === 'setData' && c.args[0] === 'scrub');
+    expect(setData!.args[1]).toEqual({ type: 'FeatureCollection', features: [] });
+    vi.unstubAllGlobals();
+  });
+
+  it('does not crash setting a scrub distance before the line (and its source) has loaded', () => {
+    // No fetch stub: the route has no line, so lineCoords stays empty and the
+    // effect's own guard bails before ever asking the map for a 'scrub'
+    // source that was never added.
+    expect(() =>
+      render(LocatorMap, { coords, title: 'X', routeId: 'a--b--c', scrubDistanceM: 500 })
+    ).not.toThrow();
   });
 });
