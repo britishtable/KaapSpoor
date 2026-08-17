@@ -11,7 +11,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from .graph import build_graph
+from .graph import build_graph, split_ways
 from .ids import route_id
 from .mentions import mentioned_trails
 from .relations import read_relations, stitch
@@ -74,8 +74,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.locations.exists():
         locations = json.loads(args.locations.read_text(encoding="utf-8")).get("locations", {})
 
-    trails = build_trails(ways, relations)
-    graph = build_graph(ways)
+    # Cut every way at its junctions before anything walks on it. OSM does not
+    # split a way where another meets it mid-span, and treating whole ways as
+    # graph edges hid ~71 % of this extract's junctions — see graph.split_ways.
+    edges = split_ways(ways)
+    trails = build_trails(edges, relations)
+    graph = build_graph(edges)
     by_relation_id = {relation.osm_id: relation for relation in relations}
 
     outcome = Outcome()

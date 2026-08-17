@@ -2,13 +2,21 @@
 
 Nodes are rounded coordinates (see geo.node_key), not OSM node ids: osmium's
 GeoJSON export does not carry node ids, and ways that meet genuinely share the
-coordinate. Edges are whole ways, traversable from either end — a way is a
-segment between junctions in this data, so splitting them further buys nothing.
+coordinate.
+
+Edges are ways CUT AT THEIR JUNCTIONS (see `split_ways`). An earlier version of
+this module took whole ways as edges, on the assumption that OSM already cuts a
+way wherever another meets it. That is true of the vector tiles and false of a
+raw way export: measured on this extract, 156,643 junctions are interior
+vertices of some way against 63,353 that are way endpoints, so an endpoint-only
+graph missed ~71 % of them and shattered into 127,109 components whose largest
+held 1,889 of 325,799 nodes. Nothing could reach anything.
 """
 
 from __future__ import annotations
 
 import heapq
+from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -85,6 +93,38 @@ class Graph:
                     counter += 1
                     heapq.heappush(queue, (nxt_cost, counter, nxt, (*taken, way)))
         return None
+
+
+def split_ways(ways: Iterable[Way]) -> list[Way]:
+    """Cut every way at the vertices it shares with another way.
+
+    A junction is a coordinate carried by two DIFFERENT ways — counting
+    appearances instead would cut a way wherever it touches itself, which a
+    lollipop does for no useful reason. Each piece keeps its way's id and name,
+    so provenance and name-matching are unaffected; only connectivity changes.
+    """
+    ways = list(ways)
+    carrying = Counter()
+    for way in ways:
+        # set(): one vote per way, so self-touches do not make a junction.
+        carrying.update({node_key(point) for point in way.coords})
+
+    pieces: list[Way] = []
+    for way in ways:
+        keys = [node_key(point) for point in way.coords]
+        cuts = [0]
+        cuts += [
+            index
+            for index in range(1, len(keys) - 1)
+            if carrying[keys[index]] > 1
+        ]
+        cuts.append(len(keys) - 1)
+        for start, end in zip(cuts, cuts[1:]):
+            if end - start >= 1:
+                pieces.append(
+                    Way(osm_id=way.osm_id, name=way.name, coords=way.coords[start : end + 1])
+                )
+    return pieces
 
 
 def build_graph(ways: Iterable[Way]) -> Graph:

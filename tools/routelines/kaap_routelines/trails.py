@@ -40,12 +40,25 @@ def build_trails(ways: list[Way], relations: list[Relation]) -> dict[str, Trail]
     # Relations overwrite, deliberately: where both exist the relation is the
     # better answer, and a name-matched trail of the same name is a subset of
     # it with the connectors missing.
-    for relation in relations:
-        members = tuple(m.way for m in relation.members)
-        if members:
-            trails[relation.name] = Trail(
-                name=relation.name, ways=members, source="relation"
+    #
+    # Members are looked up among the ways passed in rather than taken off the
+    # relation, because those ways are the graph's own edges: `split_ways` cuts
+    # each OSM way at its junctions, so one member id is several edges and only
+    # the edges are walkable.
+    if relations:
+        by_osm_id: dict[int, list[Way]] = {}
+        for way in ways:
+            by_osm_id.setdefault(way.osm_id, []).append(way)
+        for relation in relations:
+            members = tuple(
+                piece
+                for member in relation.members
+                for piece in by_osm_id.get(member.way.osm_id, ())
             )
+            if members:
+                trails[relation.name] = Trail(
+                    name=relation.name, ways=members, source="relation"
+                )
     return trails
 
 

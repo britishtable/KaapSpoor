@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .geo import NodeKey, Point, node_key
+from .geo import NodeKey, Point, haversine_m, node_key
 from .graph import Graph
 from .trails import Trail, runs
 from .ways import Way
@@ -26,6 +26,12 @@ MAX_CONNECTOR_M = 500.0
 MAX_CONNECTOR_FRACTION = 0.20
 #: Nothing in this archive is a 40 km day walk on one line.
 MAX_TOTAL_M = 40_000.0
+#: A trail of the right name but this far from the route is not this route's
+#: trail. `Traverse` is an OSM path name 111 km away and the matcher sees the
+#: word in "7 Buttresses Apostles Traverse"; `Echo Valley` sits 18 km from the
+#: route naming it. Distance is the test rather than word count, because the
+#: defect is a namesake elsewhere, not a short name.
+MAX_TRAIL_DISTANCE_M = 5_000.0
 
 
 @dataclass(frozen=True)
@@ -49,6 +55,21 @@ def _run_nodes(run: tuple[Way, ...]) -> set[NodeKey]:
     return nodes
 
 
+def _nearest_run(
+    anchor: Point, trail_runs: list[tuple[Way, ...]]
+) -> tuple[tuple[Way, ...] | None, float]:
+    """The run closest to the route's own position, and how far off it is."""
+    best: tuple[Way, ...] | None = None
+    best_d = float("inf")
+    for run in trail_runs:
+        distance = min(
+            min(haversine_m(anchor, way.start), haversine_m(anchor, way.end)) for way in run
+        )
+        if distance < best_d:
+            best, best_d = run, distance
+    return best, best_d
+
+
 def _append(coords: list[Point], way: Way, entry: NodeKey) -> NodeKey:
     """Append `way` walked from `entry`, and return the node walked out to."""
     points = way.coords if node_key(way.start) == entry else tuple(reversed(way.coords))
@@ -62,22 +83,50 @@ def walk_route(
     if not names:
         return Rejected("no names: the description names no mapped path")
 
+    # The anchor is checked first: if the route's own position is nowhere near
+    # the network, that is the honest diagnosis, and every trail would look
+    # out of range for the same reason.
+    start = graph.nearest_node(anchor, SNAP_RADIUS_M)
+    if start is None:
+        return Rejected(f"anchor: no path within {SNAP_RADIUS_M:.0f} m of the position")
+
     chosen: list[tuple[Way, ...]] = []
+    kept: list[str] = []
     for name in names:
         trail = trails.get(name)
         if trail is None:
             return Rejected(f"unknown trail: {name!r} is not in the extract")
         trail_runs = runs(trail)
-        if len(names) == 1 and len(trail_runs) > 1:
+        in_range = [
+            run for run in trail_runs
+            if _nearest_run(anchor, [run])[1] <= MAX_TRAIL_DISTANCE_M
+        ]
+        if not in_range:
+            # A namesake somewhere else in the province. Skipping it beats
+            # rejecting the route: the other names it gives are still good.
+            continue
+        # A single mention has no ordering to disambiguate WHICH run the route
+        # walks, so proximity has to do it alone — and it only can when one run
+        # is in range. Two nearby runs of one name is still a guess.
+        if len(names) == 1 and len(in_range) > 1:
             return Rejected(
-                f"disjoint runs: {name!r} is {len(trail_runs)} unconnected pieces "
-                "and there is no second name to order them by"
+                f"disjoint runs: {name!r} is {len(in_range)} unconnected pieces "
+                "near this route and there is no second name to order them by"
             )
-        chosen.append(trail_runs[0])
+        # The run nearest the route, not the longest. A name can carry several
+        # unconnected runs (Contour Path is 9 in this extract) and the longest
+        # of them is not the one this particular route walks.
+        near, _ = _nearest_run(anchor, in_range)
+        assert near is not None
+        chosen.append(near)
+        kept.append(name)
 
-    start = graph.nearest_node(anchor, SNAP_RADIUS_M)
-    if start is None:
-        return Rejected(f"anchor: no path within {SNAP_RADIUS_M:.0f} m of the position")
+    if not chosen:
+        return Rejected(
+            f"no names in range: every trail named is over "
+            f"{MAX_TRAIL_DISTANCE_M / 1000:.0f} km from the route's position"
+        )
+    names = kept
 
     coords: list[Point] = []
     way_ids: list[int] = []
@@ -106,17 +155,15 @@ def walk_route(
 
         # 2. Follow the trail itself to its far end. This is what makes the
         #    line follow a path rather than merely touch it.
-        remaining = {way.osm_id: way for way in run}
+        # Keyed by the piece itself, not by osm_id: one OSM way is cut into
+        # several graph edges at its junctions, and they all carry the same id.
+        remaining = set(run)
         while True:
-            options = [
-                way
-                for way in graph.adjacency.get(current, ())
-                if way.osm_id in remaining
-            ]
+            options = [way for way in graph.adjacency.get(current, ()) if way in remaining]
             if not options:
                 break
             way = max(options, key=lambda candidate: candidate.length_m)
-            del remaining[way.osm_id]
+            remaining.discard(way)
             current = _append(coords, way, current)
             way_ids.append(way.osm_id)
 
