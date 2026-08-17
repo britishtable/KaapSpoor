@@ -25,8 +25,10 @@ export const ASCENT_THRESHOLD_M = 10;
 
 const ground = (p: Point3): Point => [p[0], p[1]];
 
-const hasElevation = (coords: Point3[]): boolean =>
-  coords.length > 0 && coords.every((p) => p.length === 3);
+/** A drawn coordinate that carries the elevation sampled at Save. */
+type Elevated = [number, number, number];
+
+const isElevated = (p: Point3): p is Elevated => p.length === 3;
 
 export function cumulativeDistanceM(coords: Point3[]): number[] {
   const out: number[] = [];
@@ -44,11 +46,14 @@ export function totalDistanceM(coords: Point3[]): number {
 }
 
 export function totalAscentM(coords: Point3[]): number | null {
-  if (!hasElevation(coords)) return null;
+  const elevated = coords.filter(isElevated);
+  // A line that leaves the DEM's extent samples nothing for those points —
+  // it's null only when NONE of them carry a height, not when some do.
+  if (elevated.length === 0) return null;
   let ascent = 0;
-  let reference = coords[0][2] as number;
-  for (const point of coords) {
-    const here = point[2] as number;
+  let reference = elevated[0][2];
+  for (const point of elevated) {
+    const here = point[2];
     // Measured against the last height we ACCEPTED, not the previous sample:
     // comparing neighbours would let a long gradual climb slip under the
     // threshold step by step and count as nothing at all.
@@ -63,12 +68,12 @@ export function totalAscentM(coords: Point3[]): number | null {
 }
 
 export function profilePoints(coords: Point3[]): { distanceM: number; elevationM: number }[] {
-  if (!hasElevation(coords)) return [];
   const cumulative = cumulativeDistanceM(coords);
-  return coords.map((point, i) => ({
-    distanceM: cumulative[i],
-    elevationM: point[2] as number
-  }));
+  const out: { distanceM: number; elevationM: number }[] = [];
+  coords.forEach((point, i) => {
+    if (isElevated(point)) out.push({ distanceM: cumulative[i], elevationM: point[2] });
+  });
+  return out;
 }
 
 export function pointAtDistance(coords: Point3[], distanceM: number): Point {

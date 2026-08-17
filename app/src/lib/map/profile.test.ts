@@ -70,6 +70,17 @@ describe('totalAscentM', () => {
     // claim a zero-metre climb.
     expect(totalAscentM([[18.4, -34.0], [18.401, -34.0]])).toBe(null);
   });
+
+  it('computes ascent from only the points that carry elevation', () => {
+    // A line that leaves the DEM's extent samples nothing for the points
+    // past the edge — that is not the same as the whole line lacking height.
+    const partial: Point3[] = [
+      [18.400, -34.0, 100],
+      [18.401, -34.0, 150],
+      [18.402, -34.0]
+    ];
+    expect(totalAscentM(partial)).toBe(50);
+  });
 });
 
 describe('profilePoints', () => {
@@ -83,6 +94,34 @@ describe('profilePoints', () => {
 
   it('is empty without elevation, so the chart simply does not render', () => {
     expect(profilePoints([[18.4, -34.0], [18.401, -34.0]])).toEqual([]);
+  });
+
+  it('keeps true cumulative distance when a trailing point lacks elevation', () => {
+    const partial: Point3[] = [
+      [18.400, -34.0, 100],
+      [18.401, -34.0, 150],
+      [18.402, -34.0]
+    ];
+    const points = profilePoints(partial);
+    const full = cumulativeDistanceM(partial);
+    expect(points).toHaveLength(2);
+    expect(points[1].distanceM).toBe(full[1]);
+    expect(points[1].elevationM).toBe(150);
+  });
+
+  it('keeps the real gap in distance when a middle point lacks elevation', () => {
+    const gap: Point3[] = [
+      [18.400, -34.0, 100],
+      [18.401, -34.0],
+      [18.402, -34.0, 150]
+    ];
+    const points = profilePoints(gap);
+    const full = cumulativeDistanceM(gap);
+    expect(points).toHaveLength(2);
+    // The second entry's distance must reflect the full distance to the
+    // third coordinate, not the distance skipping the unelevated middle one.
+    expect(points[1].distanceM).toBe(full[2]);
+    expect(points[1].elevationM).toBe(150);
   });
 });
 
