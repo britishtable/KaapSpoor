@@ -103,9 +103,26 @@ app/src/lib/map/profile.ts           pure: cumulative distance, ascent, profile 
 
 ### Direction
 
-- Start and end markers on the drawn line — a filled dot at the start, a ring at the end.
-- No arrowheads along the line: they need a symbol layer with `symbol-placement: line`, and this
-  map has one fontstack and a busy label budget already. Two markers say the same thing.
+- **Arrows along the line**, as an icon symbol layer: `icon-image` with
+  `symbol-placement: 'line'`, `icon-rotation-alignment: 'map'` and a `symbol-spacing` wide enough
+  to read without crowding. The arrow is a small image registered at runtime with `map.addImage()`,
+  drawn to a canvas — **no fontstack is involved**, since `text-font` governs text and this layer
+  carries no text.
+- Start and end markers as well: a filled dot at the start, a ring at the end.
+
+**Markers alone are not enough, and this is the case that proves it.** A route that goes out and
+back along the same trail puts the start and the end in the same place, so two markers say nothing
+at all. Arrows are what carry direction there.
+
+**But an out-and-back line also defeats the arrows**, and the design should not pretend otherwise:
+the geometry covers the same ground twice, so the outbound and return arrows sit on top of each
+other pointing opposite ways. On such a route the arrows cancel out visually and the honest answer
+is the **profile marker**: dragging it runs a marker along the line in walking order, which is the
+only thing that unambiguously shows direction on geometry that doubles back. The chart is therefore
+not a nicety for these routes — it is the direction indicator.
+
+Deliberately NOT attempted: offsetting the return leg to separate the two directions. It would draw
+a line where the route does not go, which is the one thing this map does not do.
 
 ### The profile chart (`RouteProfile.svelte`)
 
