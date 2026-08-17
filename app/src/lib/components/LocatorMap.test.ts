@@ -239,7 +239,8 @@ describe('LocatorMap scrub marker', () => {
       title: 'X',
       routeId: 'a--b--c',
       hasLine: true,
-      scrubDistanceM: null
+      scrubDistanceM: null,
+      lineCoords
     });
     await vi.waitFor(() =>
       expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'scrub')).toBe(true)
@@ -251,7 +252,76 @@ describe('LocatorMap scrub marker', () => {
       title: 'X',
       routeId: 'a--b--c',
       hasLine: true,
-      scrubDistanceM: 1000
+      scrubDistanceM: 1000,
+      lineCoords
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'scrub')).toBe(true)
+    );
+    const setData = calls.find((c) => c.name === 'setData' && c.args[0] === 'scrub');
+    expect(setData!.args[1]).toEqual({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: pointAtDistance(lineCoords, 1000) },
+      properties: {}
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('frames and rides the line the caller passes, not the first feature in the fetched file', async () => {
+    // Two features in the fetched file, in an order that would mislead a
+    // component still picking its own variant by `.find()`: the FIRST one
+    // here is deliberately NOT the `lineCoords` the caller (the route page)
+    // resolved as the ground-distance-longest variant.
+    const fileFirst: [number, number, number][] = [
+      [18.0, -34.0, 50],
+      [18.9, -34.9, 60]
+    ];
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { routeId: 'a--b--c' },
+            geometry: { type: 'LineString', coordinates: fileFirst }
+          },
+          {
+            type: 'Feature',
+            properties: { routeId: 'a--b--c' },
+            geometry: { type: 'LineString', coordinates: lineCoords }
+          }
+        ]
+      })
+    }));
+    const { rerender } = render(LocatorMap, {
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: null,
+      lineCoords
+    });
+
+    await vi.waitFor(() => expect(calls.some((c) => c.name === 'fitBounds')).toBe(true));
+    const fit = calls.find((c) => c.name === 'fitBounds')!;
+    const [[[west, south], [east, north]]] = fit.args as [[[number, number], [number, number]]];
+    const lons = lineCoords.map((p) => p[0]);
+    const lats = lineCoords.map((p) => p[1]);
+    expect(west).toBeCloseTo(Math.min(...lons), 6);
+    expect(east).toBeCloseTo(Math.max(...lons), 6);
+    expect(south).toBeCloseTo(Math.min(...lats), 6);
+    expect(north).toBeCloseTo(Math.max(...lats), 6);
+
+    calls.length = 0; // isolate the setData the rerender below causes
+    await rerender({
+      coords,
+      title: 'X',
+      routeId: 'a--b--c',
+      hasLine: true,
+      scrubDistanceM: 1000,
+      lineCoords
     });
     await vi.waitFor(() =>
       expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'scrub')).toBe(true)
@@ -272,7 +342,8 @@ describe('LocatorMap scrub marker', () => {
       title: 'X',
       routeId: 'a--b--c',
       hasLine: true,
-      scrubDistanceM: 1000
+      scrubDistanceM: 1000,
+      lineCoords
     });
     await vi.waitFor(() =>
       expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'scrub')).toBe(true)
@@ -284,7 +355,8 @@ describe('LocatorMap scrub marker', () => {
       title: 'X',
       routeId: 'a--b--c',
       hasLine: true,
-      scrubDistanceM: null
+      scrubDistanceM: null,
+      lineCoords
     });
     await vi.waitFor(() =>
       expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'scrub')).toBe(true)

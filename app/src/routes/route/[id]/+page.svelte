@@ -71,6 +71,7 @@
       routeId={r.id}
       hasLine={r.hasLine}
       {scrubDistanceM}
+      {lineCoords}
     />
   {/if}
   {#if r.hasLine}

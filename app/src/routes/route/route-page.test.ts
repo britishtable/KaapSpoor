@@ -206,7 +206,11 @@ describe('route page elevation profile', () => {
   });
 
   it('carries the scrub position from the profile down to the locator map', async () => {
-    stubLineFetch([{ coordinates: distanceLonger }]);
+    // Both variants stubbed, arrayLonger first: if the locator map ever goes
+    // back to selecting its own variant (e.g. by array order or point
+    // count), the scrub dot would land on arrayLonger's line instead of the
+    // distance-longest one the profile actually plots.
+    stubLineFetch([{ coordinates: arrayLonger }, { coordinates: distanceLonger }]);
     render(Page, { data: { route: located } });
     const slider = await screen.findByRole('slider');
     await vi.waitFor(() =>

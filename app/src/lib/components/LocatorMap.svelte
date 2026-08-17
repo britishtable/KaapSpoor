@@ -18,7 +18,7 @@
     ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
-  import { isPoint3, pointAtDistance, type Point3 } from '$lib/map/profile';
+  import { pointAtDistance, type Point3 } from '$lib/map/profile';
   import type { Coords } from '$lib/data/types';
 
   let {
@@ -30,7 +30,15 @@
     routeId,
     hasLine = false,
     /** Metres along the drawn line to mark, or null. Driven by the profile. */
-    scrubDistanceM = null
+    scrubDistanceM = null,
+    /**
+     * The route's own drawn line — the SAME variant the caller resolved for
+     * everything else on the page (profile, stats). Passed in rather than
+     * fetched and selected here: a second selection of "which variant" next
+     * to the page's would only need to be re-aligned with it, not made
+     * impossible to disagree with. Defaults to empty for callers with no line.
+     */
+    lineCoords = []
   }: {
     coords: Coords;
     title: string;
@@ -38,10 +46,11 @@
     routeId: string;
     hasLine?: boolean;
     scrubDistanceM?: number | null;
+    lineCoords?: Point3[];
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
-  let lineCoords = $state<Point3[]>([]);
+  let mapLoaded = $state(false);
 
   $effect(() => {
     const at = scrubDistanceM;
@@ -57,6 +66,15 @@
             properties: {}
           }
     );
+  });
+
+  // Frames the SAME line the profile plots and the scrub marker rides,
+  // whenever it arrives -- the page resolves it asynchronously, so this
+  // fires once mapLoaded flips true and again if lineCoords itself changes.
+  $effect(() => {
+    if (!mapLoaded || !map || !hasLine || !lineCoords.length) return;
+    const bounds = lineBounds({ type: 'LineString', coordinates: lineCoords });
+    if (bounds) map.fitBounds(bounds, { padding: 24, maxZoom: 15 });
   });
 
   onMount(() => {
@@ -108,15 +126,10 @@
           // The route page has no pointer-driven emphasis: every variant is
           // shown equally beside the text that explains them.
           map.setFilter('route-line-active', activeVariantFilter(null, null));
-          const feature = collection.features.find(
-            (f: { properties: { routeId: string } }) => f.properties.routeId === routeId
-          );
-          const bounds = feature ? lineBounds(feature.geometry) : null;
           // Framing the line rather than the clamped centre: a locator map's
-          // one job is showing where the hike goes, and now it can show all of it.
-          if (bounds) map.fitBounds(bounds, { padding: 24, maxZoom: 15 });
-          const rawCoords: number[][] | undefined = feature?.geometry.coordinates;
-          lineCoords = (rawCoords ?? []).filter(isPoint3);
+          // one job is showing where the hike goes, and now it can show all of
+          // it. Which variant to frame is the caller's call (the `lineCoords`
+          // prop) -- see the $effect above -- not a second lookup here.
           map.addSource('scrub', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
@@ -132,6 +145,7 @@
               'circle-stroke-width': 2
             }
           });
+          mapLoaded = true;
         } catch (err) {
           console.warn('LocatorMap: could not load route lines', err);
         }
