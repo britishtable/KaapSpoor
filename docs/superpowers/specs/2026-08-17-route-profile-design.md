@@ -178,6 +178,67 @@ These are the point of the feature, not a footnote.
 - **`geotiff` is a new dependency**, dev-only and never in the built site. Worth confirming it stays
   out of the client bundle.
 
+## What shipped (Task 8 browser pass, 2026-08-17)
+
+Four routes carry drawn lines with sampled heights: Grootkop + Yellowwood Traverse (158 pts,
+716–824 m), Lekkerwater Traverse (75 pts, 480–685 m), Pimple Traverse (65 pts, 518–695 m), Dark
+Gorge (154 pts, 378–756 m).
+
+**Computed ascent vs. the guides' own figures:**
+
+| Route | Computed (10 m threshold) | Guide's prose |
+|---|---|---|
+| Grootkop + Yellowwood Traverse | ≈ 172 m | no height-gain sentence to compare against |
+| Lekkerwater Traverse | ≈ 225 m | "400m : From 150m at Ruyteplaats parking to approximately 550m" |
+| Pimple Traverse | ≈ 230 m | "575m : from 160m to 711m" |
+| Dark Gorge | ≈ 381 m | "610m : from 90m at Newlands Forest Stn parking to 700m at Saddle" |
+
+On the three comparable routes the computed figure lands at 40–62% of the guide's stated gain — a
+factor, exactly the kind of gap the brief said would disqualify the number. It is explained, not
+dismissed: every guide figure starts at the **parking area** (150 m, 160 m, 90 m), well below where
+the drawn line itself begins. Dark Gorge is the clean check — its computed ascent (381 m) is within
+a few metres of its own elevation *range* (756 − 378 = 378 m), so the threshold is not silently
+inflating or eating real climb on the geometry it was actually given; the gap to the guide's 610 m
+is the un-drawn approach walk from the station, not sampling error. Pimple Traverse's drawn line
+starts at 518 m against the guide's 160 m parking figure — over 350 m of the guide's own gain
+happens before the drawn line starts at all.
+
+**Decision: the 10 m threshold is kept, unchanged, and the ascent figure ships** — as a figure
+*beside* the guide's prose (`StatsStrip`), never replacing it, exactly as the honesty constraints
+above require. The two numbers are allowed to disagree because they measure different things: the
+guide's full trailhead-to-summit gain vs. the drawn line's own climb. Nothing here indicates the
+sampling or the threshold is wrong.
+
+**A real defect found in this pass, fixed:** `RouteProfile.svelte`'s figcaption and `aria-label`
+rendered the *unrounded* float from `totalAscentM()` — "≈ 380.59999999999997 m of climb" — while
+`StatsStrip` showed the correctly build-time-rounded "≈ 381 m" for the same route. This directly
+violated the honesty constraint above ("never to three significant figures"). Fixed by rounding
+`climb` in the component (`Math.round`), matching how `transform.ts` already rounds `lineStats.ascentM`
+at build time. Covered by the existing component tests (whole-number fixture elevations mask
+rounding, but the fix is a one-line `Math.round` with no behavioural surface beyond display).
+
+**Browser pass, other findings:**
+- Dark Gorge's profile reads as a single sustained climb — a broad rounded hump from 378 m up to
+  756 m and back down — matching its reputation and the guide's own "610m... to Saddle" framing.
+  Grootkop + Yellowwood's profile shows a smaller bump then a larger sustained climb, consistent
+  with it being a loop around Grootkop rather than a simple there-and-back.
+- Scrubbing verified end-to-end in a real browser on Dark Gorge: hovering the chart placed a
+  marker on the profile ("at 1.33 km: 618 m") and a matching dark scrub dot appeared on the drawn
+  line on the locator map at the corresponding point.
+- None of the four drawn routes is a true out-and-back (same line walked both ways); Grootkop +
+  Yellowwood is a loop with distinct outbound/return paths. The "opposing arrows cancel, scrub
+  marker carries direction" scenario the design calls out could not be exercised against real data
+  in this pass — noted here rather than claimed.
+- Direction arrows were visible but faint on the locator map at the zoom `fitBounds` settles a
+  short (1.9 km) line at (roughly z14–15) — consistent with the already-documented "marginal at
+  z13, legible at z15/z16" finding from commit `94218e8`'s pass; not a new regression.
+- `≈ 381 m` sits as its own `ASCENT` column beside `HEIGHT GAIN`'s guide sentence in `StatsStrip`,
+  visually equal-weighted with it, not styled as more authoritative.
+- Narrow-viewport (phone-width) rendering could not be confirmed live — the available browser
+  tooling's window resize did not change the captured viewport in this pass. Not claiming it works;
+  noting the gap. The chart (`viewBox` + `width: 100%`) and locator map use relative sizing, which
+  is suggestive but not a substitute for having looked.
+
 ## Deliberately not attempted
 
 - Elevation for off-path geometry, which does not exist yet.

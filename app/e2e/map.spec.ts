@@ -853,4 +853,54 @@ test.describe('route lines', () => {
       )
       .toBeGreaterThan(0);
   });
+
+  test('a route page with heights shows its profile, and scrubbing moves the map marker', async ({
+    page
+  }) => {
+    // Relative fetch() below needs a document to resolve against — the other
+    // tests in this file get that for free from ready(page)/selectFromPanel;
+    // this one queries the index before ever navigating, so it must do the
+    // same explicitly.
+    await ready(page);
+    const target = await page.evaluate(async () => {
+      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+        id: string; hasLine: boolean;
+      }>;
+      const lines = (await (await fetch('data/route-lines.geojson')).json()) as {
+        features: { properties: { routeId: string }; geometry: { coordinates: number[][] } }[];
+      };
+      const withHeights = lines.features.find((f) => f.geometry.coordinates[0]?.length === 3);
+      const id = withHeights?.properties.routeId;
+      return routes.find((r) => r.id === id && r.hasLine)?.id ?? null;
+    });
+    test.skip(!target, 'no drawn line in this build carries heights yet');
+
+    await page.goto(`route/${target}`);
+    const chart = page.locator('[data-testid="profile-line"]');
+    await expect(chart).toBeVisible();
+
+    const drawn = async () =>
+      page.evaluate(async () => {
+        const el = document.querySelector('[data-testid="locator-map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        const map = el.__maplibreMap;
+        if (!map) return 0;
+        if (!map.loaded() || map.isMoving()) {
+          await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+        }
+        return map.queryRenderedFeatures(undefined, { layers: ['scrub'] }).length;
+      });
+
+    expect(await drawn()).toBe(0);
+    // force: true — the path is a thin stroked line with no fill, so
+    // Playwright's actionability check ("element receives pointer events at
+    // this point") fails at the exact centre pixel most of the time even
+    // though the element is genuinely visible and interactive. The pointer
+    // handler lives on the parent <svg>, which does receive the hover
+    // wherever inside its box the mouse lands, so this still exercises the
+    // real listener rather than skipping the interaction.
+    await chart.hover({ force: true });
+    await expect.poll(drawn, { timeout: 10_000 }).toBeGreaterThan(0);
+  });
 });

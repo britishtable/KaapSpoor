@@ -32,7 +32,15 @@
   // when no coordinate carries a height — guarded here even though the
   // {#if points.length} below already implies at least one does, because
   // that invariant belongs to profile.ts, not to this component's memory of it.
-  let climb = $derived(totalAscentM(coords));
+  // Rounded here, not just left to totalAscentM: the DEM sample is a float,
+  // and an unrounded value ("≈ 380.59999999999997 m") both looks broken and
+  // breaks the honesty constraint that ascent is never shown to more
+  // precision than a whole metre (see StatsStrip, which rounds at build time
+  // from the same source).
+  let climb = $derived.by(() => {
+    const raw = totalAscentM(coords);
+    return raw === null ? null : Math.round(raw);
+  });
   let marker = $state<number | null>(null);
 
   const plotW = WIDTH - PAD.left - PAD.right;
