@@ -8,6 +8,7 @@
     "copy:maplibre": "node scripts/copy-maplibre-worker.mjs",
     "build": "npm run copy:maplibre && npm run build:data && vite build",
     "dev": "npm run copy:maplibre && npm run build:data && vite dev",
+    "draw": "node scripts/draw.mjs",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
