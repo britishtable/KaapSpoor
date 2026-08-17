@@ -15,7 +15,9 @@ The OSM extract comes first, and it is the only step that needs WSL:
     tools/geocode/extract-osm-features.sh
 
 That writes `tools/geocode/work/walkable-ways.geojsonl` and
-`tools/geocode/work/route-relations.json`. Then, on Windows or WSL:
+`tools/geocode/work/route-relations.osm` (OSM XML — osmium's JSON writer is a
+compile-time option Ubuntu's package omits, and XML keeps the member ids and
+roles this tool needs; the reader accepts either). Then, on Windows or WSL:
 
     cd tools/routelines
     python -m kaap_routelines.cli

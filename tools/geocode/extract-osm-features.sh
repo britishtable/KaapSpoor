@@ -68,8 +68,13 @@ osmium export --overwrite "$OUT_DIR/walkable.osm.pbf" \
 # both the member WAY IDS and their ROLES on the way through — which would cost
 # us the provenance every drawn line has to carry, and the forward/backward
 # distinction that keeps an alternative section from being concatenated into a
-# line that doubles back. OSM JSON keeps both; the geometry is joined back on
-# by way id from walkable-ways.geojsonl above.
+# line that doubles back. OSM XML keeps both, as <member type ref role/>; the
+# geometry is joined back on by way id from walkable-ways.geojsonl above.
+#
+# XML rather than OSM JSON because osmium's JSON writer is a COMPILE-TIME
+# option that Ubuntu's osmium-tool package does not enable — 1.16.0 here fails
+# with "No support for writing this format in this program", and a newer
+# release does not fix it. The reader accepts either.
 #
 # -R omits referenced objects: we want the relations themselves, not a second
 # copy of every member way.
@@ -78,8 +83,8 @@ osmium tags-filter --overwrite -R "$OUT_DIR/clipped.osm.pbf" \
   r/type=route \
   -o "$OUT_DIR/routes.osm.pbf"
 osmium cat --overwrite "$OUT_DIR/routes.osm.pbf" \
-  -f json \
-  -o "$OUT_DIR/route-relations.json"
+  -f xml \
+  -o "$OUT_DIR/route-relations.osm"
 
 # --add-unique-id=type_id puts "n123"/"w456" in each feature's "@id", which is
 # what provenance records so an osm-match claim can be re-checked later.
@@ -91,4 +96,4 @@ osmium export --overwrite "$OUT_DIR/filtered.osm.pbf" \
 
 echo "==> wrote $OUT ($(wc -l < "$OUT") features before the name filter)"
 echo "==> wrote $OUT_DIR/walkable-ways.geojsonl ($(wc -l < "$OUT_DIR/walkable-ways.geojsonl") ways)"
-echo "==> wrote $OUT_DIR/route-relations.json"
+echo "==> wrote $OUT_DIR/route-relations.osm ($(grep -c '<relation' "$OUT_DIR/route-relations.osm") relations)"

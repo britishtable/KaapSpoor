@@ -106,6 +106,36 @@ def test_ignores_a_relation_that_is_not_a_hiking_route(tmp_path):
     assert read_relations(path, {101: w(101, A, B)}) == []
 
 
+def test_reads_osm_xml_as_well_as_osm_json(tmp_path):
+    # What the extract actually writes. osmium's JSON writer is a compile-time
+    # option Ubuntu's package omits, so `osmium cat -f json` fails outright and
+    # XML is the format that keeps member ids and roles. Both are accepted so
+    # neither the tool's build options nor a format change can empty this tier.
+    path = tmp_path / "route-relations.osm"
+    path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<osm version="0.6">\n'
+        '  <relation id="2934380" version="7">\n'
+        '    <member type="way" ref="101" role=""/>\n'
+        '    <member type="way" ref="102" role="forward"/>\n'
+        '    <member type="relation" ref="55" role=""/>\n'
+        '    <tag k="type" v="route"/>\n'
+        '    <tag k="route" v="hiking"/>\n'
+        '    <tag k="name" v="Platteklip Gorge"/>\n'
+        '  </relation>\n'
+        '</osm>\n',
+        encoding="utf-8",
+    )
+    relations = read_relations(path, {101: w(101, A, B), 102: w(102, B, C)})
+    assert len(relations) == 1
+    assert relations[0].osm_id == 2934380
+    assert relations[0].name == "Platteklip Gorge"
+    assert [(m.way.osm_id, m.role) for m in relations[0].members] == [(101, ""), (102, "forward")]
+    # The relation member is not a way and carries no geometry of its own; it
+    # is skipped rather than counted as a hole in this relation.
+    assert relations[0].missing == 0
+
+
 def test_ignores_ways_and_nodes_in_the_same_file(tmp_path):
     path = _osm_json(tmp_path, [
         {"type": "way", "id": 101, "nodes": [1, 2], "tags": {"highway": "path"}},

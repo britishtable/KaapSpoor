@@ -12,6 +12,7 @@ continuous where a name-matched one is 27 disjoint pieces.
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,6 +60,37 @@ def _elements(raw: object) -> list[dict]:
     return list(raw) if isinstance(raw, list) else []
 
 
+def _elements_from_xml(text: str) -> list[dict]:
+    """OSM XML relations, in the same shape OSM JSON would have given.
+
+    This is the format the extract actually writes: osmium's JSON writer is a
+    compile-time option Ubuntu's osmium-tool omits, so `osmium cat -f json`
+    fails on any stock install. XML carries the same two things this tier needs
+    and `osmium export` would have dropped — member way ids and roles.
+    """
+    root = ElementTree.fromstring(text)
+    elements: list[dict] = []
+    for relation in root.iter("relation"):
+        elements.append({
+            "type": "relation",
+            "id": int(relation.get("id") or 0),
+            "tags": {
+                tag.get("k"): tag.get("v")
+                for tag in relation.findall("tag")
+                if tag.get("k") is not None
+            },
+            "members": [
+                {
+                    "type": member.get("type"),
+                    "ref": int(member.get("ref") or 0),
+                    "role": member.get("role") or "",
+                }
+                for member in relation.findall("member")
+            ],
+        })
+    return elements
+
+
 def read_relations(path: Path, ways_by_id: dict[int, Way]) -> list[Relation]:
     """Read hiking relations, joining member geometry on by way id.
 
@@ -67,14 +99,17 @@ def read_relations(path: Path, ways_by_id: dict[int, Way]) -> list[Relation]:
     `osmium export` of the relations would have dropped the ids and the roles.
     """
     text = path.read_text(encoding="utf-8").strip()
-    try:
-        raw = json.loads(text)
-        elements = _elements(raw)
-    except json.JSONDecodeError:
-        # Some osmium builds write one JSON object per line rather than a
-        # single document. Both are accepted so a version bump cannot silently
-        # empty this tier.
-        elements = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if text.startswith("<"):
+        elements = _elements_from_xml(text)
+    else:
+        try:
+            raw = json.loads(text)
+            elements = _elements(raw)
+        except json.JSONDecodeError:
+            # Some osmium builds write one JSON object per line rather than a
+            # single document. Both are accepted so a version bump cannot
+            # silently empty this tier.
+            elements = [json.loads(line) for line in text.splitlines() if line.strip()]
 
     relations: list[Relation] = []
     for element in elements:

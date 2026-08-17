@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--relations",
         type=Path,
-        default=HERE.parent / "geocode" / "work" / "route-relations.json",
+        default=HERE.parent / "geocode" / "work" / "route-relations.osm",
     )
     parser.add_argument("--relations-map", type=Path, default=DATA / "route-relations.json")
     parser.add_argument("--out", type=Path, default=DATA / "route-lines.geojson")
