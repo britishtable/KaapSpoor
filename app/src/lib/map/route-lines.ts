@@ -12,8 +12,11 @@ import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
  */
 export const ROUTE_LINE_SOURCE = 'route-lines';
 
-/** Casing first: it must draw underneath the line it lifts off the contours. */
-export const ROUTE_LINE_LAYERS = ['route-line-casing', 'route-line'] as const;
+/**
+ * Casing first so it draws underneath; the active variant last so it draws on
+ * top of its siblings.
+ */
+export const ROUTE_LINE_LAYERS = ['route-line-casing', 'route-line', 'route-line-active'] as const;
 
 /**
  * Match one route's line. An empty list matches nothing, which is how the
@@ -35,7 +38,42 @@ export function routeLinePaint(): NonNullable<LineLayerSpecification['paint']> {
       PIN_COLOR_TODO
     ],
     'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5],
-    'line-opacity': 0.9
+    // Sits back, because an entry may draw several of these at once and all of
+    // them at full strength reads as a tangle rather than as choices.
+    'line-opacity': 0.55
+  };
+}
+
+/**
+ * Match one route AND one variant. Both halves matter: variant names repeat
+ * across entries — several routes have a "Right Hand" — so filtering on the
+ * name alone would light a line on another mountain.
+ */
+export function activeVariantFilter(
+  routeId: string | null,
+  variant: string | null
+): FilterSpecification {
+  if (!routeId || !variant) return ['in', ['get', 'variant'], ['literal', []]];
+  return [
+    'all',
+    ['in', ['get', 'routeId'], ['literal', [routeId]]],
+    ['in', ['get', 'variant'], ['literal', [variant]]]
+  ];
+}
+
+/** The variant the reader is pointing at: same colour, fully present. */
+export function routeLineActivePaint(): NonNullable<LineLayerSpecification['paint']> {
+  return {
+    'line-color': [
+      'case',
+      ['boolean', ['feature-state', 'done'], false],
+      PIN_COLOR_DONE,
+      PIN_COLOR_TODO
+    ],
+    // Wider and opaque against the same colour at 0.55: the difference reads as
+    // "this one" without turning the others into a different kind of thing.
+    'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 7],
+    'line-opacity': 1
   };
 }
 

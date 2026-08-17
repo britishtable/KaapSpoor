@@ -1,6 +1,9 @@
 import type { FilterSpecification, StyleSpecification } from 'maplibre-gl';
 import { SHIPPED_REGION } from './region';
-import { routeLineFilter, routeLinePaint, routeLineCasingPaint } from './route-lines';
+import {
+  routeLineFilter, routeLinePaint, routeLineCasingPaint,
+  activeVariantFilter, routeLineActivePaint
+} from './route-lines';
 
 export type Basemap = 'opentopo' | 'selfhosted';
 
@@ -290,6 +293,18 @@ function selfHosted(base: string): StyleSpecification {
         filter: routeLineFilter(null),
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: routeLinePaint()
+      },
+      {
+        // The variant the reader is pointing at in the panel. A separate layer
+        // rather than a paint expression on `route-line`, because feature-state
+        // already carries the journal's done colour and stacking a second
+        // meaning onto it would make both harder to reason about.
+        id: 'route-line-active',
+        type: 'line',
+        source: 'route-lines',
+        filter: activeVariantFilter(null, null),
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: routeLineActivePaint()
       },
       {
         // The quiet tier: every path the guides name somewhere, labelled once

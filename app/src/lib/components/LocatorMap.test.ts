@@ -146,9 +146,9 @@ describe('LocatorMap for an approximate position', () => {
 describe('LocatorMap route line', () => {
   const coords = { lat: -33.95, lon: 18.4, zoom: 15 };
 
-  it('filters both line layers to the route it is drawing', async () => {
+  it('filters all three line layers, the route on two and nothing on the active one', async () => {
     // Filtering the line but not its casing leaves a pale halo round nothing,
-    // so both move together or neither does.
+    // so they move together or not at all.
     vi.stubGlobal('fetch', async () => ({
       ok: true,
       status: 200,
@@ -157,10 +157,17 @@ describe('LocatorMap route line', () => {
     render(LocatorMap, { coords, title: 'Kasteelspoort', routeId: 'a--b--c', hasLine: true });
     await vi.waitFor(() => expect(calls.some((c) => c.name === 'setFilter')).toBe(true));
     const filtered = calls.filter((c) => c.name === 'setFilter');
-    expect(filtered.map((c) => c.args[0])).toEqual(['route-line-casing', 'route-line']);
-    for (const call of filtered) {
+    expect(filtered.map((c) => c.args[0])).toEqual([
+      'route-line-casing',
+      'route-line',
+      'route-line-active'
+    ]);
+    for (const call of filtered.slice(0, 2)) {
       expect(call.args[1]).toEqual(['in', ['get', 'routeId'], ['literal', ['a--b--c']]]);
     }
+    // The active layer stays empty here: the route page shows every variant
+    // equally beside the text that explains them, with no pointer emphasis.
+    expect(filtered[2].args[1]).toEqual(['in', ['get', 'variant'], ['literal', []]]);
     vi.unstubAllGlobals();
   });
 

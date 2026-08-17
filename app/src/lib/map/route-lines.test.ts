@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds
+  ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds,
+  activeVariantFilter, routeLineActivePaint
 } from './route-lines';
 import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
 
@@ -43,8 +44,38 @@ describe('route lines', () => {
     expect(lineBounds({ type: 'LineString', coordinates: [] })).toBe(null);
   });
 
-  it('names both layers, casing first so it draws underneath', () => {
-    expect(ROUTE_LINE_LAYERS).toEqual(['route-line-casing', 'route-line']);
+  it('names the source the map fills at runtime', () => {
     expect(ROUTE_LINE_SOURCE).toBe('route-lines');
+  });
+});
+
+describe('variants', () => {
+  it('names three layers, the active one last so it draws on top', () => {
+    expect([...ROUTE_LINE_LAYERS]).toEqual([
+      'route-line-casing', 'route-line', 'route-line-active'
+    ]);
+  });
+
+  it('matches nothing when no variant is being pointed at', () => {
+    expect(activeVariantFilter('a--b--c', null)).toEqual([
+      'in', ['get', 'variant'], ['literal', []]
+    ]);
+  });
+
+  it('matches one route AND one variant, never a namesake on another route', () => {
+    // 'Right Hand' is a name several entries will use.
+    expect(activeVariantFilter('a--b--c', 'Right Hand')).toEqual([
+      'all',
+      ['in', ['get', 'routeId'], ['literal', ['a--b--c']]],
+      ['in', ['get', 'variant'], ['literal', ['Right Hand']]]
+    ]);
+  });
+
+  it('sits an unemphasised variant back, so the one being read stands out', () => {
+    // Several lines at full strength on one mountain read as a tangle rather
+    // than as choices.
+    expect(routeLinePaint()['line-opacity']).toBeLessThan(
+      routeLineActivePaint()['line-opacity'] as number
+    );
   });
 });

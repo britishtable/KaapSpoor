@@ -18,7 +18,7 @@
     buildStyle, SHIPPED_BASEMAP, pathNameFilter, NAMED_PATH_LAYER, type Basemap
   } from '$lib/map/style';
   import {
-    ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, lineBounds
+    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds
   } from '$lib/map/route-lines';
   import type { FeatureCollection, LineString, MultiLineString } from 'geojson';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
@@ -387,10 +387,14 @@
         // The selection may have moved on while the fetch was in flight; a
         // late arrival must not draw a route the user has left.
         if (!map || $selection.selectedId !== selectedId) return;
-        for (const id of ROUTE_LINE_LAYERS) map.setFilter(id, routeLineFilter(selectedId));
+        map.setFilter('route-line-casing', routeLineFilter(selectedId));
+        map.setFilter('route-line', routeLineFilter(selectedId));
+        map.setFilter('route-line-active', activeVariantFilter(selectedId, $selection.hoveredVariant));
       });
     } else {
-      for (const id of ROUTE_LINE_LAYERS) map.setFilter(id, routeLineFilter(null));
+      map.setFilter('route-line-casing', routeLineFilter(null));
+      map.setFilter('route-line', routeLineFilter(null));
+      map.setFilter('route-line-active', activeVariantFilter(null, null));
     }
     const approxRadius =
       target?.coordsSource === 'area-approx' && target.coordsAccuracyM

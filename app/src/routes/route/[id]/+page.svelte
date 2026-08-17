@@ -4,6 +4,7 @@
   import StatsStrip from '$lib/components/StatsStrip.svelte';
   import JournalControls from '$lib/components/JournalControls.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
+  import RouteVariants from '$lib/components/RouteVariants.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
@@ -31,6 +32,7 @@
     />
   {/if}
   <ProvenanceNote route={r} />
+  <RouteVariants lines={r.lines} />
 
   {#each Object.entries(r.sections) as [heading, body]}
     {#if heading}<h2>{heading}</h2>{/if}
