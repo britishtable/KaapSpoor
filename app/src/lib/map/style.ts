@@ -1,5 +1,6 @@
 import type { FilterSpecification, StyleSpecification } from 'maplibre-gl';
 import { SHIPPED_REGION } from './region';
+import { routeLineFilter, routeLinePaint, routeLineCasingPaint } from './route-lines';
 
 export type Basemap = 'opentopo' | 'selfhosted';
 
@@ -17,17 +18,6 @@ const ATTRIBUTION_SELF = `${ATTRIBUTION_OSM}, elevation data from Copernicus DEM
 // fetched into app/static/fonts/ by tools/tiles/fetch-fonts.sh.
 // Both basemaps share this so switching cannot silently drop every label.
 const glyphs = (base: string) => `${base}/fonts/{fontstack}/{range}.pbf`;
-
-/**
- * The layers showing the paths a selected route's description names. Filtered
- * together, always: filtering the line but not its casing leaves a pale halo
- * round nothing.
- */
-export const REFERENCED_PATH_LAYERS = [
-  'paths-referenced-casing',
-  'paths-referenced',
-  'paths-referenced-label'
-] as const;
 
 /** The quiet tier labelling every path the guides name anywhere. */
 export const NAMED_PATH_LAYER = 'paths-named';
@@ -69,6 +59,16 @@ function selfHosted(base: string): StyleSpecification {
         type: 'vector',
         url: `pmtiles://${base}/tiles/trails-${SHIPPED_REGION.id}.pmtiles`,
         attribution: ATTRIBUTION_SELF
+      },
+      // Filled by MapView the first time a selection has a line: the file is
+      // one static asset, fetched once, and until then this draws nothing.
+      // promoteId lets feature-state carry the journal's done colour onto the
+      // line, the same way it does for pins — MapLibre parseInt()s string
+      // feature ids otherwise, so slug ids become NaN and nothing matches.
+      'route-lines': {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        promoteId: 'routeId'
       },
       contours: {
         type: 'vector',
@@ -269,46 +269,27 @@ function selfHosted(base: string): StyleSpecification {
         }
       },
       {
-        // A pale casing under the referenced line. Without it the highlight is
-        // hard to separate from the 100 m contours it crosses — they share a
-        // hue family by design, and a brown line over brown lines reads as
-        // more contour, not as emphasis.
-        id: 'paths-referenced-casing',
+        // A pale casing under the route line, for the same reason the 4e
+        // highlight had one: a coloured line over brown contours reads as more
+        // contour unless something separates it from them.
+        id: 'route-line-casing',
         type: 'line',
-        source: 'trails',
-        'source-layer': 'paths',
-        // The archive's own floor: trails-profile.yml builds paths from z11.
-        // Below this there is nothing to filter, so a lower value would be a
-        // highlight that silently never draws.
-        minzoom: 11,
-        filter: NO_PATHS,
+        source: 'route-lines',
+        filter: routeLineFilter(null),
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#f4f1ea',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 4.5, 14, 7],
-          'line-opacity': 0.85
-        }
+        paint: routeLineCasingPaint()
       },
       {
-        // The paths the selected route's description names. SOLID, where
-        // ordinary paths are dashed — that contrast is the whole signal, and it
-        // says "this path, emphasised" rather than "a different kind of thing".
-        //
-        // Deliberately NOT the pin colours: green means done and nothing else,
-        // and terracotta means to-do. These paths are neither. They are what
-        // the text refers to, which includes escape routes and paths merely
-        // crossed — see the spec on why they are never presented as the route.
-        id: 'paths-referenced',
+        // No minzoom. Unlike every path layer here, this comes from a GeoJSON
+        // source rather than the tiles, so the archive's z11 floor does not
+        // apply — the line draws the moment a route is selected, at any zoom,
+        // including the opening view where 4e's highlight was invisible.
+        id: 'route-line',
         type: 'line',
-        source: 'trails',
-        'source-layer': 'paths',
-        minzoom: 11,
-        filter: NO_PATHS,
+        source: 'route-lines',
+        filter: routeLineFilter(null),
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#6b3f24',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 3.5]
-        }
+        paint: routeLinePaint()
       },
       {
         // The quiet tier: every path the guides name somewhere, labelled once
@@ -471,45 +452,6 @@ function selfHosted(base: string): StyleSpecification {
           'text-color': '#6b6b6b',
           'text-halo-color': '#f4f1ea',
           'text-halo-width': 1.4
-        }
-      },
-      {
-        // Placed after every other label on purpose. MapLibre places LATER
-        // symbol layers FIRST, so lateness is what wins a collision: the paths
-        // a selected route names must outrank a suburb or a minor peak. It
-        // still loses to the route pins, which MapView appends at runtime after
-        // the whole style — which is why the line beneath, and the panel text,
-        // carry the information this label only decorates.
-        id: 'paths-referenced-label',
-        type: 'symbol',
-        source: 'trails',
-        'source-layer': 'paths',
-        minzoom: 12,
-        filter: NO_PATHS,
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Regular'],
-          'symbol-placement': 'line',
-          'text-size': ['interpolate', ['linear'], ['zoom'], 12, 11, 16, 14],
-          'symbol-spacing': 250,
-          // 45 (MapLibre's default), NOT the quiet tier's 30. Measured in the
-          // browser at z15 on the Pipe Track: at 30 this layer placed ZERO
-          // labels while `paths-named` placed the same name fine — bigger text
-          // advances further per glyph around a bend, so the same mountain
-          // path breaches the same angle limit only at this tier's size. The
-          // effect was the promotion running backwards: the pale tier labelled
-          // the selected route's path and the strong one drew nothing.
-          'text-max-angle': 45,
-          'symbol-sort-key': 0
-        },
-        paint: {
-          // Darker than the quiet tier, with a heavier halo. Only Open Sans
-          // Regular ships (tools/tiles/fetch-fonts.sh fetches one stack), so
-          // weight is not available to separate these — size, darkness and
-          // halo do that work.
-          'text-color': '#4a2c18',
-          'text-halo-color': '#f4f1ea',
-          'text-halo-width': 1.8
         }
       },
       {
