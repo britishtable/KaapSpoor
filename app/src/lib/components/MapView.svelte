@@ -15,9 +15,12 @@
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import {
-    buildStyle, SHIPPED_BASEMAP, pathNameFilter,
-    REFERENCED_PATH_LAYERS, NAMED_PATH_LAYER, type Basemap
+    buildStyle, SHIPPED_BASEMAP, pathNameFilter, NAMED_PATH_LAYER, type Basemap
   } from '$lib/map/style';
+  import {
+    ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, lineBounds
+  } from '$lib/map/route-lines';
+  import type { FeatureCollection, LineString, MultiLineString } from 'geojson';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
   import { pinsPaint, uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import { summariseGrade } from '$lib/data/grade';
@@ -317,6 +320,13 @@
     for (const e of entries) {
       if (!e.coords) continue;
       map.setFeatureState({ source: 'routes', id: e.id }, { done: done.has(e.id) });
+      // The line reads done/to-do exactly as the pin does. promoteId on the
+      // route-lines source (style.ts) is what makes a slug id match here.
+      // Cleared as well as set, for the same reason the pin state is: a route
+      // un-ticked in the journal must go back to to-do without a reload.
+      if (e.hasLine) {
+        map.setFeatureState({ source: ROUTE_LINE_SOURCE, id: e.id }, { done: done.has(e.id) });
+      }
     }
   });
 
@@ -332,6 +342,28 @@
   // user once it has arrived; it is the *change* of selection that owns it.
   let cameraFollowedId: string | null = null;
 
+  // The lines for every route, fetched ONCE the first time a selection needs
+  // them. Deliberately not part of routes-index.json: 184 entries would each
+  // carry a few hundred coordinates for a shape only the selected route draws.
+  let routeLines: FeatureCollection<LineString | MultiLineString, { routeId: string }> | null = null;
+  let routeLinesRequested = false;
+
+  async function ensureRouteLines(): Promise<void> {
+    if (routeLinesRequested) return;
+    routeLinesRequested = true;
+    try {
+      const res = await fetch(`${base}/data/route-lines.geojson`);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for route lines`);
+      routeLines = await res.json();
+      const source = map?.getSource(ROUTE_LINE_SOURCE) as GeoJSONSource | undefined;
+      if (source && routeLines) source.setData(routeLines);
+    } catch (err) {
+      // A failed fetch means no line draws, which is the same as a route that
+      // has none — the map stays usable and the pin still carries the route.
+      console.warn('MapView: could not load route lines', err);
+    }
+  }
+
   // Highlight and fly when the panel selects or hovers a route.
   $effect(() => {
     const { hoveredId, selectedId } = $selection;
@@ -343,13 +375,22 @@
       map.setFeatureState({ source: 'routes', id: e.id }, { active: e.id === active });
     }
     const target = selectedId ? entries.find((e) => e.id === selectedId) : undefined;
-    // The paths this route's description names. Hover deliberately does NOT
-    // trigger this: hovering fires constantly while panning, and re-filtering
-    // three layers on every pointer move would thrash the map for a signal the
-    // user did not ask for. Selection is the deliberate act.
-    const referenced = target?.mentionedPaths ?? [];
-    for (const id of REFERENCED_PATH_LAYERS) {
-      map.setFilter(id, pathNameFilter(referenced));
+    // The route's own line. Selection only — hovering fires constantly while
+    // panning, and this both re-filters layers and moves the camera.
+    // FILTER ONLY. This effect re-runs on every hover, and hover fires
+    // constantly as the pointer crosses pins while panning — so anything that
+    // moves the camera must live in the camera branch below, which runs once
+    // per CHANGE of selection. Framing here yanked a panned view back on every
+    // pointer sweep, the exact defect cameraFollowedId exists to prevent.
+    if (target?.hasLine) {
+      void ensureRouteLines().then(() => {
+        // The selection may have moved on while the fetch was in flight; a
+        // late arrival must not draw a route the user has left.
+        if (!map || $selection.selectedId !== selectedId) return;
+        for (const id of ROUTE_LINE_LAYERS) map.setFilter(id, routeLineFilter(selectedId));
+      });
+    } else {
+      for (const id of ROUTE_LINE_LAYERS) map.setFilter(id, routeLineFilter(null));
     }
     const approxRadius =
       target?.coordsSource === 'area-approx' && target.coordsAccuracyM
@@ -387,6 +428,27 @@
             // A tight radius must not zoom in further than a surveyed route does.
             maxZoom: 14
           });
+        } else if (target.hasLine) {
+          // Framing the line rather than flying to the pin is the point of
+          // having a line: you see the whole walk, not its trailhead.
+          const coords = target.coords;
+          const frame = () => {
+            if (!map) return;
+            const feature = routeLines?.features.find((f) => f.properties.routeId === target.id);
+            const bounds = feature ? lineBounds(feature.geometry) : null;
+            if (bounds) map.fitBounds(bounds, { padding: 64, maxZoom: 15 });
+            else map.flyTo({ center: [coords.lon, coords.lat], zoom: 14, speed: 1.4 });
+          };
+          if (routeLines) frame();
+          else {
+            // First selection of the session: the file is still in flight, so
+            // frame once it lands — and only if this selection is still the
+            // one the camera is following, so a fast click-through does not
+            // end on the wrong route's extent.
+            void ensureRouteLines().then(() => {
+              if (cameraFollowedId === selectedId && $selection.selectedId === selectedId) frame();
+            });
+          }
         } else {
           map.flyTo({ center: [target.coords.lon, target.coords.lat], zoom: 14, speed: 1.4 });
         }
