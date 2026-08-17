@@ -93,13 +93,36 @@ describe('RouteProfile', () => {
     expect(onscrub).toHaveBeenLastCalledWith(null);
   });
 
-  it('steps the marker with the keyboard', () => {
+  it('steps the marker right by one fortieth of the total distance', () => {
     // The profile is the direction indicator for an out-and-back route, so it
-    // cannot be mouse-only.
+    // cannot be mouse-only. Asserting only "onscrub fired" would pass even if
+    // ArrowRight moved the marker the wrong way, or by the wrong amount.
     const onscrub = vi.fn();
     const { container } = render(RouteProfile, { coords: climb, onscrub });
     const svg = container.querySelector('svg')!;
     fireEvent.keyDown(svg, { key: 'ArrowRight' });
-    expect(onscrub).toHaveBeenCalled();
+    expect(onscrub).toHaveBeenCalledWith(totalDistanceM(climb) / 40);
+  });
+
+  it('steps the marker left by one fortieth of the total distance, clamped at zero', () => {
+    // From a standing start (marker null, treated as 0) ArrowLeft cannot go
+    // negative -- it clamps at the beginning of the line, same distance as
+    // ArrowRight's clamp at the end.
+    const onscrub = vi.fn();
+    const { container } = render(RouteProfile, { coords: climb, onscrub });
+    const svg = container.querySelector('svg')!;
+    fireEvent.keyDown(svg, { key: 'ArrowLeft' });
+    expect(onscrub).toHaveBeenCalledWith(0);
+  });
+
+  it('steps the marker left by one fortieth of the total distance from a mid-line position', () => {
+    const onscrub = vi.fn();
+    const { container } = render(RouteProfile, { coords: climb, onscrub });
+    const svg = container.querySelector('svg')!;
+    const total = totalDistanceM(climb);
+    fireEvent.keyDown(svg, { key: 'ArrowRight' }); // marker at total/40
+    fireEvent.keyDown(svg, { key: 'ArrowRight' }); // marker at total/20
+    fireEvent.keyDown(svg, { key: 'ArrowLeft' }); // back down to total/40
+    expect(onscrub).toHaveBeenLastCalledWith(total / 40);
   });
 });
