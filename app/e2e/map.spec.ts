@@ -725,7 +725,11 @@ test.describe('route lines', () => {
       const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
         id: string; title: string; hasLine: boolean;
       }>;
-      const hit = routes.find((r) => r.hasLine);
+      // The panel is selected by substring, and several titles contain another
+      // route's title whole — "Llandudno Buttress (Llandudno Ravine Right
+      // Hand )" contains "Llandudno Ravine". Pick one that cannot be confused.
+      const unique = (t: string) => routes.filter((r) => r.title.includes(t)).length === 1;
+      const hit = routes.find((r) => r.hasLine && unique(r.title));
       return hit ? { id: hit.id, title: hit.title } : null;
     });
   }
@@ -768,11 +772,50 @@ test.describe('route lines', () => {
       const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
         title: string; hasLine: boolean; coords: unknown;
       }>;
-      return routes.find((r) => !r.hasLine && r.coords)?.title ?? null;
+      const unique = (t: string) => routes.filter((r) => r.title.includes(t)).length === 1;
+      return routes.find((r) => !r.hasLine && r.coords && unique(r.title))?.title ?? null;
     });
     await selectFromPanel(page, title!);
     expect(await renderedCount(page, 'route-line')).toBe(0);
     await expect(page.getByTestId('preview-body')).toBeVisible();
+  });
+
+  test('an entry with alternatives draws them all, and lifts the one being read', async ({
+    page
+  }) => {
+    await ready(page);
+    const target = await page.evaluate(async () => {
+      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+        id: string; title: string; hasLine: boolean;
+      }>;
+      const lines = (await (await fetch('data/route-lines.geojson')).json()) as {
+        features: { properties: { routeId: string; variant?: string } }[];
+      };
+      const counts = new Map<string, number>();
+      for (const f of lines.features) {
+        if (!f.properties.variant) continue;
+        counts.set(f.properties.routeId, (counts.get(f.properties.routeId) ?? 0) + 1);
+      }
+      const unique = (t: string) => routes.filter((r) => r.title.includes(t)).length === 1;
+      const ids = [...counts].filter(([, n]) => n > 1).map(([id]) => id);
+      return routes.find((r) => ids.includes(r.id) && unique(r.title))?.title ?? null;
+    });
+    test.skip(!target, 'no entry in this build has alternatives drawn yet');
+
+    await selectFromPanel(page, target!);
+    await expect
+      .poll(() => renderedCount(page, 'route-line'), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    // Nothing is lifted until the reader points at one.
+    expect(await renderedCount(page, 'route-line-active')).toBe(0);
+
+    await page.getByRole('heading', { name: 'Ways up this route' })
+      .locator('xpath=following-sibling::ul/li')
+      .first()
+      .hover();
+    await expect
+      .poll(() => renderedCount(page, 'route-line-active'), { timeout: 15_000 })
+      .toBeGreaterThan(0);
   });
 
   test('the whole-name path highlight is gone', async ({ page }) => {
