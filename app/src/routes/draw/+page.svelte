@@ -22,6 +22,17 @@
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
   let graph: SnapGraph | null = null;
+  /**
+   * Every trail line seen so far this route, not just the ones on screen.
+   *
+   * querySourceFeatures only returns the tiles currently loaded, so rebuilding
+   * from scratch on each settle threw away everything you panned past — and a
+   * route is longer than a viewport. Clicking, panning to the next bend and
+   * clicking again then reported "no trail connects that to the last point"
+   * while the connection was in plain sight, because the trail between them had
+   * been forgotten. Cleared when a different route is picked.
+   */
+  let seenLines = new Map<string, Point[]>();
 
   let entries = $state<RouteIndexEntry[]>([]);
   let routeId = $state<string>('');
@@ -65,7 +76,20 @@
         for (const part of geometry.coordinates) lines.push(part as Point[]);
       }
     }
-    graph = buildGraph(lines);
+    let added = 0;
+    for (const line of lines) {
+      // Cheap identity: a tile-clipped line is the same line each time it is
+      // returned, and its ends plus length distinguish it from its neighbours.
+      const first = line[0];
+      const last = line[line.length - 1];
+      const key = `${line.length}|${first[0]},${first[1]}|${last[0]},${last[1]}`;
+      if (!seenLines.has(key)) {
+        seenLines.set(key, line);
+        added++;
+      }
+    }
+    if (!added && graph) return;
+    graph = buildGraph([...seenLines.values()]);
     // Test-only hook, mirroring MapView's: WebGL is not queryable from
     // Playwright, and the editor's snapping is otherwise unobservable.
     (container as HTMLDivElement & { __drawGraph?: SnapGraph | null }).__drawGraph = graph;
@@ -118,7 +142,9 @@
       }
       const walked = routeBetween(graph, from.key, node);
       if (!walked) {
-        message = 'No trail connects that to the last point.';
+        message =
+          'No trail connects those two points yet — if the trail between them ' +
+          'is off screen, pan along it once so the editor can see it.';
         return;
       }
       variant.legs.push({ at: point, coords: walked });
@@ -211,6 +237,9 @@
   async function pickRoute(id: string): Promise<void> {
     routeId = id;
     active = 0;
+    // A fresh route starts a fresh network, so a long session does not carry
+    // the whole peninsula around in memory.
+    seenLines = new Map();
     // Load whatever is already drawn for this route, so a second sitting picks
     // up where the first left off rather than silently replacing it on Save.
     try {
