@@ -333,6 +333,35 @@ as what the text refers to. 4e also does 4d's groundwork twice over: it establis
 name-matching vocabulary, and its measurements identified the `match.py` ambiguity rule as the
 reason 4d's yield looked small.
 
+### What actually happened (4d shipped, 2026-08-17)
+
+**The referenced-path highlight was removed.** `paths-referenced`, `paths-referenced-casing` and
+`paths-referenced-label` are gone from `style.ts`, and a test in `style.test.ts` asserts their
+absence so the removal reads as a decision rather than a regression. The reason is the one this
+spec could not have known before the tier was used: **a name has no extent.** *Contour Path* lit
+the length of the peninsula, the highlight broke wherever an unnamed connector carried the trail,
+escape routes drew as co-equal with the ascent, and a route naming nothing showed nothing at all.
+None of that is a defect in the matcher — it is the ceiling of name-matching, and 4d's geometry is
+what replaces it.
+
+**What survived, and is still doing its job:**
+
+- `paths-named`, the quiet label tier. It states a fact — this path is called that — which needs
+  no extent to be true.
+- `MentionedPaths.svelte` and the `mentionedPaths` field. The panel section is unchanged, and the
+  ordering it captures turned out to be load-bearing for 4d: the stitch tier walks a route's named
+  paths **in the order the prose introduces them**, and that ordering is the only thing supplying
+  extent to a tier that would otherwise cover everything sharing a name.
+- The matcher itself, mirrored into Python as `tools/routelines/kaap_routelines/mentions.py`.
+
+**The `match.py` finding recorded above was fixed** in 4d's Task 8: connected same-named ways are
+now read as one fragmented trail rather than as an ambiguity, and the match is positioned at the
+midpoint of the whole run. `osm-match` went 11 → 13, gaining *Disa River Walk* and
+*Twelve Apostles Path*, and two routes moved off an `area-approx` centroid.
+
+**The case-sensitivity cost recorded above stands**, and 4d inherits it: the stitch tier can only
+walk trails the matcher found.
+
 ---
 
 ## Risks
