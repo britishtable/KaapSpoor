@@ -64,6 +64,27 @@ describe('buildGraph', () => {
   });
 });
 
+describe('buildGraph merges what is really one point', () => {
+  it('joins two lines whose shared point differs only in the last decimals', () => {
+    // Tile-boundary fragmentation: a trail crossing a tile edge comes back from
+    // each tile with slightly different coordinates for the same real point.
+    // Measured in one editor view: 135 pairs of nodes under 1 m apart with
+    // different keys — 135 places where a visibly continuous trail could not be
+    // routed along.
+    const shared: Point = [18.410, -34.000];
+    const nudged: Point = [18.4100000, -34.0000034]; // ~0.38 m south
+    const graph = buildGraph([[A, shared], [nudged, C]]);
+    expect(routeBetween(graph, nodeKey(A), nodeKey(C))).not.toBe(null);
+  });
+
+  it('keeps two genuinely different nodes apart', () => {
+    // 5 m is a real gap between two trail ends, not a rounding artefact.
+    const near: Point = [18.410045, -34.0];
+    const graph = buildGraph([[A, B], [near, C]]);
+    expect(routeBetween(graph, nodeKey(A), nodeKey(C))).toBe(null);
+  });
+});
+
 describe('snapToGraph', () => {
   it('snaps to a point ON the line, not to its nearest corner', () => {
     // THE defect this replaced. A straight run of trail carries two vertices,

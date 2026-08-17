@@ -46,7 +46,14 @@
   /** Rebuild the snapping graph from whatever path features are loaded. */
   function rebuildGraph(): void {
     if (!map) return;
-    const features = map.querySourceFeatures('trails', { sourceLayer: 'paths' });
+    // Paths AND roads. A guide's route regularly starts on tarmac — "From
+    // Theresa Avenue, hike the cement road which eventually joins the Pipe
+    // Track" — and a trail whose only link to the next one is a street cannot
+    // be walked at all without them.
+    const features = [
+      ...map.querySourceFeatures('trails', { sourceLayer: 'paths' }),
+      ...map.querySourceFeatures('trails', { sourceLayer: 'roads' })
+    ];
     const lines: Point[][] = [];
     for (const feature of features) {
       const geometry = feature.geometry;

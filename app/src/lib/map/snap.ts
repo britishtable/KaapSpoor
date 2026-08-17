@@ -55,10 +55,49 @@ export interface SnapGraph {
   edges: Edge[];
 }
 
+/** Points this close are the same point, whatever their last decimals say. */
+const MERGE_M = 1;
+/** Grid cell of roughly MERGE_M, in degrees. */
+const CELL = 1e-5;
+
+/**
+ * Collapses coordinates that describe the same real point onto one.
+ *
+ * The vector tiles hand back a trail crossing a tile boundary once per tile,
+ * and the two copies do not agree in their last decimals — measured in one
+ * editor view, 135 pairs of nodes under a metre apart with different keys. Each
+ * one is a place where a plainly continuous trail could not be walked, which is
+ * the "no trail connects that to the last point" an author sees while looking
+ * straight at the connection.
+ *
+ * Neighbouring cells are checked too, so a pair straddling a cell boundary
+ * still merges.
+ */
+function canonicaliser(): (point: Point) => Point {
+  const cells = new Map<string, Point[]>();
+  return (point: Point) => {
+    const cx = Math.round(point[0] / CELL);
+    const cy = Math.round(point[1] / CELL);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const seen of cells.get(`${cx + dx},${cy + dy}`) ?? []) {
+          if (haversineM(seen, point) <= MERGE_M) return seen;
+        }
+      }
+    }
+    const key = `${cx},${cy}`;
+    const bucket = cells.get(key);
+    if (bucket) bucket.push(point);
+    else cells.set(key, [point]);
+    return point;
+  };
+}
+
 export function buildGraph(lines: Point[][]): SnapGraph {
   const adjacency = new Map<NodeKey, Edge[]>();
   const nodes = new Map<NodeKey, Point>();
   const edges: Edge[] = [];
+  const canonical = canonicaliser();
   const push = (key: NodeKey, edge: Edge) => {
     const list = adjacency.get(key);
     if (list) list.push(edge);
@@ -68,8 +107,8 @@ export function buildGraph(lines: Point[][]): SnapGraph {
   for (const line of lines) {
     if (line.length < 2) continue;
     for (let i = 1; i < line.length; i++) {
-      const from = line[i - 1];
-      const to = line[i];
+      const from = canonical(line[i - 1]);
+      const to = canonical(line[i]);
       const a = nodeKey(from);
       const b = nodeKey(to);
       // A zero-length segment (a repeated coordinate) is not an edge, and it
