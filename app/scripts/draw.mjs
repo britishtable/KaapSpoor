@@ -122,11 +122,17 @@ function openBrowser(url) {
 
 if (ELEVATE) {
   // Re-sample every line already in the file, for routes drawn before the DEM
-  // was wired in. Writes through the same middleware path the editor uses, so
-  // there is one implementation of "what a saved line looks like".
-  console.error('Run this through the dev server instead: start `npm run draw`,');
-  console.error('open a route, and press Save to re-sample it.');
-  process.exit(1);
+  // was wired in, or on a machine that only just got it. Runs through tsx
+  // (scripts/elevate.ts), the same way build:data runs transform.ts -- this
+  // .mjs file cannot import TypeScript directly, but that script reuses
+  // openDem()/elevate() from the dev-server middleware, so there is still one
+  // implementation of "what a saved line's heights look like".
+  const step = spawnSync('npx', ['tsx', 'scripts/elevate.ts'], {
+    cwd: resolve(REPO, 'app'),
+    stdio: 'inherit',
+    shell: process.platform === 'win32'
+  });
+  process.exit(step.status ?? 1);
 }
 
 if (PUBLISH_ONLY) {

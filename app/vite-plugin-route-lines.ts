@@ -14,10 +14,12 @@ import type { Plugin } from 'vite';
 import type { RouteLineFeature } from './src/lib/draw/state';
 import { openDem, type Dem } from './dem-sample';
 
-const FILE = resolve(process.cwd(), '..', 'data', 'route-lines.geojson');
+// Exported so scripts/elevate.ts (the `--elevate` re-sample, run outside the
+// dev server) points at the exact same file and DEM this middleware does.
+export const FILE = resolve(process.cwd(), '..', 'data', 'route-lines.geojson');
 
 /** Where the DEM lives. Copy it out of the tiles work directory once. */
-const DEM = process.env.KAAPSPOOR_DEM ?? resolve(process.cwd(), '..', 'data', 'dem', 'dem-cape-town.tif');
+export const DEM = process.env.KAAPSPOOR_DEM ?? resolve(process.cwd(), '..', 'data', 'dem', 'dem-cape-town.tif');
 
 /** Ground position as a map key. Exact match: an untouched point round-trips
  * through the editor at the same floats it was saved with (state.ts's
