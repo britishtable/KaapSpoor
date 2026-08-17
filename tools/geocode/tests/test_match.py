@@ -92,3 +92,61 @@ def test_one_index_serves_routes_in_different_bboxes():
     eastern = BBox(west=24.0, south=-33.0, east=26.0, north=-31.0)
     assert find_match(["Newlands Ravine"], index, CAPE).feature.osm_id == 40
     assert find_match(["Newlands Ravine"], index, eastern).feature.osm_id == 41
+
+
+BOX = BBox(west=18.0, south=-35.0, east=19.0, north=-33.0)
+
+
+def _way(osm_id: int, name: str, coords: list[tuple[float, float]]) -> Feature:
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    return Feature(
+        name=name,
+        lat=(min(lats) + max(lats)) / 2,
+        lon=(min(lons) + max(lons)) / 2,
+        osm_type="way",
+        osm_id=osm_id,
+        kind="highway=path",
+        endpoints=((coords[0][0], coords[0][1]), (coords[-1][0], coords[-1][1])),
+    )
+
+
+def test_connected_same_named_ways_are_one_trail_not_an_ambiguity():
+    # 27 segments called Contour Path are one trail cut at every junction.
+    # Reading that as ambiguity is what held the geocoder to 11 matches while
+    # 45 route titles are exactly an OSM path name.
+    ways = [
+        _way(1, "Muizenberg Buttress", [(18.45, -34.10), (18.46, -34.10)]),
+        _way(2, "Muizenberg Buttress", [(18.46, -34.10), (18.47, -34.10)]),
+    ]
+    match = find_match(["Muizenberg Buttress"], index_features(ways), BOX)
+    assert match is not None
+    # The midpoint of the whole run, not of whichever segment came first.
+    assert match.feature.lon == 18.46
+
+
+def test_disconnected_same_named_ways_stay_ambiguous():
+    ways = [
+        _way(1, "Ledges", [(18.40, -34.00), (18.41, -34.00)]),
+        _way(2, "Ledges", [(18.80, -34.00), (18.81, -34.00)]),
+    ]
+    try:
+        find_match(["Ledges"], index_features(ways), BOX)
+    except AmbiguousMatch as err:
+        assert err.count == 2
+    else:
+        raise AssertionError("expected AmbiguousMatch")
+
+
+def test_two_nodes_sharing_a_name_remain_ambiguous():
+    # The peak rule is untouched: two summits called Klipspringer are two places.
+    peaks = [
+        Feature("Klipspringer", -34.0, 18.40, "node", 1, "natural=peak", endpoints=None),
+        Feature("Klipspringer", -34.1, 18.50, "node", 2, "natural=peak", endpoints=None),
+    ]
+    try:
+        find_match(["Klipspringer"], index_features(peaks), BOX)
+    except AmbiguousMatch:
+        pass
+    else:
+        raise AssertionError("expected AmbiguousMatch")

@@ -1,6 +1,6 @@
 {
   "generated": "2026-07-26T08:02:40+00:00",
-  "osm_extract_date": "2026-07-30",
+  "osm_extract_date": "2026-08-17",
   "locations": {
     "cape-country--cape-karoo--anysberg-reserve-hikes": {
       "coords": {
@@ -448,12 +448,16 @@
     },
     "peninsula--hout-bay--disa-river-walk": {
       "coords": {
-        "lat": -34.032156,
-        "lon": 18.344468,
-        "zoom": 11
+        "lat": -34.014412775000004,
+        "lon": 18.375086175,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 2809
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 25408845,
+        "name": "Disa River"
+      }
     },
     "peninsula--hout-bay--duiker-ridge": {
       "coords": {
@@ -519,12 +523,16 @@
     },
     "peninsula--hout-bay--twelve-apostles-path": {
       "coords": {
-        "lat": -34.032156,
-        "lon": 18.344468,
-        "zoom": 11
+        "lat": -33.9774419,
+        "lon": 18.39083635,
+        "zoom": 15
       },
-      "source": "area-approx",
-      "accuracyM": 2809
+      "source": "osm-match",
+      "osm": {
+        "type": "way",
+        "id": 37229330,
+        "name": "Twelve Apostles Path"
+      }
     },
     "peninsula--silvermine--blockhuiskop": {
       "coords": {

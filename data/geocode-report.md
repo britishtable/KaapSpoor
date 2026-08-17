@@ -1,6 +1,6 @@
 # Geocoding report
 
-**OSM extract date:** 2026-07-30
+**OSM extract date:** 2026-08-17
 
 Located **181 / 184** routes; **3** remain unlocated.
 
@@ -10,8 +10,8 @@ Located **181 / 184** routes; **3** remain unlocated.
 |---|---|
 | `curated` | 4 |
 | `crawl` | 125 |
-| `osm-match` | 11 |
-| `area-approx` | 41 |
+| `osm-match` | 13 |
+| `area-approx` | 39 |
 
 ## OSM matches
 
@@ -21,7 +21,9 @@ those and override where wrong.
 
 | Route | Matched candidate | OSM feature |
 |---|---|---|
+| `peninsula--hout-bay--disa-river-walk` | Disa River | Disa River (way/25408845) |
 | `peninsula--hout-bay--sunset-rocks-to-logie-rocks` | Sunset Rocks | Sunset Rocks (node/9968087466) |
+| `peninsula--hout-bay--twelve-apostles-path` | Twelve Apostles Path | Twelve Apostles Path (way/37229330) |
 | `peninsula--silvermine--constantiaberg-north-west-route` | Constantiaberg | Constantiaberg (node/388608972) |
 | `peninsula--silvermine--st-james-buttress` | St James Buttress | St James Buttress (way/950046518) |
 | `peninsula--simonstown--elsies-pk-circumnavigation-traverse` | Elsies Pk | Elsies Peak (node/4756650027) |
@@ -41,8 +43,6 @@ match was claimed. These fell through to `area-approx`.
 | Route | Candidate | Features |
 |---|---|---|
 | `cape-country--garden-route-little-karoo--swartberg` | Swartberg | 2 |
-| `peninsula--hout-bay--disa-river-walk` | Disa River | 3 |
-| `peninsula--hout-bay--twelve-apostles-path` | Twelve Apostles Path | 13 |
 | `table-mountain--newlands-east--newlands-ravine` | Newlands Ravine | 3 |
 
 ## Orphaned overrides — routeId matches nothing in this crawl
@@ -75,9 +75,7 @@ None.
 | `cape-country--winelands--du-toits-kloof-klein-drakenstein--elandspad-at-du-toits` | 8585 |
 | `peninsula--chapmans-peak-drive-noordhoek--blackburn-buttress` | 2000 |
 | `peninsula--chapmans-peak-drive-noordhoek--noordhoek-peak-gully` | 2000 |
-| `peninsula--hout-bay--disa-river-walk` | 2809 |
 | `peninsula--hout-bay--sentinel-se-ridge` | 2809 |
-| `peninsula--hout-bay--twelve-apostles-path` | 2809 |
 | `peninsula--silvermine--circuit-of-the-ridges-1` | 5543 |
 | `peninsula--silvermine--kleintuinkop` | 5543 |
 | `peninsula--silvermine--muizenberg-buttress` | 5543 |

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from kaap_geocode.features import read_features
@@ -59,3 +60,23 @@ def test_typographic_and_accented_names_survive_reading_unchanged():
     names = {f.name for f in read_features(FIXTURE)}
     assert "Myburgh’s Kloof" in names
     assert "Ar\xeate Ridge" in names
+
+
+def test_a_way_carries_its_endpoints(tmp_path):
+    path = tmp_path / "f.geojsonl"
+    path.write_text(json.dumps({
+        "type": "Feature",
+        "properties": {"@id": "w1", "highway": "path", "name": "Contour Path"},
+        "geometry": {"type": "LineString", "coordinates": [[18.4, -34.0], [18.41, -34.0]]},
+    }) + "\n", encoding="utf-8")
+    assert read_features(path)[0].endpoints == ((18.4, -34.0), (18.41, -34.0))
+
+
+def test_a_node_has_no_endpoints(tmp_path):
+    path = tmp_path / "f.geojsonl"
+    path.write_text(json.dumps({
+        "type": "Feature",
+        "properties": {"@id": "n1", "natural": "peak", "name": "Devil's Peak"},
+        "geometry": {"type": "Point", "coordinates": [18.4, -34.0]},
+    }) + "\n", encoding="utf-8")
+    assert read_features(path)[0].endpoints is None

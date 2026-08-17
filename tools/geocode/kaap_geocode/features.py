@@ -33,6 +33,12 @@ class Feature:
     osm_type: str
     osm_id: int
     kind: str
+    #: A way's first and last (lon, lat), or None for anything else. Phase 4d
+    #: uses this to tell a fragmented trail from a genuine ambiguity: 27
+    #: segments called Contour Path are one trail cut at every junction, and
+    #: connectedness — not count — is what separates that from two summits
+    #: sharing a name.
+    endpoints: tuple[tuple[float, float], tuple[float, float]] | None = None
 
 
 def _coordinates(geometry: dict[str, Any]) -> Iterator[tuple[float, float]]:
@@ -82,6 +88,16 @@ def read_features(path: Path) -> list[Feature]:
             lons = [p[0] for p in points]
             lats = [p[1] for p in points]
 
+            geometry = raw.get("geometry") or {}
+            endpoints = None
+            if geometry.get("type") == "LineString":
+                line = geometry.get("coordinates") or []
+                if len(line) >= 2:
+                    endpoints = (
+                        (float(line[0][0]), float(line[0][1])),
+                        (float(line[-1][0]), float(line[-1][1])),
+                    )
+
             unique_id = str(properties.get("@id") or raw.get("id") or "")
             osm_type = _OSM_TYPES.get(unique_id[:1], "unknown")
             digits = unique_id[1:]
@@ -95,6 +111,7 @@ def read_features(path: Path) -> list[Feature]:
                     osm_type=osm_type,
                     osm_id=osm_id,
                     kind=_kind(properties),
+                    endpoints=endpoints,
                 )
             )
     return features
