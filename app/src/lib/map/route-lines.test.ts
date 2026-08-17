@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds,
-  activeVariantFilter, routeLineActivePaint
+  activeVariantFilter, routeLineActivePaint,
+  ARROW_IMAGE, arrowImage, routeArrowLayout
 } from './route-lines';
 import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
 
@@ -77,5 +78,29 @@ describe('variants', () => {
     expect(routeLinePaint()['line-opacity']).toBeLessThan(
       routeLineActivePaint()['line-opacity'] as number
     );
+  });
+});
+
+describe('direction', () => {
+  it('places arrows along the line, turning with it', () => {
+    const layout = routeArrowLayout();
+    expect(layout['symbol-placement']).toBe('line');
+    // Without map alignment the arrows keep screen orientation and point the
+    // wrong way the moment the map rotates.
+    expect(layout['icon-rotation-alignment']).toBe('map');
+    expect(layout['icon-image']).toBe(ARROW_IMAGE);
+  });
+
+  it('carries no text, so it needs no fontstack', () => {
+    // Only one glyph set ships (Open Sans Regular). An arrow is an image.
+    expect(JSON.stringify(routeArrowLayout())).not.toContain('text-font');
+    expect(JSON.stringify(routeArrowLayout())).not.toContain('text-field');
+  });
+
+  it('builds an arrow image the map can register', () => {
+    const image = arrowImage();
+    expect(image.width).toBeGreaterThan(0);
+    expect(image.height).toBe(image.width);
+    expect(image.data.length).toBe(image.width * image.height * 4);
   });
 });

@@ -2,7 +2,8 @@ import type { FilterSpecification, StyleSpecification } from 'maplibre-gl';
 import { SHIPPED_REGION } from './region';
 import {
   routeLineFilter, routeLinePaint, routeLineCasingPaint,
-  activeVariantFilter, routeLineActivePaint
+  activeVariantFilter, routeLineActivePaint,
+  routeArrowLayout, routeArrowPaint
 } from './route-lines';
 
 export type Basemap = 'opentopo' | 'selfhosted';
@@ -305,6 +306,21 @@ function selfHosted(base: string): StyleSpecification {
         filter: activeVariantFilter(null, null),
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: routeLineActivePaint()
+      },
+      {
+        // Which way the route runs. Above the line so the chevrons sit on it,
+        // and filtered with it so they appear and vanish together.
+        //
+        // On an out-and-back route the outbound and return arrows land on the
+        // same ground pointing opposite ways and cancel out. That is a real
+        // limit of drawing direction on geometry that doubles back — the
+        // profile's marker is what carries direction there.
+        id: 'route-line-arrows',
+        type: 'symbol',
+        source: 'route-lines',
+        filter: routeLineFilter(null),
+        layout: routeArrowLayout(),
+        paint: routeArrowPaint()
       },
       {
         // The quiet tier: every path the guides name somewhere, labelled once

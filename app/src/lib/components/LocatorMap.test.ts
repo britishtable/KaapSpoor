@@ -37,6 +37,14 @@ vi.mock('maplibre-gl', () => {
       calls.push({ name: 'setFilter', args });
       return this;
     }
+    hasImage(...args: unknown[]) {
+      calls.push({ name: 'hasImage', args });
+      return false;
+    }
+    addImage(...args: unknown[]) {
+      calls.push({ name: 'addImage', args });
+      return this;
+    }
     getSource(id: string) {
       calls.push({ name: 'getSource', args: [id] });
       return { setData: (data: unknown) => calls.push({ name: 'setData', args: [id, data] }) };
@@ -158,16 +166,17 @@ describe('LocatorMap route line', () => {
     await vi.waitFor(() => expect(calls.some((c) => c.name === 'setFilter')).toBe(true));
     const filtered = calls.filter((c) => c.name === 'setFilter');
     expect(filtered.map((c) => c.args[0])).toEqual([
+      'route-line-arrows',
       'route-line-casing',
       'route-line',
       'route-line-active'
     ]);
-    for (const call of filtered.slice(0, 2)) {
+    for (const call of filtered.slice(0, 3)) {
       expect(call.args[1]).toEqual(['in', ['get', 'routeId'], ['literal', ['a--b--c']]]);
     }
     // The active layer stays empty here: the route page shows every variant
     // equally beside the text that explains them, with no pointer emphasis.
-    expect(filtered[2].args[1]).toEqual(['in', ['get', 'variant'], ['literal', []]]);
+    expect(filtered[3].args[1]).toEqual(['in', ['get', 'variant'], ['literal', []]]);
     vi.unstubAllGlobals();
   });
 

@@ -18,7 +18,8 @@
     buildStyle, SHIPPED_BASEMAP, pathNameFilter, NAMED_PATH_LAYER, type Basemap
   } from '$lib/map/style';
   import {
-    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds
+    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds,
+    ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
   import type { FeatureCollection, LineString, MultiLineString } from 'geojson';
   import { routesToGeoJSON, boundsOf } from '$lib/map/geojson';
@@ -357,6 +358,8 @@
       routeLines = await res.json();
       const source = map?.getSource(ROUTE_LINE_SOURCE) as GeoJSONSource | undefined;
       if (source && routeLines) source.setData(routeLines);
+      // The style names the image; the map has to be given it.
+      if (map && !map.hasImage(ARROW_IMAGE)) map.addImage(ARROW_IMAGE, arrowImage());
     } catch (err) {
       // A failed fetch means no line draws, which is the same as a route that
       // has none — the map stays usable and the pin still carries the route.
@@ -389,11 +392,13 @@
         if (!map || $selection.selectedId !== selectedId) return;
         map.setFilter('route-line-casing', routeLineFilter(selectedId));
         map.setFilter('route-line', routeLineFilter(selectedId));
+        map.setFilter('route-line-arrows', routeLineFilter(selectedId));
         map.setFilter('route-line-active', activeVariantFilter(selectedId, $selection.hoveredVariant));
       });
     } else {
       map.setFilter('route-line-casing', routeLineFilter(null));
       map.setFilter('route-line', routeLineFilter(null));
+      map.setFilter('route-line-arrows', routeLineFilter(null));
       map.setFilter('route-line-active', activeVariantFilter(null, null));
     }
     const approxRadius =

@@ -49,6 +49,20 @@ describe('route lines and named paths', () => {
       expect(layer.filter).toEqual(['in', ['get', 'routeId'], ['literal', []]]);
     }
   });
+
+  it('draws direction arrows above the line they belong to', () => {
+    const layers = ids();
+    expect(layers).toContain('route-line-arrows');
+    expect(layers.indexOf('route-line-arrows')).toBeGreaterThan(layers.indexOf('route-line'));
+    expect(layers.indexOf('route-line-arrows')).toBeLessThan(layers.indexOf('region-mask'));
+  });
+
+  it('starts with no arrows drawn', () => {
+    const layer = buildStyle('selfhosted', '').layers.find((l) => l.id === 'route-line-arrows') as {
+      filter?: unknown;
+    };
+    expect(layer.filter).toEqual(['in', ['get', 'routeId'], ['literal', []]]);
+  });
 });
 
 describe('buildStyle(opentopo)', () => {

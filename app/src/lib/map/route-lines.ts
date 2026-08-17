@@ -1,4 +1,4 @@
-import type { FilterSpecification, LineLayerSpecification } from 'maplibre-gl';
+import type { FilterSpecification, LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import type { LineString, MultiLineString } from 'geojson';
 import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
 
@@ -82,6 +82,65 @@ export function routeLineCasingPaint(): NonNullable<LineLayerSpecification['pain
     'line-color': '#f4f1ea',
     'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9],
     'line-opacity': 0.85
+  };
+}
+
+/** The id the arrow image is registered under, via map.addImage(). */
+export const ARROW_IMAGE = 'route-arrow';
+
+/**
+ * A small chevron pointing along the line, drawn pixel by pixel.
+ *
+ * An IMAGE, not a glyph: only Open Sans Regular ships, and `text-font` governs
+ * text. Building it here rather than shipping a PNG keeps it in the same file
+ * as the colours it has to match.
+ */
+export function arrowImage(size = 16): ImageData {
+  const data = new Uint8ClampedArray(size * size * 4);
+  const put = (x: number, y: number) => {
+    const at = (y * size + x) * 4;
+    data[at] = 255;
+    data[at + 1] = 255;
+    data[at + 2] = 255;
+    data[at + 3] = 255;
+  };
+  // A chevron: two strokes meeting at the leading point, pointing +x.
+  const mid = Math.floor(size / 2);
+  for (let i = 0; i < mid; i++) {
+    for (let t = 0; t < 2; t++) {
+      put(Math.min(size - 1, mid + i - 1 + t), Math.max(0, mid - i));
+      put(Math.min(size - 1, mid + i - 1 + t), Math.min(size - 1, mid + i));
+    }
+  }
+  // jsdom has no ImageData constructor, and this module must import cleanly
+  // in unit tests (no WebGL there), so the return value is shaped like
+  // ImageData rather than built with `new ImageData(...)`. The one cast this
+  // plan allows: map.addImage() only cares about the shape, and a real
+  // browser's map.addImage(ARROW_IMAGE, arrowImage()) is the code path that
+  // proves it works.
+  return { data, width: size, height: size, colorSpace: 'srgb' } as ImageData;
+}
+
+export function routeArrowLayout(): NonNullable<SymbolLayerSpecification['layout']> {
+  return {
+    'icon-image': ARROW_IMAGE,
+    'symbol-placement': 'line',
+    // Without this the arrows keep screen orientation and point the wrong way
+    // as soon as the map rotates.
+    'icon-rotation-alignment': 'map',
+    'icon-allow-overlap': false,
+    'symbol-spacing': 90,
+    'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.5, 16, 0.9]
+  };
+}
+
+export function routeArrowPaint(): NonNullable<SymbolLayerSpecification['paint']> {
+  return {
+    // White arrows with a dark halo read on both the terracotta line and the
+    // green done state, without introducing a third colour.
+    'icon-halo-color': '#3f2d1d',
+    'icon-halo-width': 1,
+    'icon-opacity': 0.9
   };
 }
 

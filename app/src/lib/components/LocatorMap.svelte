@@ -14,7 +14,8 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import {
-    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds
+    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds,
+    ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import type { Coords } from '$lib/data/types';
@@ -78,6 +79,9 @@
             | import('maplibre-gl').GeoJSONSource
             | undefined;
           source?.setData(collection);
+          // The style names the image; the map has to be given it.
+          if (!map.hasImage(ARROW_IMAGE)) map.addImage(ARROW_IMAGE, arrowImage());
+          map.setFilter('route-line-arrows', routeLineFilter(routeId));
           map.setFilter('route-line-casing', routeLineFilter(routeId));
           map.setFilter('route-line', routeLineFilter(routeId));
           // The route page has no pointer-driven emphasis: every variant is
