@@ -11,7 +11,9 @@
     buildGraph, snapToGraph, routeBetween,
     type Point, type SnapGraph
   } from '$lib/map/snap';
-  import { newVariant, undoLeg, variantCoords, type Variant } from '$lib/draw/state';
+  import {
+    newVariant, undoLeg, variantCoords, toFeatures, fromFeatures, type Variant
+  } from '$lib/draw/state';
   import type { RouteIndexEntry } from '$lib/data/types';
 
   /** The click tolerance, in screen pixels — the same reach at every zoom. */
@@ -26,6 +28,7 @@
   let variants = $state<Variant[]>([newVariant()]);
   let active = $state(0);
   let message = $state('');
+  let saving = $state(false);
 
   let route = $derived(entries.find((e) => e.id === routeId) ?? null);
 
@@ -185,10 +188,39 @@
     return () => map?.remove();
   });
 
-  function pickRoute(id: string): void {
+  async function save(): Promise<void> {
+    if (!routeId) return;
+    saving = true;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await fetch('/__route-lines', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ routeId, features: toFeatures(routeId, variants, today) })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result = (await res.json()) as { saved: number; total: number };
+      message = `Saved ${result.saved} line(s); ${result.total} in the file.`;
+    } catch (err) {
+      message = `Save failed: ${String(err)}`;
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function pickRoute(id: string): Promise<void> {
     routeId = id;
-    variants = [newVariant()];
     active = 0;
+    // Load whatever is already drawn for this route, so a second sitting picks
+    // up where the first left off rather than silently replacing it on Save.
+    try {
+      const res = await fetch(`${base}/data/route-lines.geojson`);
+      const collection = res.ok ? await res.json() : { features: [] };
+      const saved = fromFeatures(id, collection.features);
+      variants = saved.length ? saved : [newVariant()];
+    } catch {
+      variants = [newVariant()];
+    }
     redraw();
     const target = entries.find((e) => e.id === id);
     if (target?.coords) map?.flyTo({ center: [target.coords.lon, target.coords.lat], zoom: 15 });
@@ -249,6 +281,9 @@
         }}
       >
         Clear
+      </button>
+      <button type="button" onclick={save} disabled={saving}>
+        {saving ? 'Saving…' : 'Save'}
       </button>
     {/if}
 
