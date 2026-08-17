@@ -692,55 +692,6 @@ test.describe('pin popup', () => {
 });
 
 test.describe('named paths', () => {
-  // Kasteelspoort's description names mapped paths; this is asserted rather
-  // than assumed by the first test below, so a re-crawl that changed the prose
-  // fails loudly here instead of quietly weakening every later assertion.
-  test('highlights the paths a selected route names, and clears them again', async ({ page }) => {
-    await page.goto('.');
-    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
-      timeout: 30_000
-    });
-
-    const namesFor = async (id: string) =>
-      page.evaluate(async (routeId) => {
-        const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
-          id: string;
-          mentionedPaths: string[];
-        }>;
-        return routes.find((r) => r.id === routeId)?.mentionedPaths ?? [];
-      }, id);
-
-    const expected = await namesFor(KASTEELSPOORT_ID);
-    expect(expected.length).toBeGreaterThan(0);
-
-    await selectFromPanel(page, KASTEELSPOORT_TITLE);
-
-    const filterNames = async (layer: string) =>
-      page.evaluate((id) => {
-        const el = document.querySelector('[data-testid="map"]') as HTMLElement & {
-          __maplibreMap?: import('maplibre-gl').Map;
-        };
-        // ['in', ['get','name'], ['literal', [...]]]
-        const filter = el.__maplibreMap!.getFilter(id) as unknown[] | undefined;
-        const literal = filter?.[2] as unknown[] | undefined;
-        return (literal?.[1] as string[]) ?? [];
-      }, layer);
-
-    for (const layer of ['paths-referenced', 'paths-referenced-casing', 'paths-referenced-label']) {
-      expect(await filterNames(layer)).toEqual(expected);
-    }
-
-    // The camera flies to z14 on selection, above the layer's z11 floor, so
-    // the highlight must actually be on screen — not merely filtered for.
-    expect(await renderedCount(page, 'paths-referenced')).toBeGreaterThan(0);
-
-    await page.getByRole('button', { name: /close preview/i }).click();
-    for (const layer of ['paths-referenced', 'paths-referenced-casing', 'paths-referenced-label']) {
-      expect(await filterNames(layer)).toEqual([]);
-    }
-    expect(await renderedCount(page, 'paths-referenced')).toBe(0);
-  });
-
   test('labels named paths once you are close in', async ({ page }) => {
     await page.goto('.');
     await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
@@ -761,5 +712,102 @@ test.describe('named paths', () => {
     });
 
     expect(await renderedCount(page, 'paths-named')).toBeGreaterThan(0);
+  });
+});
+
+test.describe('route lines', () => {
+  /** The first route in the committed build that has a line, or null. */
+  async function withLine(page: Page): Promise<{ id: string; title: string } | null> {
+    // Reads the committed data rather than hard-coding a title: which routes
+    // have lines depends on the OSM extract, and pinning one here would make
+    // this spec fail on a re-extract for a reason that is not a regression.
+    return page.evaluate(async () => {
+      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+        id: string; title: string; hasLine: boolean;
+      }>;
+      const hit = routes.find((r) => r.hasLine);
+      return hit ? { id: hit.id, title: hit.title } : null;
+    });
+  }
+
+  async function ready(page: Page): Promise<void> {
+    await page.goto('');
+    await expect(page.locator('[data-testid="map"][data-map-ready="true"]')).toBeAttached({
+      timeout: 30_000
+    });
+  }
+
+  test('selecting a route with a line draws it', async ({ page }) => {
+    await ready(page);
+    const target = await withLine(page);
+    test.skip(!target, 'no route in this build has a line yet');
+
+    await selectFromPanel(page, target!.title);
+    await expect
+      .poll(() => renderedCount(page, 'route-line'), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+  });
+
+  test('deselecting clears the line', async ({ page }) => {
+    await ready(page);
+    const target = await withLine(page);
+    test.skip(!target, 'no route in this build has a line yet');
+
+    await selectFromPanel(page, target!.title);
+    await expect
+      .poll(() => renderedCount(page, 'route-line'), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: /close preview/i }).click();
+    await expect.poll(() => renderedCount(page, 'route-line'), { timeout: 15_000 }).toBe(0);
+  });
+
+  test('a route with no line draws none, and still previews', async ({ page }) => {
+    await ready(page);
+    const title = await page.evaluate(async () => {
+      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
+        title: string; hasLine: boolean; coords: unknown;
+      }>;
+      return routes.find((r) => !r.hasLine && r.coords)?.title ?? null;
+    });
+    await selectFromPanel(page, title!);
+    expect(await renderedCount(page, 'route-line')).toBe(0);
+    await expect(page.getByTestId('preview-body')).toBeVisible();
+  });
+
+  test('the whole-name path highlight is gone', async ({ page }) => {
+    // renderedCount returns -1 for a layer the style does not have, which is
+    // exactly the assertion here: removed, not merely empty.
+    await ready(page);
+    expect(await renderedCount(page, 'paths-referenced')).toBe(-1);
+    expect(await renderedCount(page, 'paths-referenced-label')).toBe(-1);
+  });
+
+  test('a route page with a line shows it on the locator map', async ({ page }) => {
+    await ready(page);
+    const target = await withLine(page);
+    test.skip(!target, 'no route in this build has a line yet');
+
+    await page.goto(`route/${target!.id}`);
+    await expect(page.getByTestId('locator-map')).toBeVisible();
+    // The locator map is a different container from the main map, so it needs
+    // its own instance lookup rather than renderedCount's [data-testid="map"].
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const el = document.querySelector('[data-testid="locator-map"]') as HTMLElement & {
+              __maplibreMap?: import('maplibre-gl').Map;
+            };
+            const map = el.__maplibreMap;
+            if (!map) return 0;
+            if (!map.loaded() || map.isMoving()) {
+              await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+            }
+            return map.queryRenderedFeatures(undefined, { layers: ['route-line'] }).length;
+          }),
+        { timeout: 20_000 }
+      )
+      .toBeGreaterThan(0);
   });
 });

@@ -26,7 +26,8 @@
       coords={r.coords}
       title={r.title}
       accuracyM={r.coordsAccuracyM}
-      referencedPaths={r.mentionedPaths}
+      routeId={r.id}
+      hasLine={r.hasLine}
     />
   {/if}
   <ProvenanceNote route={r} />

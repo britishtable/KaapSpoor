@@ -12,9 +12,10 @@
   } from 'maplibre-gl';
   import { Protocol } from 'pmtiles';
   import 'maplibre-gl/dist/maplibre-gl.css';
+  import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import {
-    buildStyle, SHIPPED_BASEMAP, pathNameFilter, REFERENCED_PATH_LAYERS
-  } from '$lib/map/style';
+    ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, lineBounds
+  } from '$lib/map/route-lines';
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import type { Coords } from '$lib/data/types';
 
@@ -23,13 +24,15 @@
     title,
     /** Metres. Set for an `area-approx` position only; see pins.ts. */
     accuracyM = null,
-    /** OSM names of paths this route's description mentions; see MentionedPaths.svelte. */
-    referencedPaths = []
+    /** The route this map is for, and whether Phase 4d could draw its line. */
+    routeId,
+    hasLine = false
   }: {
     coords: Coords;
     title: string;
     accuracyM?: number | null;
-    referencedPaths?: string[];
+    routeId: string;
+    hasLine?: boolean;
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
@@ -57,17 +60,34 @@
       attributionControl: false
     });
     map.addControl(new AttributionControl({ compact: true }));
+    // Test-only hook, mirroring MapView's: WebGL pixels are not queryable from
+    // Playwright, so an e2e asserting the line renders has no other way in.
+    (container as HTMLDivElement & { __maplibreMap?: MapLibreMap }).__maplibreMap = map;
 
-    // Light the paths this route's description names, exactly as the main map
-    // does on selection. The layers ship with an empty filter, so this only
-    // ever swaps a filter — it never adds a layer, and a route naming nothing
-    // simply leaves them empty. The style is shared, so both maps cannot
-    // disagree about what a referenced path looks like.
-    if (referencedPaths.length) {
-      map.on('load', () => {
+    // The route's own line, on the page where the description that produced it
+    // is actually read. Same source, same layers, same style as the main map,
+    // so the two cannot disagree about what a route line looks like.
+    if (hasLine) {
+      map.on('load', async () => {
         if (!map) return;
-        for (const id of REFERENCED_PATH_LAYERS) {
-          map.setFilter(id, pathNameFilter(referencedPaths));
+        try {
+          const res = await fetch(`${base}/data/route-lines.geojson`);
+          if (!res.ok) throw new Error(`HTTP ${res.status} for route lines`);
+          const collection = await res.json();
+          const source = map.getSource(ROUTE_LINE_SOURCE) as
+            | import('maplibre-gl').GeoJSONSource
+            | undefined;
+          source?.setData(collection);
+          for (const id of ROUTE_LINE_LAYERS) map.setFilter(id, routeLineFilter(routeId));
+          const feature = collection.features.find(
+            (f: { properties: { routeId: string } }) => f.properties.routeId === routeId
+          );
+          const bounds = feature ? lineBounds(feature.geometry) : null;
+          // Framing the line rather than the clamped centre: a locator map's
+          // one job is showing where the hike goes, and now it can show all of it.
+          if (bounds) map.fitBounds(bounds, { padding: 24, maxZoom: 15 });
+        } catch (err) {
+          console.warn('LocatorMap: could not load route lines', err);
         }
       });
     }

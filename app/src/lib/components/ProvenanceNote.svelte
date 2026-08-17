@@ -30,9 +30,27 @@
     }
   });
   let approx = $derived(route.coordsSource === 'area-approx');
+
+  // How the LINE is known, which is a separate claim from how the position is.
+  // One component owns both sentences so no two surfaces can word the same
+  // relationship differently — the reason this component exists at all.
+  let lineText = $derived.by(() => {
+    if (!route.hasLine) return null;
+    switch (route.lineSource) {
+      case 'osm-relation':
+        return 'Line drawn from a hiking route in OpenStreetMap.';
+      case 'osm-stitch':
+        return 'Line stitched from OpenStreetMap paths, following the order this description names them.';
+      default:
+        return null;
+    }
+  });
 </script>
 
 <p class="note" class:approx>{text}</p>
+{#if lineText}
+  <p class="note" data-testid="line-provenance">{lineText}</p>
+{/if}
 
 <style>
   .note { margin: 0; font-size: 0.85em; opacity: 0.7; }
