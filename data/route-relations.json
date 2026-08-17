@@ -1,4 +1,53 @@
 {
   "comment": "Route id -> OSM hiking relation id, confirmed by hand. The tool proposes candidates in data/route-lines-report.md and refuses to promote any of them on its own: a title containing a relation's name is a question, and this file is the only answer. 'Devil's Peak contour paths' contains 'Contour Path' and is NOT that relation.",
-  "confirmed": {}
+  "rejected": {
+    "cape-country--winelands--jonkershoek--diagonal-route-on-3rd-ridge": "Proposed relation 6198096 is Table Mountain's Diagonal Route. This is a different route in Jonkershoek sharing a word.",
+    "table-mountain--newlands-east--skeleton-gorge": "Proposed relation 7057849 is Nursery Ravine alone. The route is 'Nursery Ravine and Skeleton Gorge' — the relation is half of it, so its line would end where the route does not."
+  },
+  "confirmed": {
+    "table-mountain--front-face-north--platteklip-gorge": {
+      "relation": 2934380,
+      "note": "The same ascent. The route title carries a site suffix; the relation is the gorge itself."
+    },
+    "table-mountain--atlantic-west--kasteelspoort": {
+      "relation": 7057855,
+      "note": "The KP path the guide describes, end to end."
+    },
+    "table-mountain--atlantic-west--corridor-ravine": {
+      "relation": 7057852,
+      "note": "Exact name. The other candidate (19470956) is a longer combination route that merely passes through."
+    },
+    "table-mountain--atlantic-west--diagonal-route": {
+      "relation": 6198096,
+      "note": "Exact name, on Table Mountain. Not to be confused with the Jonkershoek route of a similar name — see rejected."
+    },
+    "table-mountain--atlantic-west--wood-ravine": {
+      "relation": 6682368,
+      "note": "Wood Ravine, aka Woody Ravine in the guide."
+    },
+    "table-mountain--devils-peak--mobray-ridge": {
+      "relation": 7057976,
+      "note": "Exact name. The other candidate (18187101) is a longer traverse that includes this ridge as one leg."
+    },
+    "table-mountain--newlands-east--newlands-ravine": {
+      "relation": 7057846,
+      "note": "Exact name, the ravine the guide describes."
+    },
+    "cape-country--garden-route-little-karoo--otter-trail": {
+      "relation": 1383551,
+      "note": "Exact name. Outside the shipped Cape Town region, so it will not draw today, but the claim is true."
+    },
+    "table-mountain--front-face-north--india-venster-path-b": {
+      "relation": 6693845,
+      "note": "JUDGEMENT CALL, confirmed on the user's instruction to include the uncertain three. The guide's 'India Venster B' is a variation start on the India Venster path the relation describes; the relation's extent is the main line."
+    },
+    "table-mountain--front-face-north--kloof-corner": {
+      "relation": 6334391,
+      "note": "JUDGEMENT CALL, confirmed on the user's instruction. The guide calls it Kloof Corner Ridge; the relation is Kloof Corner. Same corner of the mountain, and the relation is the path up it."
+    },
+    "peninsula--hout-bay--twelve-apostles-path": {
+      "relation": 6457140,
+      "note": "JUDGEMENT CALL, confirmed on the user's instruction. The relation is named Apostles Path and the route Twelve Apostles Path; they are the same traverse along the Apostles."
+    }
+  }
 }

@@ -59,6 +59,37 @@ def test_forward_and_backward_roles_are_emitted_as_their_own_parts():
     assert result.way_ids == (1, 2, 3)
 
 
+def test_roles_are_directional_when_no_member_is_plain():
+    # Kasteelspoort's relation is 3 members, ALL role=forward, and Apostles
+    # Path is 11 backward + 3 forward. Reading every role as "an alternative
+    # section" left those relations with no main line at all and discarded
+    # them — a route whose every member is an alternative is not a thing.
+    # Where nothing is plain, the roles are saying which way you walk each
+    # member, so the whole ordered list is the line.
+    result = stitch(
+        rel(
+            Member(w(1, A, B), "forward"),
+            Member(w(2, B, C), "forward"),
+        )
+    )
+    assert result.joined is True
+    assert result.parts[0] == (A, B, C)
+
+
+def test_a_roled_member_beside_plain_ones_is_still_an_alternative():
+    # The mixed case is unchanged: here `forward` really does mark a section
+    # off the main line, and concatenating it would double the line back.
+    result = stitch(
+        rel(
+            Member(w(1, A, B), ""),
+            Member(w(2, B, C), ""),
+            Member(w(3, B, C), "forward"),
+        )
+    )
+    assert result.joined is False
+    assert len(result.parts) == 2
+
+
 def _osm_json(tmp_path, elements) -> Path:
     path = tmp_path / "route-relations.json"
     path.write_text(json.dumps({"version": "0.6", "elements": elements}), encoding="utf-8")

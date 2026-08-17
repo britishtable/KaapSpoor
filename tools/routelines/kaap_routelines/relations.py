@@ -19,9 +19,16 @@ from pathlib import Path
 from .geo import Point, node_key
 from .ways import Way
 
-#: Roles marking a member as an alternative or a one-way section rather than
-#: part of the single continuous line. Sampled in this region on Apostles Path
-#: and Kasteelspoort.
+#: Roles that MAY mark a member as an alternative or one-way section rather
+#: than part of the single continuous line.
+#:
+#: Only "may": in OSM these roles state which direction a member is walked, and
+#: whether that makes it an alternative depends on the company it keeps.
+#: Measured here — Kasteelspoort is 3 members all `forward`, Apostles Path is
+#: 11 `backward` and 3 `forward` — so a relation can carry no plain member at
+#: all, and reading every role as an alternative left those with no main line
+#: and threw them away. `stitch` therefore only treats a role as alternative
+#: when there is a plain line for it to be an alternative TO.
 ALTERNATIVE_ROLES = frozenset({"forward", "backward"})
 
 HIKING_ROUTES = frozenset({"hiking", "foot"})
@@ -158,8 +165,14 @@ def stitch(relation: Relation) -> StitchedRelation:
     current: tuple[Point, ...] | None = None
     alternatives: list[tuple[Point, ...]] = []
 
+    # With nothing plain to be an alternative to, the roles are simply saying
+    # which way each member is walked, and the ordered list is the line.
+    roles_are_directional = all(
+        member.role in ALTERNATIVE_ROLES for member in relation.members
+    )
+
     for member in relation.members:
-        if member.role in ALTERNATIVE_ROLES:
+        if member.role in ALTERNATIVE_ROLES and not roles_are_directional:
             alternatives.append(member.way.coords)
             continue
         if current is None:

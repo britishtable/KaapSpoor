@@ -106,23 +106,23 @@ def main(argv: list[str] | None = None) -> int:
                 })
                 continue
             stitched = stitch(relation)
-            # A relation whose plain members join into nothing is reported and
-            # skipped rather than guessed at: one part per member is not a
-            # route, it is a pile of ways that happen to share a relation.
-            if len(stitched.parts) == len(relation.members) and len(relation.members) > 1:
+            # A relation line has to BE a line. Apostles Path stitches into 9
+            # disconnected parts out of this extract: whatever that draws, it
+            # is not the traverse the guide describes, and a route's own line
+            # with holes in it is the one thing this phase exists to avoid.
+            # The tier's claim is that a mapper decided the extent — that only
+            # holds when the members actually make one continuous run.
+            if not stitched.joined:
                 outcome.rejected.append({
                     "routeId": rid,
-                    "reason": f"relation {relation.osm_id} members do not join at all",
+                    "reason": f"relation {relation.osm_id} stitches into "
+                              f"{len(stitched.parts)} disconnected parts, not one line",
                 })
                 continue
-            geometry = (
-                {"type": "LineString", "coordinates": [list(p) for p in stitched.parts[0]]}
-                if stitched.joined
-                else {
-                    "type": "MultiLineString",
-                    "coordinates": [[list(p) for p in part] for part in stitched.parts],
-                }
-            )
+            geometry = {
+                "type": "LineString",
+                "coordinates": [list(p) for p in stitched.parts[0]],
+            }
             from .geo import length_m as measure
 
             total = sum(measure(part) for part in stitched.parts)
