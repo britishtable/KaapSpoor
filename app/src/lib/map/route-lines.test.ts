@@ -104,43 +104,50 @@ describe('direction', () => {
     expect(image.data.length).toBe(image.width * image.height * 4);
   });
 
-  it('draws a chevron pointing +x, not -x', () => {
+  it('draws a chevron pointing +y, not -y', () => {
     // A pixel-content check, not just a shape check: mirroring the image
-    // (vertex at low x instead of high x) must fail this test. For each
-    // column, count how many rows are lit -- the vertex column has the
-    // fewest lit rows (the strokes haven't fanned out yet), and the columns
-    // near the open tail have the most. If the chevron pointed the wrong
-    // way, the narrowest column would sit in the low-x half instead.
+    // (vertex at low y instead of high y) must fail this test. For each
+    // row, count how many columns are lit -- the vertex row has the fewest
+    // lit columns (the strokes haven't fanned out yet), and the rows near
+    // the open tail have the most. If the chevron pointed the wrong way,
+    // the narrowest row would sit in the low-y half instead.
+    //
+    // +y, not +x: measured in a real browser, MapLibre's zero-rotation
+    // reference for icon-rotation-alignment: 'map' with symbol-placement:
+    // 'line' is the icon's own +y axis, not +x -- confirmed on two routes
+    // with near-orthogonal line segments, each rendering the old (+x
+    // vertex) chevron rotated 90 degrees off the line's own bearing. See
+    // the comment on arrowImage().
     const image = arrowImage();
-    const litRowsByColumn = (img: ImageData): number[] => {
+    const litColumnsByRow = (img: ImageData): number[] => {
       const counts: number[] = [];
-      for (let x = 0; x < img.width; x++) {
+      for (let y = 0; y < img.height; y++) {
         let n = 0;
-        for (let y = 0; y < img.height; y++) {
+        for (let x = 0; x < img.width; x++) {
           if (img.data[(y * img.width + x) * 4 + 3] > 0) n++;
         }
         counts.push(n);
       }
       return counts;
     };
-    const counts = litRowsByColumn(image);
-    // Only columns the chevron actually touches -- the far side of the image
+    const counts = litColumnsByRow(image);
+    // Only rows the chevron actually touches -- the far side of the image
     // is deliberately blank (the strokes fan out from the vertex, they don't
-    // reach across the whole width).
-    const litColumns = counts
-      .map((n, x) => ({ x, n }))
+    // reach across the whole height).
+    const litRows = counts
+      .map((n, y) => ({ y, n }))
       .filter(({ n }) => n > 0);
-    expect(litColumns.length).toBeGreaterThan(0);
+    expect(litRows.length).toBeGreaterThan(0);
 
-    const vertex = litColumns.reduce((min, c) => (c.n < min.n ? c : min));
-    // The vertex column is in the high-x half of the image -- the leading
-    // edge, since icon-rotation-alignment: 'map' rotates the image's own +x
+    const vertex = litRows.reduce((min, r) => (r.n < min.n ? r : min));
+    // The vertex row is in the high-y half of the image -- the leading
+    // edge, since icon-rotation-alignment: 'map' rotates the image's own +y
     // axis to match the line's bearing.
-    expect(vertex.x).toBeGreaterThanOrEqual(image.width / 2);
+    expect(vertex.y).toBeGreaterThanOrEqual(image.height / 2);
 
-    // A column near the open tail (low x) has strictly more lit rows than
+    // A row near the open tail (low y) has strictly more lit columns than
     // the vertex -- the strokes have visibly spread apart by then.
-    const tailColumn = litColumns.reduce((min, c) => (c.x < min.x ? c : min));
-    expect(tailColumn.n).toBeGreaterThan(vertex.n);
+    const tailRow = litRows.reduce((min, r) => (r.y < min.y ? r : min));
+    expect(tailRow.n).toBeGreaterThan(vertex.n);
   });
 });

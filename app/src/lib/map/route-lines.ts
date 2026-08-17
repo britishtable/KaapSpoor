@@ -105,18 +105,28 @@ export function arrowImage(size = 16): ImageData {
     data[at + 3] = 255;
   };
   // A chevron: two strokes trailing back from a single vertex at the
-  // LEADING (high-x) edge — the image's own +x axis is "forward". The
-  // vertex sits near x = size-1 at the vertical centre; the strokes fan out
-  // toward -x as they approach the top and bottom rows. Fixed from an
-  // earlier version whose vertex sat at low x with the strokes opening
-  // toward high x, which drew a chevron pointing backward (-x).
+  // LEADING (high-y) edge — the image's own +y axis is "forward", not +x.
+  //
+  // Measured in a real browser (Chromium via Playwright), not assumed: with
+  // symbol-placement: 'line' and icon-rotation-alignment: 'map', MapLibre's
+  // zero-rotation reference is the icon's own +y axis (screen-down when
+  // unrotated), not +x. An earlier version of this function drew the vertex
+  // at high x, which on an east-running line rendered a chevron pointing
+  // due north (perpendicular to the line, 90 degrees off) and on a
+  // south-running line rendered one pointing due east/west — confirmed on
+  // two routes with near-orthogonal line segments (Lekkerwater Traverse,
+  // near-horizontal; Dark Gorge, near-vertical), both showing the arrow
+  // rotated 90 degrees from the line's own bearing.
+  //
+  // The vertex sits near y = size-1 at the horizontal centre; the strokes
+  // fan out toward -y (upward) as they approach the left and right columns.
   const mid = Math.floor(size / 2);
   const tip = size - 1;
   for (let i = 0; i < mid; i++) {
     for (let t = 0; t < 2; t++) {
-      const x = Math.max(0, tip - i - t);
-      put(x, Math.max(0, mid - i));
-      put(x, Math.min(size - 1, mid + i));
+      const y = Math.max(0, tip - i - t);
+      put(Math.max(0, mid - i), y);
+      put(Math.min(size - 1, mid + i), y);
     }
   }
   // jsdom has no ImageData constructor, and this module must import cleanly
