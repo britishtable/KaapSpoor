@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { openDem } from './dem-sample';
 
+// Committed at test-fixtures/dem.tif (regenerate with `npm run make:dem-fixture`
+// if it is ever missing) -- these tests read it unconditionally rather than
+// skipping when it is absent, so a deleted fixture fails the suite instead of
+// silently passing green.
 const FIXTURE = resolve(process.cwd(), 'test-fixtures', 'dem.tif');
 
 describe('openDem', () => {
@@ -13,7 +16,6 @@ describe('openDem', () => {
   });
 
   it('reads the height at a pixel', async () => {
-    if (!existsSync(FIXTURE)) return;
     const dem = await openDem(FIXTURE);
     expect(dem).not.toBe(null);
     // North-west pixel centre.
@@ -21,7 +23,6 @@ describe('openDem', () => {
   });
 
   it('interpolates between pixels rather than stepping', async () => {
-    if (!existsSync(FIXTURE)) return;
     const dem = await openDem(FIXTURE);
     // Halfway between the 0 and 100 pixels along the top row.
     const middle = dem!.sample(18.41, -34.005);
@@ -30,7 +31,6 @@ describe('openDem', () => {
   });
 
   it('returns null outside the DEM, so a line leaving the region is honest', async () => {
-    if (!existsSync(FIXTURE)) return;
     const dem = await openDem(FIXTURE);
     expect(dem!.sample(20.0, -34.0)).toBe(null);
   });
