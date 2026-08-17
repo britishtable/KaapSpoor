@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { saveRouteLines, elevate } from './vite-plugin-route-lines';
-import type { RouteLineFeature } from './src/lib/draw/state';
+import { fromFeatures, toFeatures, type RouteLineFeature } from './src/lib/draw/state';
 
 const feature = (routeId: string, variant?: string): RouteLineFeature => ({
   type: 'Feature',
@@ -64,7 +64,7 @@ describe('elevate', () => {
     expect(out.geometry.coordinates[0][2]).toBe(100);
   });
 
-  it('leaves the line untouched when there is no DEM', () => {
+  it('leaves an already-2D line untouched when there is no DEM and nothing to recover', () => {
     // Drawing must work on a clone that has never built the tiles.
     const [out] = elevate([flat()], null);
     expect(out.geometry.coordinates).toEqual([[18.4, -34.0], [18.41, -34.0]]);
@@ -74,5 +74,64 @@ describe('elevate', () => {
     const edge = { sample: (lon: number) => (lon < 18.405 ? 100 : null) };
     const [out] = elevate([flat()], edge);
     expect(out.geometry.coordinates).toEqual([[18.4, -34.0, 100], [18.41, -34.0]]);
+  });
+
+  it('recovers heights from the existing file when there is no DEM, by ground position', () => {
+    // The exact bug: a save on a machine with no DEM must not destroy heights
+    // a previous save (elsewhere, with the DEM) already committed.
+    const existing: RouteLineFeature = {
+      ...flat(),
+      geometry: { type: 'LineString', coordinates: [[18.4, -34.0, 100], [18.41, -34.0, 250]] }
+    };
+    const [out] = elevate([flat()], null, [existing]);
+    expect(out.geometry.coordinates).toEqual([[18.4, -34.0, 100], [18.41, -34.0, 250]]);
+  });
+
+  it('leaves a point two-dimensional when no existing point sits at its ground position', () => {
+    // A genuinely new point the author drew has nothing to recover from --
+    // it stays 2D, same as an unsampled point, rather than inventing a height.
+    const existing: RouteLineFeature = {
+      ...flat(),
+      geometry: { type: 'LineString', coordinates: [[18.4, -34.0, 100], [18.41, -34.0, 250]] }
+    };
+    const moved: RouteLineFeature = {
+      ...flat(),
+      geometry: { type: 'LineString', coordinates: [[18.4, -34.0], [18.42, -34.0]] }
+    };
+    const [out] = elevate([moved], null, [existing]);
+    expect(out.geometry.coordinates).toEqual([[18.4, -34.0, 100], [18.42, -34.0]]);
+  });
+
+  it('round-trips heights through the editor when there is no DEM: load, edit, save', () => {
+    // The regression this whole fix targets: fromFeatures strips heights on
+    // load (state.ts's own promise is that Save resamples them), and the old
+    // elevate() was a no-op with no DEM -- so load -> save on a DEM-less
+    // machine silently wrote 2D coordinates over a committed 3D line.
+    const routeId = 'area--x';
+    const saved: RouteLineFeature = {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [18.4, -34.0, 100],
+          [18.41, -34.0, 150],
+          [18.42, -34.0, 200]
+        ]
+      },
+      properties: { routeId, drawn: '2026-08-01' }
+    };
+    const existing = [saved];
+
+    // Load into the editor -- heights dropped, per fromFeatures's contract.
+    const variants = fromFeatures(routeId, existing);
+    expect(variants[0].legs[0].coords.every((p) => p.length === 2)).toBe(true);
+
+    // An edit that touches none of the ground points (e.g. renaming the
+    // variant) re-derives the same 2D coordinates.
+    const incoming = toFeatures(routeId, variants, '2026-08-17');
+
+    // Save on a machine with no DEM.
+    const out = elevate(incoming, null, existing.filter((f) => f.properties.routeId === routeId));
+    expect(out[0].geometry.coordinates).toEqual(saved.geometry.coordinates);
   });
 });
