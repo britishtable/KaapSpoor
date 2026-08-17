@@ -13,12 +13,6 @@ import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
 export const ROUTE_LINE_SOURCE = 'route-lines';
 
 /**
- * Casing first so it draws underneath; the active variant last so it draws on
- * top of its siblings.
- */
-export const ROUTE_LINE_LAYERS = ['route-line-casing', 'route-line', 'route-line-active'] as const;
-
-/**
  * Match one route's line. An empty list matches nothing, which is how the
  * unselected state is expressed — the layers exist from style load and only
  * their filter changes, exactly as the named-path tiers do.

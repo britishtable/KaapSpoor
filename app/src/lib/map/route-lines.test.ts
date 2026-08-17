@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ROUTE_LINE_LAYERS, ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds,
+  ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds,
   activeVariantFilter, routeLineActivePaint,
   ARROW_IMAGE, arrowImage, routeArrowLayout
 } from './route-lines';
@@ -51,12 +51,6 @@ describe('route lines', () => {
 });
 
 describe('variants', () => {
-  it('names three layers, the active one last so it draws on top', () => {
-    expect([...ROUTE_LINE_LAYERS]).toEqual([
-      'route-line-casing', 'route-line', 'route-line-active'
-    ]);
-  });
-
   it('matches nothing when no variant is being pointed at', () => {
     expect(activeVariantFilter('a--b--c', null)).toEqual([
       'in', ['get', 'variant'], ['literal', []]
