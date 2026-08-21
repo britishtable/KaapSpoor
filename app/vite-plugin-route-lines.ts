@@ -88,7 +88,7 @@ export function elevate(
   }));
 }
 
-/** The whole collection after saving one route's variants over its old ones. */
+/** The whole collection after saving one route's segments over its old ones. */
 export function saveRouteLines(
   existing: RouteLineFeature[],
   incoming: RouteLineFeature[],

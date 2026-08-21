@@ -296,7 +296,8 @@ function selfHosted(base: string): StyleSpecification {
         paint: routeLinePaint()
       },
       {
-        // The variant the reader is pointing at in the panel. A separate layer
+        // The plan the reader has chosen (hovering a route, or picking on the
+        // route page). A separate layer
         // rather than a paint expression on `route-line`, because feature-state
         // already carries the journal's done colour and stacking a second
         // meaning onto it would make both harder to reason about.

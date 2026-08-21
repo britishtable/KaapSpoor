@@ -74,7 +74,7 @@ describe('activeSegmentFilter', () => {
     expect(JSON.stringify(filter)).not.toContain('routeId');
   });
 
-  it('sits an unemphasised variant back, so the one being read stands out', () => {
+  it('sits an unemphasised segment back, so the one being read stands out', () => {
     // Several lines at full strength on one mountain read as a tangle rather
     // than as choices.
     expect(routeLinePaint()['line-opacity']).toBeLessThan(

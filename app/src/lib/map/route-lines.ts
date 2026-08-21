@@ -50,7 +50,7 @@ export function activeSegmentFilter(segmentIds: string[]): FilterSpecification {
   return ['in', ['get', 'segmentId'], ['literal', segmentIds]];
 }
 
-/** The variant the reader is pointing at: same colour, fully present. */
+/** The plan the reader has chosen: same colour, fully present. */
 export function routeLineActivePaint(): NonNullable<LineLayerSpecification['paint']> {
   return {
     'line-color': [
