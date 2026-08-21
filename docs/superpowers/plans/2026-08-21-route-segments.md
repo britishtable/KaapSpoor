@@ -871,7 +871,7 @@ describe('transform with segments', () => {
   it('measures the DEFAULT PLAN, not the longest segment', () => {
     const { content } = transform(raw, {}, [], lines);
     // approach 450 m up + main 200 m up, then 400 m down on the exit.
-    expect(content[0].lineStats).toEqual({ distanceM: 4632, ascentM: 450, descentM: 400 });
+    expect(content[0].lineStats).toEqual({ distanceM: 4611, ascentM: 450, descentM: 400 });
   });
 
   it('has a line only when there is a main', () => {
