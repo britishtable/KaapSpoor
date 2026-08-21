@@ -153,14 +153,6 @@ describe('totalDescentM', () => {
     expect(totalDescentM([[18.4, -33.96], [18.41, -33.96]])).toBeNull();
   });
 
-  it('survives the round trip the reverse toggle makes', () => {
-    // Flipping twice must return the numbers the reader started with.
-    const coords = at([44, 22, 17, 22, 55, 52, 25]);
-    const there = { up: totalAscentM(coords), down: totalDescentM(coords) };
-    const back = reverseCoords(reverseCoords(coords));
-    expect({ up: totalAscentM(back), down: totalDescentM(back) }).toEqual(there);
-  });
-
   it('reads a reversed line as the mirror of the forward one', () => {
     // The case that rules out a hand-mirrored descent loop: such a loop reports
     // 52 here, while walking the line backwards ascends 54. The reverse toggle
@@ -170,5 +162,14 @@ describe('totalDescentM', () => {
     const coords = at([44, 22, 17, 22, 55, 52, 25]);
     expect(totalDescentM(coords)).toBe(totalAscentM(reverseCoords(coords)));
     expect(totalDescentM(coords)).toBe(54);
+  });
+
+  it('reads the forward line as the mirror of the reversed one, the other direction', () => {
+    // The identity above checked forward-descent against reversed-ascent; this
+    // checks it the other way round -- reversed-descent against forward-ascent
+    // -- which `reverseCoords(reverseCoords(c)) === c` cannot exercise, since
+    // that round trip never actually walks the line backwards.
+    const coords = at([44, 22, 17, 22, 55, 52, 25]);
+    expect(totalDescentM(reverseCoords(coords))).toBe(totalAscentM(coords));
   });
 });
