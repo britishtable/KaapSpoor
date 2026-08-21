@@ -44,4 +44,26 @@ describe('JournalControls', () => {
     await waitFor(() => expect(get(journal).get('r6')?.done).toBe(true));
     expect(get(journal).get('r6')?.plan).toEqual({ main: 'r6/main/main', reversed: true });
   });
+
+  // The destructive path I4 fixes: the route page always used to construct a
+  // `plan` object, even before the geojson fetch resolved or on a route with
+  // nothing drawn, so it passed `{ reversed: false }` (no segment named) here.
+  // The guard below (`turningOn && plan`) only protects a real recording if
+  // the CALLER withholds `plan` in that situation -- so this test renders
+  // exactly as the fixed call site now does (no `plan` prop) and re-toggles
+  // Done off and on, to prove a previously recorded real plan survives both
+  // the untick and the re-tick rather than being overwritten with nothing.
+  it('survives an off-then-on re-tick when the route has no resolvable plan', async () => {
+    await replaceAll([
+      { routeId: 'r7', done: true, date: null, notes: '', plan: { main: 'r7/main/main', reversed: true } }
+    ]);
+    render(JournalControls, { routeId: 'r7' });
+    await fireEvent.click(screen.getByLabelText(/mark done/i));
+    await waitFor(() => expect(get(journal).get('r7')?.done).toBe(false));
+    expect(get(journal).get('r7')?.plan).toEqual({ main: 'r7/main/main', reversed: true });
+
+    await fireEvent.click(screen.getByLabelText(/mark done/i));
+    await waitFor(() => expect(get(journal).get('r7')?.done).toBe(true));
+    expect(get(journal).get('r7')?.plan).toEqual({ main: 'r7/main/main', reversed: true });
+  });
 });

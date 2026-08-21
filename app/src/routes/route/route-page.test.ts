@@ -287,3 +287,63 @@ describe('the route page plan', () => {
     expect(screen.queryByLabelText('Approach')).toBeNull();
   });
 });
+
+// A second, distinct drawn route -- SvelteKit reuses the page component
+// across a `[id]` navigation (e.g. a Related link), so these tests render
+// route A, then rerender with route B under the SAME component instance to
+// reproduce that reuse rather than a fresh mount.
+const ID2 = 'tm-aw-second-gully';
+const P2 = (lon: number, h: number) => [lon, -33.9, h];
+// Two approaches, like route A: a single-option role renders as plain text
+// with no aria-label, so getByLabelText('Approach') needs a real choice here
+// to find anything at all.
+const SEGMENT_META_2 = [
+  { segmentId: `${ID2}/approach/via-x`, role: 'approach' as const, name: 'via X', note: null },
+  { segmentId: `${ID2}/approach/via-y`, role: 'approach' as const, name: 'via Y', note: null },
+  { segmentId: `${ID2}/main/main`, role: 'main' as const, name: 'Second Gully', note: null }
+];
+const GEOJSON2 = {
+  features: [
+    { geometry: { coordinates: [P2(18.5, 40), P2(18.51, 200)] },
+      properties: { routeId: ID2, segmentId: SEGMENT_META_2[0].segmentId, role: 'approach' } },
+    { geometry: { coordinates: [P2(18.49, 45), P2(18.51, 200)] },
+      properties: { routeId: ID2, segmentId: SEGMENT_META_2[1].segmentId, role: 'approach' } },
+    { geometry: { coordinates: [P2(18.51, 200), P2(18.53, 300)] },
+      properties: { routeId: ID2, segmentId: SEGMENT_META_2[2].segmentId, role: 'main' } }
+  ]
+};
+const drawn2 = { ...route, id: ID2, hasLine: true, segments: SEGMENT_META_2 };
+const COMBINED_GEOJSON = { features: [...GEOJSON.features, ...GEOJSON2.features] };
+
+describe('the route page across a route-to-route navigation (M4, M5)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => COMBINED_GEOJSON })));
+  });
+
+  it('re-reads the URL on a route id change, so a reversed choice on route A does not leak into route B', async () => {
+    window.history.replaceState({}, '', `/route/${ID}?rev=1`);
+    const { rerender } = render(Page, { data: { route: drawn } });
+    // Reversed: the approach role is labelled "Finish", not "Approach" -- so
+    // `settle()` (which waits for "Approach") would never resolve here.
+    await vi.waitFor(() => expect(screen.getByLabelText('Finish')).toBeTruthy());
+
+    window.history.replaceState({}, '', `/route/${ID2}`);
+    await rerender({ data: { route: drawn2 } });
+    await vi.waitFor(() => expect(screen.getByLabelText('Approach')).toBeTruthy());
+    expect(screen.queryByLabelText('Finish')).toBeNull();
+  });
+
+  it('clears the previous route’s segments immediately on a route id change, rather than showing them until the new fetch lands', async () => {
+    window.history.replaceState({}, '', `/route/${ID}`);
+    const { rerender } = render(Page, { data: { route: drawn } });
+    await settle();
+    expect(screen.getByLabelText('Approach')).toBeTruthy();
+
+    // A route with nothing drawn: if route A's segments survived the
+    // navigation, the plan picker (and its "Approach" control) would still
+    // be visible even though this route has no line.
+    window.history.replaceState({}, '', `/route/${ID2}`);
+    await rerender({ data: { route } });
+    await vi.waitFor(() => expect(screen.queryByLabelText('Approach')).toBeNull());
+  });
+});

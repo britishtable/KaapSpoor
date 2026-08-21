@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
@@ -38,7 +37,13 @@
   // re-render on every dropdown change. The trade is that Back does not step
   // through previous plans — reload and sharing, which are what the spec asks
   // for, both work.
-  onMount(() => {
+  //
+  // Re-read on every route id change, not just once on mount: SvelteKit
+  // reuses this component across a `[id]` navigation (e.g. a Related link),
+  // so without this a `reversed` choice made on route A would carry into
+  // route B's first render while the address bar showed no `rev=1` for B.
+  $effect(() => {
+    r.id;
     wanted = decodePlan(new URLSearchParams(window.location.search));
   });
 
@@ -47,10 +52,11 @@
   $effect(() => {
     const id = r.id;
     const meta = r.segments;
-    if (!r.hasLine) {
-      segments = [];
-      return;
-    }
+    // Cleared immediately on every route change, not just when there is no
+    // line to fetch: otherwise route A's segments keep driving route B's
+    // plan, profile and setPlanSegments publication until B's fetch lands.
+    segments = [];
+    if (!r.hasLine) return;
     let abandoned = false;
     void (async () => {
       try {
@@ -104,7 +110,7 @@
   </nav>
 
   <h1>{r.title}</h1>
-  <StatsStrip route={r} />
+  <StatsStrip route={r} hasPlan={!!plan.choice.main} />
 
   <!-- Every route states how its position is known, in the same component the
        map's preview panel uses, so the two can never word it differently. -->
@@ -136,12 +142,14 @@
   {/if}
 
   <JournalControls routeId={r.id}
-    plan={{
-      approach: plan.choice.approach ?? undefined,
-      main: plan.choice.main ?? undefined,
-      exit: plan.choice.exit ?? undefined,
-      reversed: plan.choice.reversed
-    }} />
+    plan={plan.choice.main
+      ? {
+          approach: plan.choice.approach ?? undefined,
+          main: plan.choice.main,
+          exit: plan.choice.exit ?? undefined,
+          reversed: plan.choice.reversed
+        }
+      : undefined} />
 
   <p class="src">
     {#if r.photoCount}{r.photoCount} photos on the source page (not yet imported). {/if}
