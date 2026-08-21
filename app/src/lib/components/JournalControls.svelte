@@ -3,14 +3,19 @@
   import type { JournalEntry, JournalPlan } from '../data/types';
   let { routeId, plan }: { routeId: string; plan?: JournalPlan } = $props();
   let entry = $derived<JournalEntry>(
-    $journal.get(routeId) ?? { routeId, done: false, date: null, notes: '', ...(plan ? { plan } : {}) }
+    $journal.get(routeId) ?? { routeId, done: false, date: null, notes: '' }
   );
 
-  // Toggling here rather than through the store's toggleDone keeps the plan
-  // this route was resolved to attached to the entry it writes — toggleDone
-  // only knows a routeId, not which plan the reader is currently looking at.
+  // Ticking Done attaches the plan currently on screen, replacing any plan
+  // already stored — a re-tick after changing the plan should record what is
+  // now shown, not what was recorded last time. Un-ticking, and ticking a
+  // route with nothing drawn (plan is undefined), leave the stored plan
+  // untouched: neither is a statement about which way they went.
   function toggle(): void {
-    void setEntry({ ...entry, done: !entry.done });
+    const turningOn = !entry.done;
+    const next: JournalEntry = { ...entry, done: turningOn };
+    if (turningOn && plan) next.plan = plan;
+    void setEntry(next);
   }
 </script>
 

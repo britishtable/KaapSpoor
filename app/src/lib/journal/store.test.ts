@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
-import { journal, hydrate, setEntry, toggleDone, replaceAll } from './store';
+import { journal, hydrate, setEntry, replaceAll } from './store';
 import { clearEntries, getAllEntries } from './db';
 
 // Passthrough mock: real behaviour by default, so existing tests are unaffected.
@@ -18,12 +18,6 @@ describe('journal store', () => {
     await setEntry({ routeId: 'r1', done: true, date: '2026-07-21', notes: 'x' });
     expect(get(journal).get('r1')?.done).toBe(true);
     expect(await getAllEntries()).toHaveLength(1);
-  });
-  it('toggleDone creates an entry when none exists, then flips it', async () => {
-    await toggleDone('r2');
-    expect(get(journal).get('r2')?.done).toBe(true);
-    await toggleDone('r2');
-    expect(get(journal).get('r2')?.done).toBe(false);
   });
   it('hydrate loads existing db rows into the store', async () => {
     await setEntry({ routeId: 'r3', done: true, date: null, notes: '' });

@@ -37,15 +37,6 @@ export async function setEntry(entry: JournalEntry): Promise<void> {
   }
 }
 
-export async function toggleDone(routeId: string): Promise<void> {
-  let current: JournalEntry | undefined;
-  journal.subscribe((m) => (current = m.get(routeId)))();
-  const next: JournalEntry = current
-    ? { ...current, done: !current.done }
-    : { routeId, done: true, date: null, notes: '' };
-  await setEntry(next);
-}
-
 export async function replaceAll(entries: JournalEntry[]): Promise<void> {
   await clearEntries();
   for (const e of entries) await putEntry(e);
