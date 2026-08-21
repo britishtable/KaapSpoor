@@ -67,6 +67,21 @@ describe('RoutePlan', () => {
     expect(screen.getByText(/↑ 250 m/)).toBeTruthy();
   });
 
+  it('shows a flat row’s 0 m climb rather than omitting it (M6: 0 and "not measured" are different claims)', () => {
+    // A flat exit -- same height at both ends, so its ascent/descent are 0,
+    // not null. `{#if s.ascentM}` treated 0 as falsy and hid the figure,
+    // exactly as if the segment carried no heights at all; `!== null` is
+    // what the header two lines above already used.
+    const flatExit = seg('e', 'exit', 'Flat Path', [P(18.43, 500), P(18.45, 500)]);
+    const segments = [SEGMENTS[2], flatExit];
+    const { container } = render(RoutePlan, { plan: resolvePlan(segments), onchange: vi.fn() });
+    const rows = [...container.querySelectorAll('li')];
+    const exitRow = rows.find((li) => li.textContent?.includes('Flat Path'));
+    const figures = exitRow?.querySelector('.figures')?.textContent ?? '';
+    expect(figures).toContain('↑ 0 m');
+    expect(figures).toContain('↓ 0 m');
+  });
+
   it('renders nothing at all for a route with no main', () => {
     const { container } = render(RoutePlan, {
       plan: resolvePlan([SEGMENTS[0]]), onchange: vi.fn()

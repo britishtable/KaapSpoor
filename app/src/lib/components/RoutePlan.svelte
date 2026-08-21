@@ -86,8 +86,8 @@
             {@const s = statsFor(row.chosen)}
             <span class="figures">
               {km(s.distanceM)}
-              {#if s.ascentM}↑ {Math.round(s.ascentM)} m{/if}
-              {#if s.descentM}↓ {Math.round(s.descentM)} m{/if}
+              {#if s.ascentM !== null}↑ {Math.round(s.ascentM)} m{/if}
+              {#if s.descentM !== null}↓ {Math.round(s.descentM)} m{/if}
             </span>
           {/if}
           {#if row.chosen?.note}<span class="note">{row.chosen.note}</span>{/if}
