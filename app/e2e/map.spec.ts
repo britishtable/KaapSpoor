@@ -794,11 +794,11 @@ test.describe('route lines', () => {
       };
       const counts = new Map<string, number>();
       for (const f of lines.features) {
-        const key = `${f.properties.routeId} ${f.properties.role}`;
+        const key = `${f.properties.routeId}\u0000${f.properties.role}`;
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
       const hit = [...counts].find(([, n]) => n > 1);
-      return hit ? hit[0].split(' ')[0] : null;
+      return hit ? hit[0].split('\u0000')[0] : null;
     });
     test.skip(!target, 'no entry in this build has alternatives drawn yet');
 
