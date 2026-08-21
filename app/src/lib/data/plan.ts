@@ -6,7 +6,7 @@
  */
 
 import { haversineM, type Point } from '../map/snap';
-import { reverseCoords, type Point3 } from '../map/profile';
+import { reverseCoords, totalDistanceM, totalAscentM, totalDescentM, type Point3 } from '../map/profile';
 import type { SegmentRole } from './segments';
 
 /** One drawn segment, with the geometry the stats need. */
@@ -76,4 +76,88 @@ export function assemble(segments: PlanSegment[], reversed = false): Point3[] {
     out.push(...(skipFirst ? segment.coords.slice(1) : segment.coords));
   });
   return reversed ? reverseCoords(out) : out;
+}
+
+/** What the reader picked. Segment ids, or null where nothing is chosen. */
+export interface PlanChoice {
+  approach: string | null;
+  main: string | null;
+  exit: string | null;
+  reversed: boolean;
+}
+
+export interface ResolvedPlan {
+  choice: PlanChoice;
+  /** Only the approaches that actually meet the chosen main. */
+  approaches: PlanSegment[];
+  mains: PlanSegment[];
+  /** Only the exits that actually leave from the chosen main. */
+  exits: PlanSegment[];
+  /** The chosen segments, in walking order. Empty when there is no main. */
+  chosen: PlanSegment[];
+}
+
+export interface PlanStats {
+  distanceM: number;
+  ascentM: number | null;
+  descentM: number | null;
+}
+
+const byRole = (segments: PlanSegment[], role: SegmentRole): PlanSegment[] =>
+  segments.filter((s) => s.role === role);
+
+/**
+ * Turn a partial wish into a legal plan.
+ *
+ * Resolved MAIN FIRST, then the approach and exit that connect to it. Doing it
+ * in any other order lets a default name a combination that does not join up:
+ * an approach chosen before the main is only connected by luck. This is also
+ * why changing the main can silently drop an approach — the alternative is
+ * offering the reader a plan whose numbers describe a walk nobody can take.
+ *
+ * The default for each role is the FIRST connected option in file order, which
+ * is the author's draw order — their control over what a reader sees first.
+ */
+export function resolvePlan(
+  segments: PlanSegment[],
+  wanted: Partial<PlanChoice> = {}
+): ResolvedPlan {
+  const mains = byRole(segments, 'main');
+  const main =
+    mains.find((s) => s.segmentId === wanted.main) ?? mains[0] ?? null;
+
+  const empty: PlanChoice = { approach: null, main: null, exit: null, reversed: false };
+  const reversed = wanted.reversed ?? false;
+  if (!main) {
+    return { choice: { ...empty, reversed }, approaches: [], mains, exits: [], chosen: [] };
+  }
+
+  const approaches = byRole(segments, 'approach').filter((s) => joins(s, main));
+  const exits = byRole(segments, 'exit').filter((s) => joins(main, s));
+  const approach =
+    approaches.find((s) => s.segmentId === wanted.approach) ?? approaches[0] ?? null;
+  const exit = exits.find((s) => s.segmentId === wanted.exit) ?? exits[0] ?? null;
+
+  const chosen = [approach, main, exit].filter((s): s is PlanSegment => s !== null);
+  return {
+    choice: {
+      approach: approach?.segmentId ?? null,
+      main: main.segmentId,
+      exit: exit?.segmentId ?? null,
+      reversed
+    },
+    approaches,
+    mains,
+    exits,
+    chosen
+  };
+}
+
+/** What the assembled walk measures. Pass `assemble(chosen, reversed)`. */
+export function planStats(coords: Point3[]): PlanStats {
+  return {
+    distanceM: totalDistanceM(coords),
+    ascentM: totalAscentM(coords),
+    descentM: totalDescentM(coords)
+  };
 }
