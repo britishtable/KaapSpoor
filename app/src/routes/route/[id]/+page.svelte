@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
@@ -6,20 +7,43 @@
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
-  import { isPoint3, totalDistanceM, type Point3 } from '$lib/map/profile';
+  import RoutePlan from '$lib/components/RoutePlan.svelte';
+  import { isPoint3 } from '$lib/map/profile';
+  import { isRole } from '$lib/data/segments';
+  import { resolvePlan, assemble, type PlanChoice, type PlanSegment } from '$lib/data/plan';
+  import { encodePlan, decodePlan } from '$lib/data/plan-params';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
   let scrubDistanceM = $state<number | null>(null);
-  let lineCoords = $state<Point3[]>([]);
 
-  // The route's own drawn line, fetched once per route so the elevation
-  // profile can plot it and the locator map can carry the same marker along
-  // it as the reader scrubs the chart.
+  let segments = $state<PlanSegment[]>([]);
+  let wanted = $state<Partial<PlanChoice>>({});
+
+  // The plan is resolved, never stored: a stale choice from the URL or from
+  // the previous route can name a combination that does not join up, and
+  // resolvePlan is the one place that decides what a legal plan is.
+  let plan = $derived(resolvePlan(segments, wanted));
+  let lineCoords = $derived(assemble(plan.chosen, plan.choice.reversed));
+
+  // Read straight from the address bar rather than through $app/state, and
+  // written back with history.replaceState below. The page needs no router
+  // for this: the plan is a view of the current URL, not a navigation, and
+  // going through goto() would push the map and profile through a full
+  // re-render on every dropdown change. The trade is that Back does not step
+  // through previous plans — reload and sharing, which are what the spec asks
+  // for, both work.
+  onMount(() => {
+    wanted = decodePlan(new URLSearchParams(window.location.search));
+  });
+
+  // The route's drawn segments, fetched once per route. Only the geometry
+  // comes from here; the metadata is already on r.segments from the build.
   $effect(() => {
     const id = r.id;
+    const meta = r.segments;
     if (!r.hasLine) {
-      lineCoords = [];
+      segments = [];
       return;
     }
     let abandoned = false;
@@ -28,27 +52,44 @@
         const res = await fetch(`${base}/data/route-lines.geojson`);
         if (!res.ok) return;
         const collection = (await res.json()) as {
-          features: { geometry: { coordinates: number[][] }; properties: { routeId: string } }[];
+          features: {
+            geometry: { coordinates: number[][] };
+            properties: { routeId: string; segmentId: string; role: string };
+          }[];
         };
-        // The longest variant BY GROUND DISTANCE, not by point count: a
-        // variant with fewer but wider-spaced points can still cover more
-        // ground. transform.ts picks the same route's ascentM/distanceM by
-        // this same measure (totalDistanceM), so the profile the reader
-        // scrubs and the StatsStrip figures beside it describe one line, not
-        // two that happen to share a routeId.
+        const byId = new Map(meta.map((m) => [m.segmentId, m]));
         const mine = collection.features
-          .filter((f) => f.properties.routeId === id)
-          .map((f) => f.geometry.coordinates.filter(isPoint3));
-        const longest = mine.sort((a, b) => totalDistanceM(b) - totalDistanceM(a))[0];
-        if (!abandoned) lineCoords = longest ?? [];
+          .filter((f) => f.properties.routeId === id && isRole(f.properties.role))
+          .map((f) => {
+            const m = byId.get(f.properties.segmentId);
+            return {
+              segmentId: f.properties.segmentId,
+              role: f.properties.role as PlanSegment['role'],
+              name: m?.name ?? null,
+              note: m?.note ?? null,
+              coords: f.geometry.coordinates.filter(isPoint3)
+            };
+          });
+        if (!abandoned) segments = mine;
       } catch {
-        if (!abandoned) lineCoords = [];
+        if (!abandoned) segments = [];
       }
     })();
     return () => {
       abandoned = true;
     };
   });
+
+  function choose(choice: PlanChoice): void {
+    // State AND address bar, together, so the two can never disagree about
+    // what is on screen. replaceState rather than pushState: a dropdown is an
+    // adjustment, not a place, and stacking one history entry per fiddle would
+    // make Back useless for leaving the page.
+    wanted = choice;
+    const params = encodePlan(choice);
+    const query = params.toString();
+    window.history.replaceState({}, '', query ? `?${query}` : window.location.pathname);
+  }
 </script>
 
 <div class="page">
@@ -73,6 +114,7 @@
       {lineCoords}
     />
   {/if}
+  <RoutePlan {plan} onchange={choose} />
   {#if r.hasLine}
     <RouteProfile coords={lineCoords} onscrub={(d) => (scrubDistanceM = d)} />
   {/if}

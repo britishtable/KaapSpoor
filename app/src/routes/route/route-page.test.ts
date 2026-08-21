@@ -149,68 +149,49 @@ describe('route page', () => {
 });
 
 describe('route page elevation profile', () => {
-  const located = { ...route, hasLine: true, coords: { lat: -33.95, lon: 18.4, zoom: 15 } };
+  const MAIN_ID = `${route.id}/main/main`;
+  const located = {
+    ...route,
+    hasLine: true,
+    coords: { lat: -33.95, lon: 18.4, zoom: 15 },
+    segments: [{ segmentId: MAIN_ID, role: 'main' as const, name: null, note: null }]
+  };
 
-  // Fewer points, but the greater real-ground distance -- the variant
-  // transform.ts's totalDistanceM-based selection would pick.
-  const distanceLonger: Point3[] = [
+  const mainCoords: Point3[] = [
     [18.4, -33.95, 100],
     [18.5, -33.95, 300]
   ];
-  // More points, but they sit close together -- a shorter walk that an
-  // array-length comparison would wrongly prefer.
-  const arrayLonger: Point3[] = [
-    [18.41, -33.96, 100],
-    [18.4102, -33.96, 105],
-    [18.4104, -33.96, 108],
-    [18.4106, -33.96, 110],
-    [18.4108, -33.96, 112]
-  ];
 
-  function stubLineFetch(features: { coordinates: number[][] }[]) {
+  function stubLineFetch(coords: number[][]) {
     vi.stubGlobal('fetch', async () => ({
       ok: true,
       status: 200,
       json: async () => ({
         type: 'FeatureCollection',
-        features: features.map((f) => ({
-          type: 'Feature',
-          properties: { routeId: located.id },
-          geometry: { type: 'LineString', coordinates: f.coordinates }
-        }))
+        features: [
+          {
+            type: 'Feature',
+            properties: { routeId: located.id, segmentId: MAIN_ID, role: 'main' },
+            geometry: { type: 'LineString', coordinates: coords }
+          }
+        ]
       })
     }));
   }
 
   it('plots the elevation profile from the route line it fetches', async () => {
-    stubLineFetch([{ coordinates: distanceLonger }]);
+    stubLineFetch(mainCoords);
     render(Page, { data: { route: located } });
     await vi.waitFor(() => expect(screen.getByTestId('profile-line')).toBeTruthy());
-    const expectedKm = (totalDistanceM(distanceLonger) / 1000).toFixed(1);
-    expect(screen.getByText(new RegExp(`${expectedKm} km`))).toBeTruthy();
-    vi.unstubAllGlobals();
-  });
-
-  it('picks the variant that goes furthest on the ground, not the one with more points', async () => {
-    // Order matters for the array-length bug: arrayLonger sorts first by
-    // coordinate count, so this only catches a regression if the page really
-    // measures ground distance rather than array length.
-    stubLineFetch([{ coordinates: arrayLonger }, { coordinates: distanceLonger }]);
-    render(Page, { data: { route: located } });
-    await vi.waitFor(() => expect(screen.getByTestId('profile-line')).toBeTruthy());
-    const distanceKm = (totalDistanceM(distanceLonger) / 1000).toFixed(1);
-    const arrayKm = (totalDistanceM(arrayLonger) / 1000).toFixed(1);
-    expect(screen.getByText(new RegExp(`${distanceKm} km`))).toBeTruthy();
-    expect(screen.queryByText(new RegExp(`${arrayKm} km`))).toBeNull();
+    const expectedKm = (totalDistanceM(mainCoords) / 1000).toFixed(1);
+    // Both the profile's figcaption and the plan's total show this figure
+    // when the plan is just the one main segment, so allow either.
+    expect(screen.getAllByText(new RegExp(`${expectedKm} km`)).length).toBeGreaterThan(0);
     vi.unstubAllGlobals();
   });
 
   it('carries the scrub position from the profile down to the locator map', async () => {
-    // Both variants stubbed, arrayLonger first: if the locator map ever goes
-    // back to selecting its own variant (e.g. by array order or point
-    // count), the scrub dot would land on arrayLonger's line instead of the
-    // distance-longest one the profile actually plots.
-    stubLineFetch([{ coordinates: arrayLonger }, { coordinates: distanceLonger }]);
+    stubLineFetch(mainCoords);
     render(Page, { data: { route: located } });
     const slider = await screen.findByRole('slider');
     await vi.waitFor(() =>
@@ -227,10 +208,82 @@ describe('route page elevation profile', () => {
     const feature = setData!.args[1] as { geometry: { coordinates: [number, number] } };
     // One fortieth of the total, per RouteProfile's own step size -- the same
     // distance the marker moves to, wherever pointAtDistance projects it.
-    const total = totalDistanceM(distanceLonger);
-    const expected = pointAtDistance(distanceLonger, total / 40);
+    const total = totalDistanceM(mainCoords);
+    const expected = pointAtDistance(mainCoords, total / 40);
     expect(feature.geometry.coordinates[0]).toBeCloseTo(expected[0], 5);
     expect(feature.geometry.coordinates[1]).toBeCloseTo(expected[1], 5);
     vi.unstubAllGlobals();
+  });
+});
+
+const ID = 'tm-aw-blind-gully';
+const P = (lon: number, h: number) => [lon, -33.96, h];
+
+const SEGMENT_META = [
+  { segmentId: `${ID}/approach/via-kasteelspoort`, role: 'approach' as const,
+    name: 'via Kasteelspoort', note: null },
+  { segmentId: `${ID}/approach/via-diagonal`, role: 'approach' as const,
+    name: 'via Diagonal', note: null },
+  { segmentId: `${ID}/main/main`, role: 'main' as const, name: 'Blind Gully', note: null }
+];
+
+const GEOJSON = {
+  features: [
+    { geometry: { coordinates: [P(18.40, 50), P(18.41, 300)] },
+      properties: { routeId: ID, segmentId: SEGMENT_META[0].segmentId, role: 'approach' } },
+    { geometry: { coordinates: [P(18.39, 60), P(18.41, 300)] },
+      properties: { routeId: ID, segmentId: SEGMENT_META[1].segmentId, role: 'approach' } },
+    { geometry: { coordinates: [P(18.41, 300), P(18.43, 500)] },
+      properties: { routeId: ID, segmentId: SEGMENT_META[2].segmentId, role: 'main' } }
+  ]
+};
+
+const drawn = { ...route, hasLine: true, segments: SEGMENT_META };
+
+/** Let the page's fetch of route-lines.geojson resolve, then settle Svelte. */
+async function settle() {
+  await vi.waitFor(() => expect(screen.getByLabelText('Approach')).toBeTruthy());
+}
+
+describe('the route page plan', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => GEOJSON })));
+    window.history.replaceState({}, '', `/route/${ID}`);
+  });
+
+  it('defaults to the first approach that meets the main', async () => {
+    render(Page, { data: { route: drawn } });
+    await settle();
+    const select = screen.getByLabelText('Approach') as HTMLSelectElement;
+    expect(select.value).toBe(SEGMENT_META[0].segmentId);
+  });
+
+  it('reads its opening choice out of the URL, so a shared plan arrives intact', async () => {
+    window.history.replaceState({}, '', `/route/${ID}?a=${encodeURIComponent(SEGMENT_META[1].segmentId)}`);
+    render(Page, { data: { route: drawn } });
+    await settle();
+    const select = screen.getByLabelText('Approach') as HTMLSelectElement;
+    expect(select.value).toBe(SEGMENT_META[1].segmentId);
+  });
+
+  it('writes the choice back to the URL when the reader changes it', async () => {
+    render(Page, { data: { route: drawn } });
+    await settle();
+    await fireEvent.change(screen.getByLabelText('Approach'), {
+      target: { value: SEGMENT_META[1].segmentId }
+    });
+    expect(decodeURIComponent(window.location.search)).toContain(SEGMENT_META[1].segmentId);
+  });
+
+  it('totals the whole plan, not the main alone', async () => {
+    render(Page, { data: { route: drawn } });
+    await settle();
+    // Approach climbs 250 m, main climbs 200 m. The main alone would say 200.
+    expect(screen.getByText(/↑ 450 m/)).toBeTruthy();
+  });
+
+  it('shows no plan for a route with nothing drawn', () => {
+    render(Page, { data: { route } }); // hasLine: false, segments: []
+    expect(screen.queryByLabelText('Approach')).toBeNull();
   });
 });
