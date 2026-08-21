@@ -780,42 +780,55 @@ test.describe('route lines', () => {
     await expect(page.getByTestId('preview-body')).toBeVisible();
   });
 
-  test('an entry with alternatives draws them all, and lifts the one being read', async ({
+  test('an entry with alternatives draws them all, and lifts the plan chosen', async ({
     page
   }) => {
+    // "Alternatives" now means several drawn segments sharing the same role
+    // (e.g. two ways to approach) on the same route — the plan picker's
+    // <select>, not the retired hover-list. Grouping by (routeId, role) is
+    // the segment-schema equivalent of the old per-routeId variant count.
     await ready(page);
     const target = await page.evaluate(async () => {
-      const routes = (await (await fetch('data/routes-index.json')).json()) as Array<{
-        id: string; title: string; hasLine: boolean;
-      }>;
       const lines = (await (await fetch('data/route-lines.geojson')).json()) as {
-        features: { properties: { routeId: string; variant?: string } }[];
+        features: { properties: { routeId: string; segmentId: string; role: string } }[];
       };
       const counts = new Map<string, number>();
       for (const f of lines.features) {
-        if (!f.properties.variant) continue;
-        counts.set(f.properties.routeId, (counts.get(f.properties.routeId) ?? 0) + 1);
+        const key = `${f.properties.routeId} ${f.properties.role}`;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
       }
-      const unique = (t: string) => routes.filter((r) => r.title.includes(t)).length === 1;
-      const ids = [...counts].filter(([, n]) => n > 1).map(([id]) => id);
-      return routes.find((r) => ids.includes(r.id) && unique(r.title))?.title ?? null;
+      const hit = [...counts].find(([, n]) => n > 1);
+      return hit ? hit[0].split(' ')[0] : null;
     });
     test.skip(!target, 'no entry in this build has alternatives drawn yet');
 
-    await selectFromPanel(page, target!);
-    await expect
-      .poll(() => renderedCount(page, 'route-line'), { timeout: 15_000 })
-      .toBeGreaterThan(0);
-    // Nothing is lifted until the reader points at one.
-    expect(await renderedCount(page, 'route-line-active')).toBe(0);
+    await page.goto(`route/${target}`);
+    await expect(page.getByTestId('locator-map')).toBeVisible();
 
-    await page.getByRole('heading', { name: 'Ways up this route' })
-      .locator('xpath=following-sibling::ul/li')
-      .first()
-      .hover();
-    await expect
-      .poll(() => renderedCount(page, 'route-line-active'), { timeout: 15_000 })
-      .toBeGreaterThan(0);
+    const activeCount = async () =>
+      page.evaluate(async () => {
+        const el = document.querySelector('[data-testid="locator-map"]') as HTMLElement & {
+          __maplibreMap?: import('maplibre-gl').Map;
+        };
+        const map = el.__maplibreMap;
+        if (!map) return 0;
+        if (!map.loaded() || map.isMoving()) {
+          await new Promise<void>((resolve) => map.once('idle', () => resolve()));
+        }
+        return map.queryRenderedFeatures(undefined, { layers: ['route-line-active'] }).length;
+      });
+
+    // The default plan is already chosen and lit — nothing to hover first.
+    await expect.poll(activeCount, { timeout: 15_000 }).toBeGreaterThan(0);
+
+    // Picking the other option for the role with alternatives re-lights the
+    // active layer with the newly chosen segment.
+    const select = page.locator('.plan select').first();
+    const options = await select.locator('option').all();
+    expect(options.length).toBeGreaterThan(1);
+    const other = await options[1].getAttribute('value');
+    await select.selectOption(other!);
+    await expect.poll(activeCount, { timeout: 15_000 }).toBeGreaterThan(0);
   });
 
   test('the whole-name path highlight is gone', async ({ page }) => {
