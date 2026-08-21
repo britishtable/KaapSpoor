@@ -66,4 +66,15 @@ describe('unmetJunctions', () => {
   it('reports a main with no approach at all as nothing to fix', () => {
     expect(unmetJunctions([withCoords('main', 'm', [B, C])])).toEqual([]);
   });
+
+  it('is silent when an approach joins the SECOND of two mains exactly', () => {
+    const D: Point = [18.50, -33.9];
+    const E: Point = [18.51, -33.9];
+    const segments = [
+      withCoords('approach', 'k', [A, B]),
+      withCoords('main', 'unrelated', [D, E]),
+      withCoords('main', 'm', [B, C])
+    ];
+    expect(unmetJunctions(segments)).toEqual([]);
+  });
 });
