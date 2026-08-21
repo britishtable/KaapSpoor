@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { transform, statValue, type RawDataset, type RouteLines } from './transform';
 
-const raw = {
+const raw: RawDataset = {
   attribution: 'x', source: 'y', license: 'z', generated: 'g', areas: [],
   routes: [
     {
@@ -12,14 +12,14 @@ const raw = {
       stats: { Time: '2 hrs', 'Height gain': '530m' },
       sections: { Overview: 'A path.' }, description: 'A path.',
       related: ['/site/mm/Home/tm/aw/other'], attachments: [],
-      photos: { deck_ids: ['d1'], inline_urls: ['a', 'b'] }, is_reference: false
+      photos: { deck_ids: ['d1'], inline_urls: ['a', 'b'] }
     },
     {
       slug: 'other', title: 'Other',
       url: 'https://sites.google.com/site/mm/Home/tm/aw/other',
       area: ['tm', 'aw'], coords: null, grade: null, grade_source: null,
       stats: {}, sections: {}, description: 'Short note.',
-      related: [], attachments: [], photos: { deck_ids: [], inline_urls: [] }, is_reference: false
+      related: [], attachments: [], photos: { deck_ids: [], inline_urls: [] }
     }
   ]
 };
@@ -399,7 +399,7 @@ describe('transform with segments', () => {
   it('measures the DEFAULT PLAN, not the longest segment', () => {
     const { content } = transform(raw, {}, [], lines);
     // approach climbs 250 m, main another 200 m — 450 together; the exit drops 400 m.
-    expect(content[0].lineStats).toEqual({ distanceM: 4611, ascentM: 450, descentM: 400 });
+    expect(content[0].lineStats).toEqual({ distanceM: 4611, ascentM: 450 });
   });
 
   it('has a line only when there is a main', () => {

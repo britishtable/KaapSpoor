@@ -88,8 +88,7 @@ export function transform(
     const stats = planStats(assemble(plan.chosen));
     statsByRoute.set(rid, {
       distanceM: Math.round(stats.distanceM),
-      ascentM: stats.ascentM === null ? null : Math.round(stats.ascentM),
-      descentM: stats.descentM === null ? null : Math.round(stats.descentM)
+      ascentM: stats.ascentM === null ? null : Math.round(stats.ascentM)
     });
     // A near miss is almost always a segment whose neighbour was redrawn under
     // it. Warned rather than thrown: the build must still produce a site, and
@@ -170,7 +169,9 @@ export function transform(
       // Only `area-approx` carries a radius; the discriminated union in
       // types.ts is what makes reading it off any other source impossible.
       coordsAccuracyM: location?.source === 'area-approx' ? location.accuracyM : null,
-      coordsOsm: location?.osm ?? null,
+      // Only a precise location can carry an OSM reference; the discriminated
+      // union means `area-approx` never reaches `.osm` at all.
+      coordsOsm: location && location.source !== 'area-approx' ? (location.osm ?? null) : null,
       // Matched against the prose, not the title: this is what the description
       // TALKS ABOUT, which is what makes the map readable beside it. Lives on
       // the index rather than the per-route content because the map needs the

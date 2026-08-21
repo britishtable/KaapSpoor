@@ -11,7 +11,7 @@
     "draw": "node scripts/draw.mjs",
     "make:dem-fixture": "node scripts/make-dem-fixture.mjs",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run",
     "test:e2e": "playwright test && playwright test --config=playwright.subpath.config.ts"
   },

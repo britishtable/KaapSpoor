@@ -48,9 +48,7 @@ async function main() {
 
   console.log(`Sampled against ${DEM}:\n`);
   for (const feature of sampled) {
-    const label = feature.properties.variant
-      ? `${feature.properties.routeId} (${feature.properties.variant})`
-      : feature.properties.routeId;
+    const label = `${feature.properties.routeId} (${feature.properties.name || feature.properties.role})`;
     const withHeight = feature.geometry.coordinates.filter((c) => c.length === 3).length;
     console.log(`  ${label}: ${withHeight}/${feature.geometry.coordinates.length} points sampled`);
   }

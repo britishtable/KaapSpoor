@@ -18,7 +18,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeSegmentId, isRole, type SegmentRole } from '../src/lib/data/segments';
 
-interface LegacyFeature {
+export interface LegacyFeature {
   type: string;
   geometry: { type: string; coordinates: number[][] };
   properties: {

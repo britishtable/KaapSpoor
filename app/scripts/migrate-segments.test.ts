@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { migrateFeatures } from './migrate-segments';
+import { migrateFeatures, type LegacyFeature } from './migrate-segments';
 
-const feature = (props: Record<string, unknown>) => ({
+const feature = (props: LegacyFeature['properties']): LegacyFeature => ({
   type: 'Feature',
   geometry: { type: 'LineString', coordinates: [[18.4, -33.96], [18.41, -33.96]] },
   properties: props
