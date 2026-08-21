@@ -12,8 +12,10 @@
     type Point, type SnapGraph
   } from '$lib/map/snap';
   import {
-    newSegment, undoLeg, segmentCoords, toFeatures, fromFeatures, type Segment
+    newSegment, undoLeg, flipSegment, segmentCoords, toFeatures, fromFeatures, type Segment
   } from '$lib/draw/state';
+  import { snapToSiblings, unmetJunctions } from '$lib/draw/siblings';
+  import { ROLES } from '$lib/data/segments';
   import type { RouteIndexEntry } from '$lib/data/types';
 
   /** The click tolerance, in screen pixels — the same reach at every zoom. */
@@ -42,6 +44,7 @@
   let saving = $state(false);
 
   let route = $derived(entries.find((e) => e.id === routeId) ?? null);
+  let unmet = $derived(unmetJunctions(segments));
 
   function redraw(): void {
     const source = map?.getSource('draw-preview') as GeoJSONSource | undefined;
@@ -114,7 +117,12 @@
     // Snaps onto the LINE, not to its nearest vertex — a straight run of trail
     // has vertices only at its ends, and snapping to those refused clicks that
     // plainly landed on the path.
-    const hit = snapToGraph(graph, click, snapRadiusM());
+    // A sibling endpoint wins over the trail graph: the click that could go
+    // either way is the one that should become a junction.
+    const sibling = snapToSiblings(segments, active, click, snapRadiusM());
+    const hit = sibling
+      ? { key: '', point: sibling }
+      : snapToGraph(graph, click, snapRadiusM());
     if (!hit) {
       // Refused rather than dropped free-hand: an off-trail point would be
       // indistinguishable from a snapped one afterwards, and off-path geometry
@@ -140,7 +148,15 @@
         message = 'The previous point is off the loaded map — pan back to it.';
         return;
       }
-      const walked = walkOrBridge(graph, from.point, point);
+      // A sibling endpoint is a saved coordinate, not necessarily a node of
+      // the currently loaded trail graph, so walkOrBridge may refuse to route
+      // to it. The straight fallback is safe here — and nowhere else — because
+      // the author has explicitly aimed at an endpoint that already exists, so
+      // the two points are within a snap radius of each other, not across a
+      // valley.
+      const walked = sibling
+        ? (walkOrBridge(graph, from.point, point) ?? [from.point, point])
+        : walkOrBridge(graph, from.point, point);
       if (!walked) {
         message =
           'No trail connects those two points yet — if the trail between them ' +
@@ -275,22 +291,51 @@
 
       {#each segments as segment, i (i)}
         <fieldset class:active={i === active}>
-          <button type="button" onclick={() => (active = i)}>Segment {i + 1}</button>
-          <input placeholder="Name (e.g. Right Hand)" bind:value={segment.name} />
+          <button type="button" onclick={() => (active = i)}>
+            {segment.role} {i + 1}
+          </button>
+          <select bind:value={segment.role}>
+            {#each ROLES as role}<option value={role}>{role}</option>{/each}
+          </select>
+          <input placeholder="Name (e.g. via Kasteelspoort)" bind:value={segment.name} />
           <input placeholder="What is it, and when would you take it?" bind:value={segment.note} />
           <span>{segmentCoords(segment).length} points</span>
+          <button
+            type="button"
+            onclick={() => {
+              segments[i] = flipSegment(segments[i]);
+              segments = [...segments];
+              redraw();
+            }}
+          >
+            Flip direction
+          </button>
         </fieldset>
       {/each}
 
-      <button
-        type="button"
-        onclick={() => {
-          segments = [...segments, newSegment('main')];
-          active = segments.length - 1;
-        }}
-      >
-        Add segment
-      </button>
+      {#each ROLES as role}
+        <button
+          type="button"
+          onclick={() => {
+            segments = [...segments, newSegment(role)];
+            active = segments.length - 1;
+          }}
+        >
+          Add {role}
+        </button>
+      {/each}
+
+      {#if unmet.length}
+        <section class="gaps">
+          <h3>Not joined up</h3>
+          <ul>
+            {#each unmet as gap}
+              <li>{gap.from} → {gap.to}: {gap.gapM.toFixed(0)} m apart</li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
       <button
         type="button"
         onclick={() => {
@@ -328,4 +373,6 @@
   fieldset.active { border-color: #c2410c; }
   .hint, .message { font-size: 0.85rem; }
   .message { color: #b45309; }
+  .gaps { font-size: 0.85rem; color: #b45309; }
+  .gaps ul { margin: 0.2rem 0 0; padding-left: 1rem; }
 </style>
