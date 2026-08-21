@@ -1038,6 +1038,20 @@ for (const [rid, segments] of planByRoute) {
 
 Then `hasLine: statsByRoute.has(id)` on the index entry, and in `content.push`, replace `lines: linesByRoute.get(id) ?? []` with `segments: segmentsByRoute.get(id) ?? []`.
 
+- [ ] **Step 4b: Retire `RouteVariants`, so the tree stays green**
+
+Removing `RouteContent.lines` and the `RouteLine` type breaks three places that still read them. All of it goes now, in this task, because a task that leaves the build red cannot be reviewed on its own:
+
+```bash
+git rm src/lib/components/RouteVariants.svelte src/lib/components/RouteVariants.test.ts
+```
+
+- In `src/routes/route/[id]/+page.svelte`: delete the `RouteVariants` import and the `<RouteVariants lines={r.lines} />` line. Task 11 puts the plan picker in its place.
+- In `src/lib/components/RoutePreview.svelte:72`: delete the `RouteVariants` import and the `<RouteVariants lines={r.lines} />` line, and nothing else. **The map's preview panel stops listing alternatives permanently** — it keeps its stats and its link, and planning lives on the route page, which is the only surface with room for three rows and a profile. If `RoutePreview.test.ts` asserts on the variants list, delete those cases; do not reinstate the list.
+- In `src/routes/route/route-page.test.ts`, change the `route` fixture's `lines: []` to `segments: []`.
+
+Between this task and Task 11 the route page shows no alternatives. That is a deliberate, temporary gap inside this branch.
+
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `npm test -- scripts/transform.test.ts`
@@ -1656,7 +1670,8 @@ git commit -m "feat(data): encode a plan in the URL"
 **Files:**
 - Create: `app/src/lib/components/RoutePlan.svelte`
 - Create: `app/src/lib/components/RoutePlan.test.ts`
-- Delete: `app/src/lib/components/RouteVariants.svelte`, `app/src/lib/components/RouteVariants.test.ts`
+
+(`RouteVariants.svelte` was already deleted in Task 6, to keep that task's tree green.)
 
 **Interfaces:**
 - Consumes: `ResolvedPlan`, `PlanChoice`, `PlanSegment`, `assemble`, `planStats` from `$lib/data/plan`; `ROLES` from `$lib/data/segments`.
@@ -1685,10 +1700,22 @@ const SEGMENTS = [
 
 describe('RoutePlan', () => {
   it('shows the three rows in walking order', () => {
-    render(RoutePlan, { plan: resolvePlan(SEGMENTS), onchange: vi.fn() });
-    const labels = screen.getAllByRole('combobox').map((el) => el.getAttribute('aria-label'));
-    expect(labels).toContain('Approach');
-    expect(labels).toContain('Main');
+    const { container } = render(RoutePlan, { plan: resolvePlan(SEGMENTS), onchange: vi.fn() });
+    // Row LABELS, not comboboxes: a role with one option renders as plain
+    // text, so asking for comboboxes here would contradict the next test.
+    const roles = [...container.querySelectorAll('.role')].map((el) => el.textContent?.trim());
+    expect(roles).toEqual(['Approach', 'Main', 'Exit']);
+  });
+
+  it('reverses the row ORDER too, not only the labels', () => {
+    // Walking order is the whole reason the rows are stacked this way — it is
+    // what lines them up with the profile beneath, which always runs
+    // start-to-finish. Reversed, the walk begins at the exit.
+    const { container } = render(RoutePlan, {
+      plan: resolvePlan(SEGMENTS, { reversed: true }), onchange: vi.fn()
+    });
+    const roles = [...container.querySelectorAll('.role')].map((el) => el.textContent?.trim());
+    expect(roles).toEqual(['Start', 'Main', 'Finish']);
   });
 
   it('offers a select only where there is a choice to make', () => {
@@ -1762,8 +1789,8 @@ Expected: FAIL — cannot resolve `./RoutePlan.svelte`.
   const REVERSED_LABELS = { approach: 'Finish', main: 'Main', exit: 'Start' };
   let labels = $derived(plan.choice.reversed ? REVERSED_LABELS : LABELS);
 
-  let rows = $derived(
-    (
+  let rows = $derived.by(() => {
+    const built = (
       [
         ['approach', plan.approaches],
         ['main', plan.mains],
@@ -1775,8 +1802,13 @@ Expected: FAIL — cannot resolve `./RoutePlan.svelte`.
         options,
         chosen: options.find((o) => o.segmentId === plan.choice[role]) ?? null
       }))
-      .filter((row) => row.options.length > 0)
-  );
+      .filter((row) => row.options.length > 0);
+    // Reversed, the walk BEGINS at the exit. The rows are stacked in walking
+    // order so they line up with the profile beneath — which always runs
+    // start to finish — so reversing the labels without reversing the order
+    // would break the alignment that put them in this order to begin with.
+    return plan.choice.reversed ? [...built].reverse() : built;
+  });
 
   let total = $derived(planStats(assemble(plan.chosen, plan.choice.reversed)));
 
@@ -1855,13 +1887,7 @@ Expected: FAIL — cannot resolve `./RoutePlan.svelte`.
 Run: `npm test -- src/lib/components/RoutePlan.test.ts`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 5: Delete the component it replaces**
-
-```bash
-git rm src/lib/components/RouteVariants.svelte src/lib/components/RouteVariants.test.ts
-```
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/lib/components/RoutePlan.svelte src/lib/components/RoutePlan.test.ts
@@ -2386,7 +2412,10 @@ Expected: succeeds. `build:data` prints no junction warnings for the 7 migrated 
 - [ ] **Step 4: Run the end-to-end suite**
 
 Run: `npm run test:e2e`
-Expected: PASS. If a spec drives the /draw editor's "Add variant" button, retarget it at "Add main"; if one asserts a route page's variant list, retarget it at the plan rows.
+Expected: PASS. Two known breakages, plus anything else that surfaces:
+
+- `e2e/map.spec.ts:792-796` reads `f.properties.variant`, which no longer exists. Retarget it at `f.properties.segmentId`.
+- Any spec driving the /draw editor's "Add variant" button: retarget at "Add main" / "Add approach" / "Add exit".
 
 - [ ] **Step 5: Draw one real route end to end**
 
