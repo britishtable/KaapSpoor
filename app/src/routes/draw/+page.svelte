@@ -12,7 +12,7 @@
     type Point, type SnapGraph
   } from '$lib/map/snap';
   import {
-    newVariant, undoLeg, variantCoords, toFeatures, fromFeatures, type Variant
+    newSegment, undoLeg, segmentCoords, toFeatures, fromFeatures, type Segment
   } from '$lib/draw/state';
   import type { RouteIndexEntry } from '$lib/data/types';
 
@@ -36,7 +36,7 @@
 
   let entries = $state<RouteIndexEntry[]>([]);
   let routeId = $state<string>('');
-  let variants = $state<Variant[]>([newVariant()]);
+  let segments = $state<Segment[]>([newSegment('main')]);
   let active = $state(0);
   let message = $state('');
   let saving = $state(false);
@@ -47,10 +47,10 @@
     const source = map?.getSource('draw-preview') as GeoJSONSource | undefined;
     source?.setData({
       type: 'FeatureCollection',
-      features: variants
+      features: segments
         .map((v, i) => ({
           type: 'Feature' as const,
-          geometry: { type: 'LineString' as const, coordinates: variantCoords(v) },
+          geometry: { type: 'LineString' as const, coordinates: segmentCoords(v) },
           properties: { active: i === active }
         }))
         .filter((f) => f.geometry.coordinates.length >= 2)
@@ -124,9 +124,9 @@
     }
     const node = hit.key;
     const point = hit.point;
-    const variant = variants[active];
-    if (variant.legs.length === 0) {
-      variant.legs.push({ at: point, coords: [point] });
+    const segment = segments[active];
+    if (segment.legs.length === 0) {
+      segment.legs.push({ at: point, coords: [point] });
       message = '';
     } else {
       // Re-snap the previous point into the CURRENT graph rather than trusting
@@ -134,7 +134,7 @@
       // map settles — which happens after every click — and a node created by
       // splitting an edge does not survive that, so routing from the old key
       // failed on every second click wherever it landed.
-      const previous = variant.legs[variant.legs.length - 1].at;
+      const previous = segment.legs[segment.legs.length - 1].at;
       const from = snapToGraph(graph, previous, snapRadiusM());
       if (!from) {
         message = 'The previous point is off the loaded map — pan back to it.';
@@ -147,10 +147,10 @@
           'is off screen, pan along it once so the editor can see it.';
         return;
       }
-      variant.legs.push({ at: point, coords: walked });
+      segment.legs.push({ at: point, coords: walked });
       message = '';
     }
-    variants = [...variants];
+    segments = [...segments];
     redraw();
   }
 
@@ -222,7 +222,7 @@
       const res = await fetch('/__route-lines', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ routeId, features: toFeatures(routeId, variants, today) })
+        body: JSON.stringify({ routeId, features: toFeatures(routeId, segments, today) })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = (await res.json()) as { saved: number; total: number };
@@ -246,9 +246,9 @@
       const res = await fetch(`${base}/data/route-lines.geojson`);
       const collection = res.ok ? await res.json() : { features: [] };
       const saved = fromFeatures(id, collection.features);
-      variants = saved.length ? saved : [newVariant()];
+      segments = saved.length ? saved : [newSegment('main')];
     } catch {
-      variants = [newVariant()];
+      segments = [newSegment('main')];
     }
     redraw();
     const target = entries.find((e) => e.id === id);
@@ -273,29 +273,29 @@
     {#if route}
       <p class="hint">Click along the trails. Each click follows the paths from the last one.</p>
 
-      {#each variants as variant, i (i)}
+      {#each segments as segment, i (i)}
         <fieldset class:active={i === active}>
-          <button type="button" onclick={() => (active = i)}>Variant {i + 1}</button>
-          <input placeholder="Name (e.g. Right Hand)" bind:value={variant.name} />
-          <input placeholder="What is it, and when would you take it?" bind:value={variant.note} />
-          <span>{variantCoords(variant).length} points</span>
+          <button type="button" onclick={() => (active = i)}>Segment {i + 1}</button>
+          <input placeholder="Name (e.g. Right Hand)" bind:value={segment.name} />
+          <input placeholder="What is it, and when would you take it?" bind:value={segment.note} />
+          <span>{segmentCoords(segment).length} points</span>
         </fieldset>
       {/each}
 
       <button
         type="button"
         onclick={() => {
-          variants = [...variants, newVariant()];
-          active = variants.length - 1;
+          segments = [...segments, newSegment('main')];
+          active = segments.length - 1;
         }}
       >
-        Add variant
+        Add segment
       </button>
       <button
         type="button"
         onclick={() => {
-          variants[active] = undoLeg(variants[active]);
-          variants = [...variants];
+          segments[active] = undoLeg(segments[active]);
+          segments = [...segments];
           redraw();
         }}
       >
@@ -304,8 +304,8 @@
       <button
         type="button"
         onclick={() => {
-          variants[active] = { ...variants[active], legs: [] };
-          variants = [...variants];
+          segments[active] = { ...segments[active], legs: [] };
+          segments = [...segments];
           redraw();
         }}
       >

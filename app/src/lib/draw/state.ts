@@ -5,12 +5,17 @@
  * the drawing that way is what lets undo mean "take back that click" instead of
  * "take back one bend of the path", which is the only undo an author wants.
  *
+ * A route is a list of SEGMENTs, each with a ROLE — approach, main or exit —
+ * rather than an undifferentiated list of variants. Canonical direction:
+ * approach runs car→start, main runs start→end, exit runs end→car.
+ *
  * Pure data — no map, no Svelte — so the editor's behaviour is testable without
  * WebGL, which jsdom does not have.
  */
 
 import type { Point } from '../map/snap';
 import type { Point3 } from '../map/profile';
+import { makeSegmentId, type SegmentRole } from '../data/segments';
 
 export interface Leg {
   /** Where the author clicked (already snapped to a trail node). */
@@ -19,7 +24,10 @@ export interface Leg {
   coords: Point[];
 }
 
-export interface Variant {
+export interface Segment {
+  /** Empty until the first save assigns one; permanent afterwards. */
+  id: string;
+  role: SegmentRole;
   name: string;
   note: string;
   legs: Leg[];
@@ -33,7 +41,9 @@ export interface RouteLineFeature {
   geometry: { type: 'LineString'; coordinates: Point3[] };
   properties: {
     routeId: string;
-    variant?: string;
+    segmentId: string;
+    role: SegmentRole;
+    name?: string;
     note?: string;
     drawn: string;
   };
@@ -42,39 +52,58 @@ export interface RouteLineFeature {
 /** Ground position, elevation dropped — the editor draws and edits in 2D. */
 const ground = (p: Point3): Point => [p[0], p[1]];
 
-export function newVariant(name = ''): Variant {
-  return { name, note: '', legs: [] };
+export function newSegment(role: SegmentRole, name = ''): Segment {
+  return { id: '', role, name, note: '', legs: [] };
 }
 
-export function variantCoords(variant: Variant): Point[] {
+export function segmentCoords(segment: Segment): Point[] {
   const out: Point[] = [];
-  for (const leg of variant.legs) {
+  for (const leg of segment.legs) {
     out.push(...(out.length ? leg.coords.slice(1) : leg.coords));
   }
   return out;
 }
 
-export function undoLeg(variant: Variant): Variant {
-  return { ...variant, legs: variant.legs.slice(0, -1) };
+export function undoLeg(segment: Segment): Segment {
+  return { ...segment, legs: segment.legs.slice(0, -1) };
+}
+
+/**
+ * The same ground, drawn the other way.
+ *
+ * Collapsed to ONE leg deliberately: after a flip, "undo the last click" has
+ * no meaning — the clicks were made from the other end — and pretending
+ * otherwise would take back the wrong bend.
+ */
+export function flipSegment(segment: Segment): Segment {
+  const coords = segmentCoords(segment);
+  if (coords.length < 2) return segment;
+  const reversed = [...coords].reverse();
+  return { ...segment, legs: [{ at: reversed[0], coords: reversed }] };
 }
 
 export function toFeatures(
   routeId: string,
-  variants: Variant[],
+  segments: Segment[],
   drawn: string
 ): RouteLineFeature[] {
-  // A single line is the route, and needs no label: an entry with one drawn
-  // line shows no variant list, so a name written here would never be read.
-  const named = variants.length > 1;
+  const taken = new Set(segments.map((s) => s.id).filter(Boolean));
   const features: RouteLineFeature[] = [];
-  for (const variant of variants) {
-    const coordinates = variantCoords(variant);
+  for (const segment of segments) {
+    const coordinates = segmentCoords(segment);
     // One point is a click, not a line. Dropping it here keeps half-drawn work
     // out of the committed file rather than shipping a degenerate geometry.
     if (coordinates.length < 2) continue;
-    const properties: RouteLineFeature['properties'] = { routeId, drawn };
-    if (named && variant.name) properties.variant = variant.name;
-    if (named && variant.note) properties.note = variant.note;
+    // An id, once written, is a promise: a journal entry and a shared URL both
+    // point at it. Renaming a segment must not move it.
+    const segmentId =
+      segment.id || makeSegmentId(routeId, segment.role, segment.name, taken);
+    taken.add(segmentId);
+    const properties: RouteLineFeature['properties'] = {
+      routeId, segmentId, role: segment.role, drawn
+    };
+    if (segment.name) properties.name = segment.name;
+    if (segment.note) properties.note = segment.note;
     features.push({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates },
@@ -84,11 +113,13 @@ export function toFeatures(
   return features;
 }
 
-export function fromFeatures(routeId: string, features: RouteLineFeature[]): Variant[] {
+export function fromFeatures(routeId: string, features: RouteLineFeature[]): Segment[] {
   return features
     .filter((f) => f.properties.routeId === routeId)
     .map((f) => ({
-      name: f.properties.variant ?? '',
+      id: f.properties.segmentId,
+      role: f.properties.role,
+      name: f.properties.name ?? '',
       note: f.properties.note ?? '',
       // Read back as one leg: the trail it followed is already in the file, and
       // an author re-editing an old line redraws it rather than un-clicking it.

@@ -1,81 +1,83 @@
 import { describe, it, expect } from 'vitest';
 import {
-  newVariant, variantCoords, undoLeg, toFeatures, fromFeatures,
-  type Variant
+  newSegment, segmentCoords, undoLeg, flipSegment, toFeatures, fromFeatures
 } from './state';
-import type { Point } from '../map/snap';
 
-const A: Point = [18.400, -34.000];
-const B: Point = [18.410, -34.000];
-const C: Point = [18.420, -34.000];
+const ROUTE = 'a--b--pimple';
+const legs = (pts: [number, number][]) =>
+  pts.map((p, i) => ({ at: p, coords: i === 0 ? [p] : [pts[i - 1], p] }));
 
-const drawnVariant = (): Variant => ({
-  name: 'Right Hand',
-  note: 'The 1952 line.',
-  legs: [
-    { at: A, coords: [A] },
-    { at: B, coords: [A, B] },
-    { at: C, coords: [B, C] }
-  ]
-});
-
-describe('variantCoords', () => {
-  it('joins the legs into one line without repeating the shared point', () => {
-    expect(variantCoords(drawnVariant())).toEqual([A, B, C]);
-  });
-
-  it('is empty for a variant nothing has been clicked into yet', () => {
-    expect(variantCoords(newVariant())).toEqual([]);
+describe('newSegment', () => {
+  it('carries its role and no id until it is saved', () => {
+    const s = newSegment('approach');
+    expect(s.role).toBe('approach');
+    expect(s.id).toBe('');
+    expect(s.legs).toEqual([]);
   });
 });
 
-describe('undoLeg', () => {
-  it('takes back the last click and the trail it added', () => {
-    expect(variantCoords(undoLeg(drawnVariant()))).toEqual([A, B]);
+describe('flipSegment', () => {
+  it('reverses the drawn line as one leg', () => {
+    const s = { ...newSegment('main'), legs: legs([[18.4, -33.96], [18.41, -33.96], [18.42, -33.96]]) };
+    expect(segmentCoords(flipSegment(s))).toEqual(
+      [...segmentCoords(s)].reverse()
+    );
   });
 
-  it('does nothing to an empty variant, rather than throwing', () => {
-    expect(undoLeg(newVariant()).legs).toEqual([]);
+  it('leaves an empty segment alone', () => {
+    expect(flipSegment(newSegment('exit')).legs).toEqual([]);
+  });
+
+  it('is its own inverse', () => {
+    const s = { ...newSegment('main'), legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    expect(segmentCoords(flipSegment(flipSegment(s)))).toEqual(segmentCoords(s));
   });
 });
 
 describe('toFeatures', () => {
-  it('writes one feature per variant, carrying its name and note', () => {
-    const second = { ...drawnVariant(), name: 'Left Hand' };
-    const [feature] = toFeatures('area--x', [drawnVariant(), second], '2026-08-17');
-    expect(feature.geometry.coordinates).toEqual([A, B, C]);
-    expect(feature.properties).toEqual({
-      routeId: 'area--x', variant: 'Right Hand', note: 'The 1952 line.', drawn: '2026-08-17'
-    });
+  it('writes role and a generated id', () => {
+    const s = { ...newSegment('approach', 'via Kasteelspoort'),
+                legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    const [f] = toFeatures(ROUTE, [s], '2026-08-21');
+    expect(f.properties.role).toBe('approach');
+    expect(f.properties.segmentId).toBe(`${ROUTE}/approach/via-kasteelspoort`);
+    expect(f.properties.name).toBe('via Kasteelspoort');
   });
 
-  it('omits a variant with fewer than two points, which is not a line', () => {
-    const barely = { ...newVariant(), legs: [{ at: A, coords: [A] }] };
-    expect(toFeatures('area--x', [barely], '2026-08-17')).toEqual([]);
+  it('keeps an id a segment already has, so it never moves', () => {
+    const s = { ...newSegment('main'), id: `${ROUTE}/main/original`,
+                name: 'renamed since',
+                legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    expect(toFeatures(ROUTE, [s], '2026-08-21')[0].properties.segmentId)
+      .toBe(`${ROUTE}/main/original`);
   });
 
-  it('leaves name and note off a single unnamed variant', () => {
-    // One line needs no label, and an empty string in the file would render as
-    // a blank chip in the panel.
-    const only = { ...newVariant(), legs: drawnVariant().legs };
-    const [feature] = toFeatures('area--x', [only], '2026-08-17');
-    expect(feature.properties.variant).toBeUndefined();
-    expect(feature.properties.note).toBeUndefined();
+  it('drops a segment with fewer than two points', () => {
+    expect(toFeatures(ROUTE, [newSegment('main')], '2026-08-21')).toEqual([]);
+  });
+
+  it('writes a name even for a lone segment, unlike the old variant rule', () => {
+    // A single main still names itself, because the reader's picker shows it
+    // and a nameless row cannot be talked about.
+    const s = { ...newSegment('main', 'Spring Buttress B'),
+                legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    expect(toFeatures(ROUTE, [s], '2026-08-21')[0].properties.name).toBe('Spring Buttress B');
   });
 });
 
 describe('fromFeatures', () => {
-  it('reads a saved route back for editing, keeping its variants', () => {
-    const second = { ...drawnVariant(), name: 'Left Hand' };
-    const features = toFeatures('area--x', [drawnVariant(), second], '2026-08-17');
-    const [variant] = fromFeatures('area--x', features);
-    expect(variant.name).toBe('Right Hand');
-    expect(variant.note).toBe('The 1952 line.');
-    expect(variantCoords(variant)).toEqual([A, B, C]);
+  it('round-trips role, id, name and note', () => {
+    const s = { ...newSegment('exit', 'via Diagonal'), note: 'shady after 3',
+                legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    const [back] = fromFeatures(ROUTE, toFeatures(ROUTE, [s], '2026-08-21'));
+    expect(back.role).toBe('exit');
+    expect(back.name).toBe('via Diagonal');
+    expect(back.note).toBe('shady after 3');
+    expect(back.id).toBe(`${ROUTE}/exit/via-diagonal`);
   });
 
-  it('ignores features belonging to other routes', () => {
-    const features = toFeatures('area--other', [drawnVariant()], '2026-08-17');
-    expect(fromFeatures('area--x', features)).toEqual([]);
+  it('ignores another route entirely', () => {
+    const s = { ...newSegment('main'), legs: legs([[18.4, -33.96], [18.41, -33.96]]) };
+    expect(fromFeatures('other--r--x', toFeatures(ROUTE, [s], '2026-08-21'))).toEqual([]);
   });
 });

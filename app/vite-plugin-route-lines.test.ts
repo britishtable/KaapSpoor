@@ -5,7 +5,10 @@ import { fromFeatures, toFeatures, type RouteLineFeature } from './src/lib/draw/
 const feature = (routeId: string, variant?: string): RouteLineFeature => ({
   type: 'Feature',
   geometry: { type: 'LineString', coordinates: [[18.4, -34.0], [18.41, -34.0]] },
-  properties: { routeId, drawn: '2026-08-17', ...(variant ? { variant } : {}) }
+  properties: {
+    routeId, segmentId: `${routeId}/main/${variant ?? 'x'}`, role: 'main', drawn: '2026-08-17',
+    ...(variant ? { name: variant } : {})
+  }
 });
 
 describe('saveRouteLines', () => {
@@ -19,7 +22,7 @@ describe('saveRouteLines', () => {
     // otherwise redrawing leaves the old shape behind for ever.
     const existing = [feature('area--x', 'Old A'), feature('area--x', 'Old B')];
     const out = saveRouteLines(existing, [feature('area--x', 'New')], 'area--x');
-    expect(out.map((f) => f.properties.variant)).toEqual(['New']);
+    expect(out.map((f) => f.properties.name)).toEqual(['New']);
   });
 
   it('leaves other routes untouched', () => {
@@ -43,7 +46,7 @@ describe('elevate', () => {
   const flat = (): RouteLineFeature => ({
     type: 'Feature',
     geometry: { type: 'LineString', coordinates: [[18.4, -34.0], [18.41, -34.0]] },
-    properties: { routeId: 'area--x', drawn: '2026-08-17' }
+    properties: { routeId: 'area--x', segmentId: 'area--x/main/x', role: 'main', drawn: '2026-08-17' }
   });
 
   const dem = { sample: (lon: number) => (lon < 18.405 ? 100 : 250) };
@@ -118,7 +121,7 @@ describe('elevate', () => {
           [18.42, -34.0, 200]
         ]
       },
-      properties: { routeId, drawn: '2026-08-01' }
+      properties: { routeId, segmentId: `${routeId}/main/x`, role: 'main', drawn: '2026-08-01' }
     };
     const existing = [saved];
 
