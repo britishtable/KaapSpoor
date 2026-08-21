@@ -129,6 +129,10 @@ Exit       [ via Diagonal Path   ▾ ]  2.4 km   ↓ 460 m
 ```
 
 - Header totals and the profile recompute on every change.
+- **Main is the choice that drives the other two** — changing it re-filters the approach and exit
+  options to those that connect. The rows nonetheless read top-to-bottom in *walking* order, so
+  they line up with the profile beneath, which runs left-to-right in walking order regardless.
+  A setting to reorder the rows main-first is possible later and is not built now.
 - The **reverse** toggle relabels the rows Start / Main / Finish, walks the exit line first, and
   swaps ascent for descent. The data keeps its canonical labels; only the presentation flips.
 - The chosen plan is encoded in the URL (`?a=…&m=…&x=…&rev=1`) so it survives a reload and can be
