@@ -97,9 +97,15 @@ Consequences:
 
 ## Derived numbers
 
-- `profile.ts` gains `totalDescentM`, mirroring `totalAscentM` and its `ASCENT_THRESHOLD_M`. The
-  reverse toggle needs it and today only ascent exists. Asserted as a property:
-  `totalAscentM(reverse(c)) === totalDescentM(c)`.
+- `profile.ts` gains `totalDescentM`, **defined as `totalAscentM` of the reversed coordinates** —
+  not as a mirrored loop. `ASCENT_THRESHOLD_M` gives the algorithm hysteresis, which makes it
+  direction-dependent: a hand-mirrored descent loop disagrees with walking the line backwards on
+  roughly a third of profiles (measured: 67,743 of 200,000 random sequences; the shortest
+  counterexample found was heights `[44, 22, 17, 22, 55, 52, 25]`, mirrored descent 52 against
+  ascent-of-reverse 54). Since the reverse toggle shows the reader the *same line walked the other
+  way*, descent must be exactly what ascent would report on that walk, or flipping the toggle
+  twice would not return the numbers it started with. Defining it by reversal makes that
+  self-consistency structural rather than something a test has to hope for.
 - **Plan assembly** concatenates the chosen segments in plan order, dropping exactly one
   coordinate at each junction, and runs the existing `cumulativeDistanceM`. The profile machinery
   needs no other change.
@@ -186,7 +192,9 @@ main / exit whenever the author next opens them. **No re-draw pass gates this fe
 
 Every item below is pure and headless — no DEM, no WebGL:
 
-- `profile.ts`: descent, and the reverse-symmetry property.
+- `profile.ts`: descent, including the round-trip identity that motivates its definition —
+  reversing twice returns the original ascent and descent — and a case asserting a mirrored loop
+  would have got wrong.
 - Junction equality, and the 25 m gap-validation tolerance.
 - `transform.ts`: default-plan stats replacing longest-variant stats.
 - Plan assembly: concatenation drops exactly one coordinate per junction; reversal swaps ascent
