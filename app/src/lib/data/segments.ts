@@ -5,6 +5,8 @@
  * the editor can name a segment without importing the profile machinery.
  */
 
+import { slugify } from './ids';
+
 export type SegmentRole = 'approach' | 'main' | 'exit';
 
 /** Walking order, which is also the order the route page stacks its rows. */
@@ -12,14 +14,6 @@ export const ROLES: readonly SegmentRole[] = ['approach', 'main', 'exit'];
 
 export function isRole(x: unknown): x is SegmentRole {
   return typeof x === 'string' && (ROLES as readonly string[]).includes(x);
-}
-
-/** Lowercase, hyphenated, with runs of punctuation collapsed to one hyphen. */
-export function slugPart(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }
 
 /**
@@ -39,7 +33,7 @@ export function makeSegmentId(
   name: string,
   taken: ReadonlySet<string>
 ): string {
-  const leaf = slugPart(name) || role;
+  const leaf = slugify(name) || role;
   const base = `${routeId}/${role}/${leaf}`;
   if (!taken.has(base)) return base;
   for (let n = 2; ; n++) {

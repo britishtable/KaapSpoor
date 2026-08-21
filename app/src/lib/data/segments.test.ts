@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ROLES, isRole, slugPart, makeSegmentId } from './segments';
+import { ROLES, isRole, makeSegmentId } from './segments';
 
 const ROUTE = 'table-mountain--atlantic-west--pimple-traverse';
 
@@ -15,20 +15,8 @@ describe('roles', () => {
   });
 });
 
-describe('slugPart', () => {
-  it('lowercases and hyphenates', () => {
-    expect(slugPart('via Kasteelspoort')).toBe('via-kasteelspoort');
-  });
-
-  it('collapses runs of punctuation rather than leaving empty pieces', () => {
-    expect(slugPart("Spring Buttress 'B' — direct")).toBe('spring-buttress-b-direct');
-  });
-
-  it('is empty for a name with nothing sluggable in it', () => {
-    expect(slugPart('  —  ')).toBe('');
-  });
-});
-
+// slugging a name is `slugify` from ./ids (see ids.test.ts) -- makeSegmentId
+// just applies it to a segment name and qualifies the result by routeId/role.
 describe('makeSegmentId', () => {
   it('qualifies by the full routeId, because route slugs repeat', () => {
     // data/routes.json carries two distinct routes both slugged `klipspringer`.
