@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cumulativeDistanceM, totalDistanceM, totalAscentM, profilePoints, pointAtDistance,
+  totalDescentM, reverseCoords,
   ASCENT_THRESHOLD_M, type Point3
 } from './profile';
 
@@ -135,5 +136,39 @@ describe('pointAtDistance', () => {
   it('clamps past either end rather than returning undefined', () => {
     expect(pointAtDistance(flat, -50)).toEqual([18.4, -34.0]);
     expect(pointAtDistance(flat, 10_000)).toEqual([18.402, -34.0]);
+  });
+});
+
+const at = (heights: number[]): Point3[] =>
+  heights.map((h, i) => [18.4 + i * 0.001, -33.96, h] as Point3);
+
+describe('totalDescentM', () => {
+  it('is the ascent of the same line walked backwards', () => {
+    const coords = at([0, 100]);
+    expect(totalDescentM(coords)).toBe(0);
+    expect(totalDescentM(reverseCoords(coords))).toBe(100);
+  });
+
+  it('reports null when no point carries a height', () => {
+    expect(totalDescentM([[18.4, -33.96], [18.41, -33.96]])).toBeNull();
+  });
+
+  it('survives the round trip the reverse toggle makes', () => {
+    // Flipping twice must return the numbers the reader started with.
+    const coords = at([44, 22, 17, 22, 55, 52, 25]);
+    const there = { up: totalAscentM(coords), down: totalDescentM(coords) };
+    const back = reverseCoords(reverseCoords(coords));
+    expect({ up: totalAscentM(back), down: totalDescentM(back) }).toEqual(there);
+  });
+
+  it('reads a reversed line as the mirror of the forward one', () => {
+    // The case that rules out a hand-mirrored descent loop: such a loop reports
+    // 52 here, while walking the line backwards ascends 54. The reverse toggle
+    // shows the reader THIS line walked the other way, so 54 is the honest
+    // number and the mirrored loop would contradict the ascent shown after the
+    // flip. See the spec's "Derived numbers".
+    const coords = at([44, 22, 17, 22, 55, 52, 25]);
+    expect(totalDescentM(coords)).toBe(totalAscentM(reverseCoords(coords)));
+    expect(totalDescentM(coords)).toBe(54);
   });
 });
