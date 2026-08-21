@@ -177,7 +177,7 @@ describe('LocatorMap route line', () => {
     }
     // The active layer stays empty here: the route page shows every variant
     // equally beside the text that explains them, with no pointer emphasis.
-    expect(filtered[3].args[1]).toEqual(['in', ['get', 'variant'], ['literal', []]]);
+    expect(filtered[3].args[1]).toEqual(['in', ['get', 'segmentId'], ['literal', []]]);
     vi.unstubAllGlobals();
   });
 

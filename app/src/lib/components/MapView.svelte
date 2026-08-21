@@ -18,7 +18,7 @@
     buildStyle, SHIPPED_BASEMAP, pathNameFilter, NAMED_PATH_LAYER, type Basemap
   } from '$lib/map/style';
   import {
-    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds,
+    ROUTE_LINE_SOURCE, routeLineFilter, activeSegmentFilter, lineBounds,
     ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
   import type { FeatureCollection, LineString, MultiLineString } from 'geojson';
@@ -393,13 +393,13 @@
         map.setFilter('route-line-casing', routeLineFilter(selectedId));
         map.setFilter('route-line', routeLineFilter(selectedId));
         map.setFilter('route-line-arrows', routeLineFilter(selectedId));
-        map.setFilter('route-line-active', activeVariantFilter(selectedId, $selection.hoveredVariant));
+        map.setFilter('route-line-active', activeSegmentFilter($selection.planSegmentIds));
       });
     } else {
       map.setFilter('route-line-casing', routeLineFilter(null));
       map.setFilter('route-line', routeLineFilter(null));
       map.setFilter('route-line-arrows', routeLineFilter(null));
-      map.setFilter('route-line-active', activeVariantFilter(null, null));
+      map.setFilter('route-line-active', activeSegmentFilter([]));
     }
     const approxRadius =
       target?.coordsSource === 'area-approx' && target.coordsAccuracyM

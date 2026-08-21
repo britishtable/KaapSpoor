@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ROUTE_LINE_SOURCE, routeLineFilter, routeLinePaint, lineBounds,
-  activeVariantFilter, routeLineActivePaint,
+  activeSegmentFilter, routeLineActivePaint,
   ARROW_IMAGE, arrowImage, routeArrowLayout
 } from './route-lines';
 import { PIN_COLOR_DONE, PIN_COLOR_TODO } from './pins';
@@ -50,20 +50,28 @@ describe('route lines', () => {
   });
 });
 
-describe('variants', () => {
-  it('matches nothing when no variant is being pointed at', () => {
-    expect(activeVariantFilter('a--b--c', null)).toEqual([
-      'in', ['get', 'variant'], ['literal', []]
-    ]);
+describe('activeSegmentFilter', () => {
+  it('matches exactly the segments in the plan', () => {
+    expect(activeSegmentFilter(['a', 'b'])).toEqual(
+      ['in', ['get', 'segmentId'], ['literal', ['a', 'b']]]
+    );
   });
 
-  it('matches one route AND one variant, never a namesake on another route', () => {
-    // 'Right Hand' is a name several entries will use.
-    expect(activeVariantFilter('a--b--c', 'Right Hand')).toEqual([
-      'all',
-      ['in', ['get', 'routeId'], ['literal', ['a--b--c']]],
-      ['in', ['get', 'variant'], ['literal', ['Right Hand']]]
-    ]);
+  it('matches nothing for an empty plan, which is how "no selection" is said', () => {
+    expect(activeSegmentFilter([])).toEqual(
+      ['in', ['get', 'segmentId'], ['literal', []]]
+    );
+  });
+
+  it('cannot light a line on another route, unlike the variant filter it replaces', () => {
+    // The old filter had to pair routeId WITH a variant name, because variant
+    // names repeated across entries — several routes had a "Right Hand" — and
+    // matching the name alone lit a line on another mountain. A segment id is
+    // qualified by its routeId, so one term is enough and cross-route
+    // collisions are impossible by construction.
+    const filter = activeSegmentFilter(['a--b--c/main/main']) as unknown[];
+    expect(filter[1]).toEqual(['get', 'segmentId']);
+    expect(JSON.stringify(filter)).not.toContain('routeId');
   });
 
   it('sits an unemphasised variant back, so the one being read stands out', () => {

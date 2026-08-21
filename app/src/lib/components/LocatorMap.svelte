@@ -14,7 +14,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { buildStyle, SHIPPED_BASEMAP } from '$lib/map/style';
   import {
-    ROUTE_LINE_SOURCE, routeLineFilter, activeVariantFilter, lineBounds,
+    ROUTE_LINE_SOURCE, routeLineFilter, activeSegmentFilter, lineBounds,
     ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
@@ -125,7 +125,7 @@
           map.setFilter('route-line', routeLineFilter(routeId));
           // The route page has no pointer-driven emphasis: every variant is
           // shown equally beside the text that explains them.
-          map.setFilter('route-line-active', activeVariantFilter(null, null));
+          map.setFilter('route-line-active', activeSegmentFilter([]));
           // Framing the line rather than the clamped centre: a locator map's
           // one job is showing where the hike goes, and now it can show all of
           // it. Which variant to frame is the caller's call (the `lineCoords`

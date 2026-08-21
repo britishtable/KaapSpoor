@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { selection, setHovered, setSelected, clearSelection, setHoveredVariant } from './selection';
+import { selection, setHovered, setSelected, clearSelection, setPlanSegments } from './selection';
 
 beforeEach(() => clearSelection());
 
 describe('selection store', () => {
   it('starts with nothing hovered or selected', () => {
-    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null, hoveredVariant: null });
+    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null, planSegmentIds: [] });
   });
   it('tracks the hovered route', () => {
     setHovered('a');
@@ -19,7 +19,7 @@ describe('selection store', () => {
   it('clears hover when a selection is made, so no stale highlight remains', () => {
     setHovered('a');
     setSelected('b');
-    expect(get(selection)).toEqual({ hoveredId: null, selectedId: 'b', hoveredVariant: null });
+    expect(get(selection)).toEqual({ hoveredId: null, selectedId: 'b', planSegmentIds: [] });
   });
   it('accepts null to clear the hover', () => {
     setHovered('a');
@@ -35,7 +35,7 @@ describe('selection store', () => {
     setSelected('b');
     setHovered('a');
     clearSelection();
-    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null, hoveredVariant: null });
+    expect(get(selection)).toEqual({ hoveredId: null, selectedId: null, planSegmentIds: [] });
   });
   it('exposes no setter, so the setters remain the only way to mutate', () => {
     expect('set' in selection).toBe(false);
@@ -43,15 +43,15 @@ describe('selection store', () => {
   });
 });
 
-describe('the variant being read', () => {
-  it('carries the variant being pointed at, and forgets it when the route changes', () => {
-    // A stale variant name would light a line on the newly selected route if
-    // the two happened to share a variant name — and "Right Hand" is a name
-    // several entries use.
-    setSelected('a--b--c');
-    setHoveredVariant('Right Hand');
-    expect(get(selection).hoveredVariant).toBe('Right Hand');
-    setSelected('a--b--other');
-    expect(get(selection).hoveredVariant).toBe(null);
+describe('plan segments', () => {
+  it('records the segments the plan lights up', () => {
+    setPlanSegments(['a', 'b']);
+    expect(get(selection).planSegmentIds).toEqual(['a', 'b']);
+  });
+
+  it('clears them when a different route is selected', () => {
+    setPlanSegments(['a']);
+    setSelected('some--other--route');
+    expect(get(selection).planSegmentIds).toEqual([]);
   });
 });

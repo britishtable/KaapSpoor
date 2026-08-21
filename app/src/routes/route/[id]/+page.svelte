@@ -12,6 +12,7 @@
   import { isRole } from '$lib/data/segments';
   import { resolvePlan, assemble, type PlanChoice, type PlanSegment } from '$lib/data/plan';
   import { encodePlan, decodePlan } from '$lib/data/plan-params';
+  import { setPlanSegments } from '$lib/map/selection';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -25,6 +26,10 @@
   // resolvePlan is the one place that decides what a legal plan is.
   let plan = $derived(resolvePlan(segments, wanted));
   let lineCoords = $derived(assemble(plan.chosen, plan.choice.reversed));
+
+  // Publish the plan's segments to the map's shared selection store, so the
+  // main map lights exactly the segments this plan is made of.
+  $effect(() => setPlanSegments(plan.chosen.map((s) => s.segmentId)));
 
   // Read straight from the address bar rather than through $app/state, and
   // written back with history.replaceState below. The page needs no router

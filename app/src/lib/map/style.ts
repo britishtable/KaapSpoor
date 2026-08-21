@@ -2,7 +2,7 @@ import type { FilterSpecification, StyleSpecification } from 'maplibre-gl';
 import { SHIPPED_REGION } from './region';
 import {
   routeLineFilter, routeLinePaint, routeLineCasingPaint,
-  activeVariantFilter, routeLineActivePaint,
+  activeSegmentFilter, routeLineActivePaint,
   routeArrowLayout, routeArrowPaint
 } from './route-lines';
 
@@ -303,7 +303,7 @@ function selfHosted(base: string): StyleSpecification {
         id: 'route-line-active',
         type: 'line',
         source: 'route-lines',
-        filter: activeVariantFilter(null, null),
+        filter: activeSegmentFilter([]),
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: routeLineActivePaint()
       },

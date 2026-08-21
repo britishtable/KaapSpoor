@@ -3,11 +3,11 @@ import { writable, type Readable } from 'svelte/store';
 export interface SelectionState {
   hoveredId: string | null;
   selectedId: string | null;
-  /** The variant name the reader is pointing at in the panel, if any. */
-  hoveredVariant: string | null;
+  /** The segment ids of the plan the reader is looking at, if any. */
+  planSegmentIds: string[];
 }
 
-const EMPTY: SelectionState = { hoveredId: null, selectedId: null, hoveredVariant: null };
+const EMPTY: SelectionState = { hoveredId: null, selectedId: null, planSegmentIds: [] };
 
 // Private writable; only the setters below may mutate it.
 const state = writable<SelectionState>({ ...EMPTY });
@@ -22,14 +22,14 @@ export function setHovered(id: string | null): void {
 }
 
 export function setSelected(id: string | null): void {
-  // Clearing hover avoids two highlights surviving a click; clearing the
-  // variant avoids a name from the previous route lighting a line on this one,
-  // since variant names repeat across entries.
-  state.set({ hoveredId: null, selectedId: id, hoveredVariant: null });
+  // Clearing hover avoids two highlights surviving a click; clearing the plan
+  // segments avoids a plan from the previous route lighting a line on this
+  // one.
+  state.set({ hoveredId: null, selectedId: id, planSegmentIds: [] });
 }
 
-export function setHoveredVariant(name: string | null): void {
-  state.update((s) => ({ ...s, hoveredVariant: name }));
+export function setPlanSegments(ids: string[]): void {
+  state.update((s) => ({ ...s, planSegmentIds: ids }));
 }
 
 export function clearSelection(): void {

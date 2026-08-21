@@ -39,20 +39,15 @@ export function routeLinePaint(): NonNullable<LineLayerSpecification['paint']> {
 }
 
 /**
- * Match one route AND one variant. Both halves matter: variant names repeat
- * across entries — several routes have a "Right Hand" — so filtering on the
- * name alone would light a line on another mountain.
+ * Match the segments the reader's plan is made of.
+ *
+ * A segment id already carries its routeId, so unlike the variant filter this
+ * replaced there is nothing to pair it with: variant names repeated across
+ * entries — several routes had a "Right Hand" — and matching on the name alone
+ * lit a line on another mountain. Ids cannot do that.
  */
-export function activeVariantFilter(
-  routeId: string | null,
-  variant: string | null
-): FilterSpecification {
-  if (!routeId || !variant) return ['in', ['get', 'variant'], ['literal', []]];
-  return [
-    'all',
-    ['in', ['get', 'routeId'], ['literal', [routeId]]],
-    ['in', ['get', 'variant'], ['literal', [variant]]]
-  ];
+export function activeSegmentFilter(segmentIds: string[]): FilterSpecification {
+  return ['in', ['get', 'segmentId'], ['literal', segmentIds]];
 }
 
 /** The variant the reader is pointing at: same colour, fully present. */
