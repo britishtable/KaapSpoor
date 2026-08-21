@@ -57,6 +57,6 @@ const FILE = resolve(here, '../../data/route-lines.geojson');
 if (process.argv[1] && process.argv[1].endsWith('migrate-segments.ts')) {
   const collection = JSON.parse(readFileSync(FILE, 'utf-8'));
   const features = migrateFeatures(collection.features);
-  writeFileSync(FILE, JSON.stringify({ ...collection, features }));
+  writeFileSync(FILE, JSON.stringify({ type: 'FeatureCollection', features }, null, 1) + '\n');
   console.log(`Migrated ${features.length} features.`);
 }
