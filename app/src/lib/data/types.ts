@@ -93,8 +93,6 @@ export interface RouteSegmentMeta {
 export interface RouteLineStats {
   distanceM: number;
   ascentM: number | null;
-  /** Null when the line carries no heights, exactly as ascentM is. */
-  descentM: number | null;
 }
 
 export interface RouteContent extends RouteIndexEntry {

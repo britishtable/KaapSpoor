@@ -1,6 +1,16 @@
 <script lang="ts">
   import type { RouteContent } from '../data/types';
-  let { route }: { route: RouteContent } = $props();
+  /**
+   * `hasPlan` is true once the route page has resolved a real plan (a chosen
+   * main). RoutePlan then owns the drawn-line figures — distance and ascent —
+   * because those change with the reader's pick and RoutePlan's header is
+   * what stays in sync with the pick. Printing them here too, from the
+   * DEFAULT plan's `route.lineStats`, is what let this strip and RoutePlan's
+   * header show two different numbers side by side after any pick or a
+   * reverse (final review, I5). An undrawn route has no plan and behaves
+   * exactly as before: this strip is the only place its figures appear.
+   */
+  let { route, hasPlan = false }: { route: RouteContent; hasPlan?: boolean } = $props();
 </script>
 
 <dl class="stats">
@@ -9,7 +19,7 @@
   {/if}
   {#if route.time}<div><dt>Time</dt><dd>{route.time}</dd></div>{/if}
   {#if route.heightGain}<div><dt>Height gain</dt><dd>{route.heightGain}</dd></div>{/if}
-  {#if route.lineStats}
+  {#if route.lineStats && !hasPlan}
     <div><dt>Distance</dt><dd>{(route.lineStats.distanceM / 1000).toFixed(1)} km</dd></div>
     {#if route.lineStats.ascentM !== null}
       <!-- "≈" because the DEM is 30 m and the line follows simplified tile
