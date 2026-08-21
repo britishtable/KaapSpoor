@@ -39,3 +39,36 @@ describe('merge', () => {
     expect(merge(current, [e('r3')], 'replace')).toEqual([e('r3')]);
   });
 });
+
+const withPlan = {
+  routeId: 'a--b--c', done: true, date: '2026-07-02', notes: '',
+  plan: { approach: 'a--b--c/approach/k', main: 'a--b--c/main/main', reversed: false }
+};
+
+describe('journal plans', () => {
+  it('round-trips a plan through export and import', () => {
+    expect(parse(serialize([withPlan]))[0].plan).toEqual(withPlan.plan);
+  });
+
+  it('accepts an entry with no plan, which is every entry written before today', () => {
+    const legacy = { routeId: 'a--b--c', done: true, date: null, notes: 'x' };
+    const [out] = parse(serialize([legacy]));
+    expect(out.plan).toBeUndefined();
+    expect(out.done).toBe(true);
+  });
+
+  it('rejects a plan that is not shaped like one', () => {
+    const bad = JSON.stringify({
+      version: 1, exportedAt: '', entries: [{ ...withPlan, plan: { reversed: 'yes' } }]
+    });
+    expect(() => parse(bad)).toThrow(/malformed/);
+  });
+
+  it('strips junk fields from inside the plan', () => {
+    const junk = JSON.stringify({
+      version: 1, exportedAt: '',
+      entries: [{ ...withPlan, plan: { ...withPlan.plan, sneaky: 1 } }]
+    });
+    expect(parse(junk)[0].plan).toEqual(withPlan.plan);
+  });
+});

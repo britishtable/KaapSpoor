@@ -135,7 +135,13 @@
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
 
-  <JournalControls routeId={r.id} />
+  <JournalControls routeId={r.id}
+    plan={{
+      approach: plan.choice.approach ?? undefined,
+      main: plan.choice.main ?? undefined,
+      exit: plan.choice.exit ?? undefined,
+      reversed: plan.choice.reversed
+    }} />
 
   <p class="src">
     {#if r.photoCount}{r.photoCount} photos on the source page (not yet imported). {/if}

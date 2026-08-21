@@ -1,16 +1,23 @@
 <script lang="ts">
-  import { journal, setEntry, toggleDone } from '../journal/store';
-  import type { JournalEntry } from '../data/types';
-  let { routeId }: { routeId: string } = $props();
+  import { journal, setEntry } from '../journal/store';
+  import type { JournalEntry, JournalPlan } from '../data/types';
+  let { routeId, plan }: { routeId: string; plan?: JournalPlan } = $props();
   let entry = $derived<JournalEntry>(
-    $journal.get(routeId) ?? { routeId, done: false, date: null, notes: '' }
+    $journal.get(routeId) ?? { routeId, done: false, date: null, notes: '', ...(plan ? { plan } : {}) }
   );
+
+  // Toggling here rather than through the store's toggleDone keeps the plan
+  // this route was resolved to attached to the entry it writes — toggleDone
+  // only knows a routeId, not which plan the reader is currently looking at.
+  function toggle(): void {
+    void setEntry({ ...entry, done: !entry.done });
+  }
 </script>
 
 <fieldset class="journal">
   <legend>Journal</legend>
   <label>
-    <input type="checkbox" checked={entry.done} onchange={() => toggleDone(routeId)} aria-label="Mark done" />
+    <input type="checkbox" checked={entry.done} onchange={toggle} aria-label="Mark done" />
     Done
   </label>
   <label>Date

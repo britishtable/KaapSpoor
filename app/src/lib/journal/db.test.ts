@@ -23,4 +23,13 @@ describe('journal db', () => {
     await clearEntries();
     expect(await getAllEntries()).toEqual([]);
   });
+
+  it('stores and returns an entry carrying a plan', async () => {
+    await putEntry({
+      routeId: 'a--b--c', done: true, date: null, notes: '',
+      plan: { main: 'a--b--c/main/main', reversed: true }
+    });
+    const [entry] = await getAllEntries();
+    expect(entry.plan?.reversed).toBe(true);
+  });
 });

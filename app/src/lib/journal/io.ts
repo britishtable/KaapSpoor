@@ -1,4 +1,4 @@
-import type { JournalEntry } from '../data/types';
+import type { JournalEntry, JournalPlan } from '../data/types';
 
 export interface JournalExport {
   version: 1;
@@ -11,6 +11,16 @@ export function serialize(entries: JournalEntry[]): string {
   return JSON.stringify(payload, null, 2);
 }
 
+function isPlan(x: unknown): x is JournalPlan {
+  if (typeof x !== 'object' || x === null) return false;
+  const p = x as Record<string, unknown>;
+  const optionalId = (v: unknown) => v === undefined || typeof v === 'string';
+  return (
+    typeof p.reversed === 'boolean' &&
+    optionalId(p.approach) && optionalId(p.main) && optionalId(p.exit)
+  );
+}
+
 function isEntry(x: unknown): x is JournalEntry {
   if (typeof x !== 'object' || x === null) return false;
   const e = x as Record<string, unknown>;
@@ -18,7 +28,8 @@ function isEntry(x: unknown): x is JournalEntry {
     typeof e.routeId === 'string' &&
     typeof e.done === 'boolean' &&
     (e.date === null || typeof e.date === 'string') &&
-    typeof e.notes === 'string'
+    typeof e.notes === 'string' &&
+    (e.plan === undefined || isPlan(e.plan))
   );
 }
 
@@ -41,9 +52,21 @@ export function parse(json: string): JournalEntry[] {
   }
   // Normalize to exactly the JournalEntry shape so junk fields from a
   // hand-edited or foreign file never reach IndexedDB.
-  return (obj.entries as JournalEntry[]).map((e) => ({
-    routeId: e.routeId, done: e.done, date: e.date, notes: e.notes
-  }));
+  return (obj.entries as JournalEntry[]).map((e) => {
+    const entry: JournalEntry = {
+      routeId: e.routeId, done: e.done, date: e.date, notes: e.notes
+    };
+    // Rebuilt field by field for the same reason the entry is: a hand-edited
+    // file must not smuggle extra keys into IndexedDB.
+    if (e.plan) {
+      const plan: JournalPlan = { reversed: e.plan.reversed };
+      if (e.plan.approach) plan.approach = e.plan.approach;
+      if (e.plan.main) plan.main = e.plan.main;
+      if (e.plan.exit) plan.exit = e.plan.exit;
+      entry.plan = plan;
+    }
+    return entry;
+  });
 }
 
 export function merge(

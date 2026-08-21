@@ -114,9 +114,24 @@ export interface RouteContent extends RouteIndexEntry {
   lineStats: RouteLineStats | null;
 }
 
+/**
+ * The walk actually taken, by segment id.
+ *
+ * Optional, and absent on every entry written before segments existed — which
+ * is why `done` stays keyed on routeId rather than on a plan. A tick with no
+ * plan is a legacy or unrecorded one, and stays valid forever.
+ */
+export interface JournalPlan {
+  approach?: string;
+  main?: string;
+  exit?: string;
+  reversed: boolean;
+}
+
 export interface JournalEntry {
   routeId: string;
   done: boolean;
   date: string | null;
   notes: string;
+  plan?: JournalPlan;
 }

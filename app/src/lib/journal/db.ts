@@ -12,7 +12,10 @@ let dbPromise: Promise<IDBPDatabase<KaapSpoorDB>> | null = null;
 
 function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<KaapSpoorDB>(DB_NAME, 1, {
+    dbPromise = openDB<KaapSpoorDB>(DB_NAME, 2, {
+      // v2 added the optional `plan` field. Nothing to migrate: IndexedDB
+      // stores whole objects and `journal` is keyed on routeId either way,
+      // so a v1 entry is already a valid v2 entry.
       upgrade(database) {
         if (!database.objectStoreNames.contains(STORE)) {
           database.createObjectStore(STORE, { keyPath: 'routeId' });
