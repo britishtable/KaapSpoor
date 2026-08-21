@@ -1,3 +1,5 @@
+import type { SegmentRole } from './segments';
+
 export interface Coords { lat: number; lon: number; zoom: number; }
 
 /**
@@ -56,8 +58,9 @@ export interface RouteIndexEntry {
    */
   mentionedPaths: string[];
   /**
-   * True when the author has drawn this route's line. The geometry itself
-   * lives in one static file the map fetches once — see
+   * True when the author has drawn this route's MAIN line. Approach and exit
+   * segments without a main are not a route. The geometry itself lives in one
+   * static file the map fetches once — see
    * docs/superpowers/specs/2026-08-17-drawn-route-lines-design.md.
    */
   hasLine: boolean;
@@ -68,9 +71,18 @@ export interface RouteIndexEntry {
   isFullEntry: boolean;
 }
 
-/** One drawn line of a route: an alternative, with a caption saying what it is. */
-export interface RouteLine {
-  variant: string | null;
+/**
+ * One drawn segment of a route, without its geometry.
+ *
+ * The coordinates stay in the single static route-lines.geojson the map and
+ * the route page each fetch once; carrying them here would put a few hundred
+ * positions into every per-route JSON.
+ */
+export interface RouteSegmentMeta {
+  segmentId: string;
+  role: SegmentRole;
+  /** The picker label. Null when the role holds only one option. */
+  name: string | null;
   note: string | null;
 }
 
@@ -81,6 +93,8 @@ export interface RouteLine {
 export interface RouteLineStats {
   distanceM: number;
   ascentM: number | null;
+  /** Null when the line carries no heights, exactly as ascentM is. */
+  descentM: number | null;
 }
 
 export interface RouteContent extends RouteIndexEntry {
@@ -90,9 +104,13 @@ export interface RouteContent extends RouteIndexEntry {
   attachments: string[];
   photoCount: number;
   sourceUrl: string;
-  /** Empty when nothing is drawn. One entry per variant, in file order. */
-  lines: RouteLine[];
-  /** Null when nothing is drawn. The longest variant, since a reader walks one. */
+  /** Empty when nothing is drawn. Every segment, in file order. */
+  segments: RouteSegmentMeta[];
+  /**
+   * The DEFAULT PLAN's numbers — first main, plus the first approach and exit
+   * that connect to it. Null when the route has no main. Was "the longest
+   * variant"; a reader walks a day, not a line.
+   */
   lineStats: RouteLineStats | null;
 }
 

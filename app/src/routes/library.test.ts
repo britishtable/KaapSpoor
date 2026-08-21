@@ -50,7 +50,7 @@ describe('library page selection', () => {
     description: 'Overview:\nA long walk up a big hill.',
     related: [], attachments: [], photoCount: 0,
     sourceUrl: 'https://example.invalid/route',
-    lines: [],
+    segments: [],
     lineStats: null
   };
 

@@ -5,7 +5,6 @@
   import StatsStrip from './StatsStrip.svelte';
   import ProvenanceNote from './ProvenanceNote.svelte';
   import MentionedPaths from './MentionedPaths.svelte';
-  import RouteVariants from './RouteVariants.svelte';
 
   let { routeId, onclose }: { routeId: string; onclose?: () => void } = $props();
 
@@ -68,8 +67,6 @@
            figure and reads as part of that field rather than as a statement
            about the position. Found by looking at it, not by a test. -->
       <div class="provenance"><ProvenanceNote route={r} /></div>
-
-      <RouteVariants lines={r.lines} />
 
       <MentionedPaths names={r.mentionedPaths} />
 

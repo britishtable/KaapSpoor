@@ -9,8 +9,8 @@
    *
    * Inline SVG rather than a charting library: one path, two axes and a marker
    * do not justify a dependency, and this way the colours are the map's own
-   * (the same terracotta accent as RouteVariants and the route pins, the same
-   * ink as the line-icon halo).
+   * (the same terracotta accent as the route pins, the same ink as the
+   * line-icon halo).
    */
   import { profilePoints, totalAscentM, totalDistanceM, type Point3 } from '$lib/map/profile';
 

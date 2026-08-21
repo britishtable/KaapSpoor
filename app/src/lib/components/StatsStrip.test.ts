@@ -13,7 +13,7 @@ const base: RouteContent = {
   description: 'Overview:\nA long walk up a big hill.',
   related: [], attachments: [], photoCount: 0,
   sourceUrl: 'https://example.invalid/route',
-  lines: [],
+  segments: [],
   mentionedPaths: [],
   hasLine: false,
   lineStats: null
@@ -23,7 +23,7 @@ describe('StatsStrip', () => {
   it('states the drawn distance and marks the ascent as an estimate', () => {
     // "≈" is not decoration. The DEM is 30 m and the line follows simplified
     // tile geometry, so a bare "520 m" would claim a precision neither has.
-    render(StatsStrip, { route: { ...base, lineStats: { distanceM: 2400, ascentM: 520 } } });
+    render(StatsStrip, { route: { ...base, lineStats: { distanceM: 2400, ascentM: 520, descentM: 520 } } });
     expect(screen.getByText('2.4 km')).toBeTruthy();
     expect(screen.getByText('≈ 520 m')).toBeTruthy();
   });
@@ -32,14 +32,14 @@ describe('StatsStrip', () => {
     // The guide's sentence is the author's and outranks a computed number.
     render(StatsStrip, {
       route: { ...base, heightGain: '560m : from Rontree parking 170m to 730m approx',
-               lineStats: { distanceM: 2400, ascentM: 520 } }
+               lineStats: { distanceM: 2400, ascentM: 520, descentM: 520 } }
     });
     expect(screen.getByText(/560m : from Rontree parking/)).toBeTruthy();
     expect(screen.getByText('≈ 520 m')).toBeTruthy();
   });
 
   it('says nothing about ascent when the line has no heights', () => {
-    render(StatsStrip, { route: { ...base, lineStats: { distanceM: 2400, ascentM: null } } });
+    render(StatsStrip, { route: { ...base, lineStats: { distanceM: 2400, ascentM: null, descentM: null } } });
     expect(screen.getByText('2.4 km')).toBeTruthy();
     expect(screen.queryByText(/≈/)).toBeNull();
   });

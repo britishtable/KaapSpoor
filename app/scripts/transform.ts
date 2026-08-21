@@ -7,11 +7,15 @@ import { mentionedPaths, type OsmPathName } from '../src/lib/data/path-mentions'
 import type {
   RouteIndexEntry,
   RouteContent,
-  RouteLine,
   RouteLineStats,
-  RouteLocation
+  RouteLocation,
+  RouteSegmentMeta
 } from '../src/lib/data/types';
-import { totalAscentM, totalDistanceM, type Point3 } from '../src/lib/map/profile';
+import type { Point3 } from '../src/lib/map/profile';
+import { isRole } from '../src/lib/data/segments';
+import {
+  resolvePlan, assemble, planStats, gapM, JUNCTION_TOLERANCE_M, type PlanSegment
+} from '../src/lib/data/plan';
 
 interface RawRoute {
   slug: string; title: string; url: string; area: string[];
@@ -30,7 +34,13 @@ export function statValue(stats: Record<string, string>, name: string): string |
 
 export interface RouteLineFeature {
   geometry?: { type: 'LineString'; coordinates: number[][] };
-  properties: { routeId: string; variant?: string; note?: string };
+  properties: {
+    routeId: string;
+    segmentId?: string;
+    role?: string;
+    name?: string;
+    note?: string;
+  };
 }
 export interface RouteLines {
   features: RouteLineFeature[];
@@ -42,42 +52,65 @@ export function transform(
   pathNames: OsmPathName[] = [],
   lines: RouteLines = { features: [] }
 ): { index: RouteIndexEntry[]; content: RouteContent[] } {
-  // Grouped per route: an entry may carry several drawn alternatives, and the
-  // panel needs each one's name and caption. The geometry stays out of the
-  // per-route JSON — only the map fetches that.
-  const linesByRoute = new Map<string, RouteLine[]>();
-  for (const feature of lines.features) {
-    const list = linesByRoute.get(feature.properties.routeId) ?? [];
-    list.push({
-      variant: feature.properties.variant ?? null,
-      note: feature.properties.note ?? null
-    });
-    linesByRoute.set(feature.properties.routeId, list);
-  }
   // GeoJSON positions are number[] by spec; narrow each one explicitly to
   // Point3 rather than casting, since a coordinate may or may not carry the
   // elevation sampled at Save.
   const toPoint3 = (coord: number[]): Point3 =>
     coord.length >= 3 ? [coord[0], coord[1], coord[2]] : [coord[0], coord[1]];
-  // The LONGEST variant, not the sum: an entry's alternatives are options, and
-  // a reader walks one of them. Compared RAW against RAW -- rounding before
-  // comparing let two variants within a metre of each other order differently
-  // here than on the route page, which compares the fetched line's own raw
-  // totalDistanceM with no rounding at all.
-  const statsByRoute = new Map<string, RouteLineStats>();
-  const rawDistanceByRoute = new Map<string, number>();
+
+  // Every drawn segment, grouped by route, geometry included — the plan's stats
+  // need the coordinates even though only the metadata is written out.
+  const planByRoute = new Map<string, PlanSegment[]>();
   for (const feature of lines.features) {
-    const coords = (feature.geometry?.coordinates ?? []).map(toPoint3);
-    if (coords.length < 2) continue;
-    const distanceM = totalDistanceM(coords);
-    const previousRaw = rawDistanceByRoute.get(feature.properties.routeId);
-    if (previousRaw === undefined || distanceM > previousRaw) {
-      const ascent = totalAscentM(coords);
-      rawDistanceByRoute.set(feature.properties.routeId, distanceM);
-      statsByRoute.set(feature.properties.routeId, {
-        distanceM: Math.round(distanceM),
-        ascentM: ascent === null ? null : Math.round(ascent)
-      });
+    const { routeId: rid, segmentId, role, name, note } = feature.properties;
+    // A feature with no role predates the segment schema and cannot be placed;
+    // scripts/migrate-segments.mjs exists to give it one.
+    if (!segmentId || !isRole(role)) continue;
+    const list = planByRoute.get(rid) ?? [];
+    list.push({
+      segmentId, role,
+      name: name ?? null,
+      note: note ?? null,
+      coords: (feature.geometry?.coordinates ?? []).map(toPoint3)
+    });
+    planByRoute.set(rid, list);
+  }
+
+  const segmentsByRoute = new Map<string, RouteSegmentMeta[]>();
+  const statsByRoute = new Map<string, RouteLineStats>();
+  for (const [rid, segments] of planByRoute) {
+    segmentsByRoute.set(
+      rid,
+      segments.map(({ segmentId, role, name, note }) => ({ segmentId, role, name, note }))
+    );
+    const plan = resolvePlan(segments);
+    if (!plan.choice.main) continue;
+    const stats = planStats(assemble(plan.chosen));
+    statsByRoute.set(rid, {
+      distanceM: Math.round(stats.distanceM),
+      ascentM: stats.ascentM === null ? null : Math.round(stats.ascentM),
+      descentM: stats.descentM === null ? null : Math.round(stats.descentM)
+    });
+    // A near miss is almost always a segment whose neighbour was redrawn under
+    // it. Warned rather than thrown: the build must still produce a site, and
+    // the picker already refuses to OFFER an unconnected pairing, so the reader
+    // never sees a total that crosses this gap.
+    const mains = segments.filter((s) => s.role === 'main');
+    for (const main of mains) {
+      for (const s of segments) {
+        if (s.role === 'approach' && !plan.approaches.includes(s)) {
+          const d = gapM(s, main);
+          if (d <= JUNCTION_TOLERANCE_M) {
+            console.warn(`${s.segmentId} does not meet ${main.segmentId} (${d.toFixed(1)} m)`);
+          }
+        }
+        if (s.role === 'exit' && !plan.exits.includes(s)) {
+          const d = gapM(main, s);
+          if (d <= JUNCTION_TOLERANCE_M) {
+            console.warn(`${s.segmentId} does not meet ${main.segmentId} (${d.toFixed(1)} m)`);
+          }
+        }
+      }
     }
   }
   const idFor = (r: RawRoute) => routeId(r.area, r.slug);
@@ -140,7 +173,7 @@ export function transform(
       // A flag rather than the geometry: the line itself is fetched once,
       // lazily, from a single static file the first time a selection needs it
       // — so 184 index entries do not each carry a few hundred coordinates.
-      hasLine: linesByRoute.has(id),
+      hasLine: statsByRoute.has(id),
       grade: r.grade, gradeSource: r.grade_source,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
@@ -155,7 +188,7 @@ export function transform(
       related, attachments: r.attachments,
       photoCount: r.photos.deck_ids.length + r.photos.inline_urls.length,
       sourceUrl: r.url,
-      lines: linesByRoute.get(id) ?? [],
+      segments: segmentsByRoute.get(id) ?? [],
       lineStats: statsByRoute.get(id) ?? null
     });
   }

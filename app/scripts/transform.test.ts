@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { transform, statValue, type RawDataset, type RouteLines } from './transform';
-import { totalDistanceM, type Point3 } from '../src/lib/map/profile';
 
 const raw = {
   attribution: 'x', source: 'y', license: 'z', generated: 'g', areas: [],
@@ -195,55 +194,70 @@ describe('route lines', () => {
     };
   }
 
-  const line = (routeId: string, variant?: string, note?: string) => ({
-    properties: { routeId, ...(variant ? { variant } : {}), ...(note ? { note } : {}) }
+  const line = (
+    routeId: string,
+    segmentId: string,
+    role: string,
+    coords: number[][] = [[18.4, -34.0], [18.401, -34.0]],
+    name?: string,
+    note?: string
+  ) => ({
+    geometry: { type: 'LineString' as const, coordinates: coords },
+    properties: { routeId, segmentId, role, ...(name ? { name } : {}), ...(note ? { note } : {}) }
   });
 
-  it('marks a route that has a drawn line', () => {
-    const lines = { features: [line('area--with-line')] };
+  it('marks a route that has a drawn main', () => {
+    const lines = { features: [line('area--with-line', 'area--with-line/main/main', 'main')] };
     const { index } = transform(rawWith(['with-line', 'without-line']), {}, [], lines);
     expect(index.find((e) => e.id === 'area--with-line')!.hasLine).toBe(true);
     // Never absent: the panel and the map both branch on it.
     expect(index.find((e) => e.id === 'area--without-line')!.hasLine).toBe(false);
   });
 
-  it('carries each variant and its caption onto the route content', () => {
-    // The panel needs the names and notes; only the map needs the geometry, so
+  it('carries each segment and its caption onto the route content', () => {
+    // The picker needs the names and notes; only the map needs the geometry, so
     // the coordinates stay out of the per-route JSON entirely.
     const lines = {
       features: [
-        line('area--x', 'Left Hand', 'The original line.'),
-        line('area--x', 'Right Hand', 'Steeper, and what most parties climb.')
+        line(
+          'area--x', 'area--x/main/left-hand', 'main',
+          undefined, 'Left Hand', 'The original line.'
+        ),
+        line(
+          'area--x', 'area--x/approach/right-hand', 'approach',
+          undefined, 'Right Hand', 'Steeper, and what most parties climb.'
+        )
       ]
     };
     const { content } = transform(rawWith(['x']), {}, [], lines);
-    expect(content[0].lines).toEqual([
-      { variant: 'Left Hand', note: 'The original line.' },
-      { variant: 'Right Hand', note: 'Steeper, and what most parties climb.' }
+    expect(content[0].segments).toEqual([
+      { segmentId: 'area--x/main/left-hand', role: 'main', name: 'Left Hand', note: 'The original line.' },
+      { segmentId: 'area--x/approach/right-hand', role: 'approach', name: 'Right Hand', note: 'Steeper, and what most parties climb.' }
     ]);
   });
 
-  it('gives a single unnamed line an entry with no variant name', () => {
-    const { content } = transform(rawWith(['x']), {}, [], { features: [line('area--x')] });
-    expect(content[0].lines).toEqual([{ variant: null, note: null }]);
+  it('gives a single unnamed segment an entry with no name', () => {
+    const { content } = transform(rawWith(['x']), {}, [], {
+      features: [line('area--x', 'area--x/main/main', 'main')]
+    });
+    expect(content[0].segments).toEqual([
+      { segmentId: 'area--x/main/main', role: 'main', name: null, note: null }
+    ]);
   });
 
-  it('defaults to no lines when nothing has been drawn', () => {
+  it('defaults to no segments when nothing has been drawn', () => {
     const { index, content } = transform(rawWith(['x']), {}, []);
     expect(index[0].hasLine).toBe(false);
-    expect(content[0].lines).toEqual([]);
+    expect(content[0].segments).toEqual([]);
   });
 
-  it('measures a drawn line so the panel can state it without the geometry', () => {
+  it('measures a drawn main so the panel can state it without the geometry', () => {
     const lines = {
       features: [
-        {
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [[18.4, -34.0, 100], [18.401, -34.0, 200]]
-          },
-          properties: { routeId: 'area--x' }
-        }
+        line(
+          'area--x', 'area--x/main/main', 'main',
+          [[18.4, -34.0, 100], [18.401, -34.0, 200]]
+        )
       ]
     };
     const { content } = transform(rawWith(['x']), {}, [], lines);
@@ -256,10 +270,7 @@ describe('route lines', () => {
     // claims, and the page must not make the second one.
     const lines = {
       features: [
-        {
-          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.401, -34.0]] },
-          properties: { routeId: 'area--x' }
-        }
+        line('area--x', 'area--x/main/main', 'main', [[18.4, -34.0], [18.401, -34.0]])
       ]
     };
     const { content } = transform(rawWith(['x']), {}, [], lines);
@@ -270,54 +281,6 @@ describe('route lines', () => {
   it('has no stats at all for a route with nothing drawn', () => {
     const { content } = transform(rawWith(['x']), {}, []);
     expect(content[0].lineStats).toBe(null);
-  });
-
-  it('takes the longest variant, since a reader walks one', () => {
-    const lines = {
-      features: [
-        {
-          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.401, -34.0]] },
-          properties: { routeId: 'area--x', variant: 'Left Hand' }
-        },
-        {
-          geometry: { type: 'LineString' as const, coordinates: [[18.4, -34.0], [18.402, -34.0]] },
-          properties: { routeId: 'area--x', variant: 'Right Hand' }
-        }
-      ]
-    };
-    const { content } = transform(rawWith(['x']), {}, [], lines);
-    // The LONGEST variant, not the sum: a reader picking one walks one of them.
-    expect(content[0].lineStats!.distanceM).toBeGreaterThan(160);
-    expect(content[0].lineStats!.distanceM).toBeLessThan(200);
-  });
-
-  it('compares raw distance to raw distance, not raw to an already-rounded figure', () => {
-    // Two variants under a metre apart: the FIRST (processed first, becomes
-    // `previous`) is genuinely longer, but rounds DOWN past the second's raw
-    // distance. Comparing the second's raw metres against the first's
-    // ROUNDED metres would wrongly prefer the second (shorter) variant here
-    // -- exactly the ordering the route page's own raw-to-raw comparison
-    // would not make, since it never rounds until StatsStrip renders.
-    const first: Point3[] = [[18.4, -34.0, 100], [18.40109, -34.0, 130]];
-    const second: Point3[] = [[18.4, -34.0, 400], [18.401085, -34.0, 450]];
-    const firstRaw = totalDistanceM(first);
-    const secondRaw = totalDistanceM(second);
-    // The fixture only proves the bug if the two raw distances actually sit
-    // either side of Math.round(firstRaw) -- assert the setup, not just the
-    // outcome.
-    expect(firstRaw).toBeGreaterThan(secondRaw);
-    expect(secondRaw).toBeGreaterThan(Math.round(firstRaw));
-
-    const lines = {
-      features: [
-        { geometry: { type: 'LineString' as const, coordinates: first }, properties: { routeId: 'area--x', variant: 'First' } },
-        { geometry: { type: 'LineString' as const, coordinates: second }, properties: { routeId: 'area--x', variant: 'Second' } }
-      ]
-    };
-    const { content } = transform(rawWith(['x']), {}, [], lines);
-    // The genuinely longer variant (30 m of ascent) wins, not the shorter one
-    // that merely looked bigger next to a rounded figure (50 m of ascent).
-    expect(content[0].lineStats!.ascentM).toBe(30);
   });
 
   // Deliberately NOT a staleness check against the OSM extract. CI has no PBF
@@ -400,5 +363,63 @@ describe('mentionedPaths', () => {
   it('carries the same names onto the route content', () => {
     const { content } = transform(raw({ '': 'Up India Venster.' }), {}, pathNames);
     expect(content[0].mentionedPaths).toEqual(['India Venster']);
+  });
+});
+
+const rawRoute = (slug: string) => ({
+  slug, title: slug, url: `https://x/${slug}`, area: ['a', 'b'], depth: 3,
+  coords: { lat: -33.96, lon: 18.4, zoom: 15 }, grade: null, grade_source: null,
+  sections: {}, description: '', related: [], attachments: [],
+  photos: { deck_ids: [], inline_urls: [] }, stats: {}
+});
+
+// `name` and `note` are OMITTED, not null: transform's RouteLineFeature
+// declares them optional strings, matching what the editor writes.
+const line = (routeId: string, segmentId: string, role: string, coords: number[][]) => ({
+  geometry: { type: 'LineString' as const, coordinates: coords },
+  properties: { routeId, segmentId, role }
+});
+
+describe('transform with segments', () => {
+  const id = 'a--b--pimple';
+  const raw = { routes: [rawRoute('pimple')] };
+  const lines = {
+    features: [
+      line(id, `${id}/approach/k`, 'approach', [[18.40, -33.96, 50], [18.41, -33.96, 300]]),
+      line(id, `${id}/main/main`, 'main', [[18.41, -33.96, 300], [18.43, -33.96, 500]]),
+      line(id, `${id}/exit/d`, 'exit', [[18.43, -33.96, 500], [18.45, -33.96, 100]])
+    ]
+  };
+
+  it('lists every segment with its role, in file order', () => {
+    const { content } = transform(raw, {}, [], lines);
+    expect(content[0].segments.map((s) => s.role)).toEqual(['approach', 'main', 'exit']);
+  });
+
+  it('measures the DEFAULT PLAN, not the longest segment', () => {
+    const { content } = transform(raw, {}, [], lines);
+    // approach 450 m up + main 200 m up, then 400 m down on the exit.
+    expect(content[0].lineStats).toEqual({ distanceM: 4611, ascentM: 450, descentM: 400 });
+  });
+
+  it('has a line only when there is a main', () => {
+    const orphan = { features: [lines.features[0]] };
+    const { index } = transform(raw, {}, [], orphan);
+    expect(index[0].hasLine).toBe(false);
+    expect(transform(raw, {}, [], lines).index[0].hasLine).toBe(true);
+  });
+
+  it('reports null stats for a route with no main', () => {
+    const orphan = { features: [lines.features[0]] };
+    expect(transform(raw, {}, [], orphan).content[0].lineStats).toBeNull();
+  });
+
+  it('warns about a gap under 25 m but still builds', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const nudged = structuredClone(lines);
+    nudged.features[0].geometry.coordinates[1] = [18.410001, -33.96, 300];
+    transform(raw, {}, [], nudged);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('does not meet'));
+    warn.mockRestore();
   });
 });

@@ -81,7 +81,7 @@ const route: RouteContent = {
   grade: 'B', gradeSource: 'prose', time: null, heightGain: null, isFullEntry: false,
   sections: { Overview: 'A scramble.' }, description: 'A scramble.',
   related: [], attachments: [], photoCount: 2, sourceUrl: 'https://example.invalid',
-  lines: [],
+  segments: [],
   lineStats: null
 };
 
