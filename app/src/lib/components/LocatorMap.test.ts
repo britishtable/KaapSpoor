@@ -83,10 +83,12 @@ vi.mock('pmtiles', () => {
 
 import LocatorMap from './LocatorMap.svelte';
 import { pointAtDistance } from '$lib/map/profile';
+import { clearSelection, setPlanSegments } from '$lib/map/selection';
 
 beforeEach(() => {
   calls.length = 0;
   constructed.length = 0;
+  clearSelection();
 });
 
 describe('LocatorMap zoom clamp', () => {
@@ -175,9 +177,39 @@ describe('LocatorMap route line', () => {
     for (const call of filtered.slice(0, 3)) {
       expect(call.args[1]).toEqual(['in', ['get', 'routeId'], ['literal', ['a--b--c']]]);
     }
-    // The active layer stays empty here: the route page shows every variant
-    // equally beside the text that explains them, with no pointer emphasis.
+    // The active layer starts empty here: nothing has published a plan to the
+    // shared selection store yet (see the next test for what happens once
+    // something does).
     expect(filtered[3].args[1]).toEqual(['in', ['get', 'segmentId'], ['literal', []]]);
+    vi.unstubAllGlobals();
+  });
+
+  it('lights the chosen plan once planSegmentIds is published, e.g. by the route page', async () => {
+    // This is the assertion the e2e alternatives test in e2e/map.spec.ts makes
+    // (I3): that a non-empty $selection.planSegmentIds produces a non-empty
+    // route-line-active filter. The e2e itself still skips on every real
+    // route today (all 7 are single mains, so planSegmentIds is never empty
+    // AND partial at once) -- this test exercises the same code path directly,
+    // with a fixture plan, so the assertion is verified by construction rather
+    // than by hoping a future two-approach route exercises it honestly.
+    setPlanSegments(['a--b--c/main/main']);
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ type: 'FeatureCollection', features: [] })
+    }));
+    render(LocatorMap, { coords, title: 'Kasteelspoort', routeId: 'a--b--c', hasLine: true });
+    await vi.waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.name === 'setFilter' &&
+            c.args[0] === 'route-line-active' &&
+            JSON.stringify(c.args[1]) ===
+              JSON.stringify(['in', ['get', 'segmentId'], ['literal', ['a--b--c/main/main']]])
+        )
+      ).toBe(true)
+    );
     vi.unstubAllGlobals();
   });
 
@@ -269,9 +301,9 @@ describe('LocatorMap scrub marker', () => {
 
   it('frames and rides the line the caller passes, not the first feature in the fetched file', async () => {
     // Two features in the fetched file, in an order that would mislead a
-    // component still picking its own variant by `.find()`: the FIRST one
+    // component still picking its own segment by `.find()`: the FIRST one
     // here is deliberately NOT the `lineCoords` the caller (the route page)
-    // resolved as the ground-distance-longest variant.
+    // resolved as the chosen plan.
     const fileFirst: [number, number, number][] = [
       [18.0, -34.0, 50],
       [18.9, -34.9, 60]

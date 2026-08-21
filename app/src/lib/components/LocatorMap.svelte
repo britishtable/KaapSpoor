@@ -20,6 +20,7 @@
   import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import { pointAtDistance, type Point3 } from '$lib/map/profile';
   import type { Coords } from '$lib/data/types';
+  import { selection } from '$lib/map/selection';
 
   let {
     coords,
@@ -32,9 +33,9 @@
     /** Metres along the drawn line to mark, or null. Driven by the profile. */
     scrubDistanceM = null,
     /**
-     * The route's own drawn line — the SAME variant the caller resolved for
+     * The route's own drawn line — the SAME plan the caller resolved for
      * everything else on the page (profile, stats). Passed in rather than
-     * fetched and selected here: a second selection of "which variant" next
+     * fetched and selected here: a second selection of "which plan" next
      * to the page's would only need to be re-aligned with it, not made
      * impossible to disagree with. Defaults to empty for callers with no line.
      */
@@ -75,6 +76,18 @@
     if (!mapLoaded || !map || !hasLine || !lineCoords.length) return;
     const bounds = lineBounds({ type: 'LineString', coordinates: lineCoords });
     if (bounds) map.fitBounds(bounds, { padding: 24, maxZoom: 15 });
+  });
+
+  // Lights the plan the reader has chosen on the picker beside this map,
+  // dimming the unchosen alternatives -- the same emphasis the home map gives
+  // a selection, applied here to the picker's choice instead. The route page
+  // publishes `planSegmentIds` itself (see +page.svelte's setPlanSegments
+  // effect); this map only reads it, so it always reflects THIS route's plan,
+  // never a stale selection left over from the previous page.
+  $effect(() => {
+    const ids = $selection.planSegmentIds;
+    if (!mapLoaded || !map) return;
+    map.setFilter('route-line-active', activeSegmentFilter(ids));
   });
 
   onMount(() => {
@@ -123,12 +136,12 @@
           map.setFilter('route-line-arrows', routeLineFilter(routeId));
           map.setFilter('route-line-casing', routeLineFilter(routeId));
           map.setFilter('route-line', routeLineFilter(routeId));
-          // The route page has no pointer-driven emphasis: every variant is
-          // shown equally beside the text that explains them.
-          map.setFilter('route-line-active', activeSegmentFilter([]));
+          // route-line-active's filter is set by the $effect above, driven by
+          // $selection.planSegmentIds -- not here, so it stays correct as the
+          // reader changes the plan without needing a re-fetch.
           // Framing the line rather than the clamped centre: a locator map's
           // one job is showing where the hike goes, and now it can show all of
-          // it. Which variant to frame is the caller's call (the `lineCoords`
+          // it. Which plan to frame is the caller's call (the `lineCoords`
           // prop) -- see the $effect above -- not a second lookup here.
           map.addSource('scrub', {
             type: 'geojson',
