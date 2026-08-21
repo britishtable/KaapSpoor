@@ -398,7 +398,7 @@ describe('transform with segments', () => {
 
   it('measures the DEFAULT PLAN, not the longest segment', () => {
     const { content } = transform(raw, {}, [], lines);
-    // approach 450 m up + main 200 m up, then 400 m down on the exit.
+    // approach climbs 250 m, main another 200 m — 450 together; the exit drops 400 m.
     expect(content[0].lineStats).toEqual({ distanceM: 4611, ascentM: 450, descentM: 400 });
   });
 
@@ -420,6 +420,25 @@ describe('transform with segments', () => {
     nudged.features[0].geometry.coordinates[1] = [18.410001, -33.96, 300];
     transform(raw, {}, [], nudged);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('does not meet'));
+    warn.mockRestore();
+  });
+
+  it('does not warn when an approach meets a SECOND main exactly', () => {
+    // The resolved plan only pairs the approach against the FIRST main in
+    // file order (main1) -- it never considers main2 at all. Judging the
+    // warning by plan membership would therefore see this approach as
+    // "unpaired" for main2 and wrongly warn about a 0 m gap. The predicate
+    // must instead be checked locally, against each main in turn.
+    const twoMains = {
+      features: [
+        line(id, `${id}/main/first`, 'main', [[18.41, -33.96, 300], [18.43, -33.96, 500]]),
+        line(id, `${id}/main/second`, 'main', [[18.60, -33.96, 300], [18.62, -33.96, 500]]),
+        line(id, `${id}/approach/to-second`, 'approach', [[18.59, -33.96, 50], [18.60, -33.96, 300]])
+      ]
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    transform(raw, {}, [], twoMains);
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 });

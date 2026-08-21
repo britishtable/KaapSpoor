@@ -14,7 +14,7 @@ import type {
 import type { Point3 } from '../src/lib/map/profile';
 import { isRole } from '../src/lib/data/segments';
 import {
-  resolvePlan, assemble, planStats, gapM, JUNCTION_TOLERANCE_M, type PlanSegment
+  resolvePlan, assemble, planStats, gapM, joins, JUNCTION_TOLERANCE_M, type PlanSegment
 } from '../src/lib/data/plan';
 
 interface RawRoute {
@@ -64,7 +64,7 @@ export function transform(
   for (const feature of lines.features) {
     const { routeId: rid, segmentId, role, name, note } = feature.properties;
     // A feature with no role predates the segment schema and cannot be placed;
-    // scripts/migrate-segments.mjs exists to give it one.
+    // scripts/migrate-segments.ts exists to give it one.
     if (!segmentId || !isRole(role)) continue;
     const list = planByRoute.get(rid) ?? [];
     list.push({
@@ -95,16 +95,23 @@ export function transform(
     // it. Warned rather than thrown: the build must still produce a site, and
     // the picker already refuses to OFFER an unconnected pairing, so the reader
     // never sees a total that crosses this gap.
+    //
+    // Judged purely locally against EACH main, not against the resolved plan:
+    // `plan.approaches`/`plan.exits` are only the pairings computed for the
+    // ONE chosen main (the first in file order), so on a route with a second
+    // main an approach that meets IT exactly was never considered for that
+    // main at all, and testing plan membership would misreport a perfect
+    // junction as a near miss.
     const mains = segments.filter((s) => s.role === 'main');
     for (const main of mains) {
       for (const s of segments) {
-        if (s.role === 'approach' && !plan.approaches.includes(s)) {
+        if (s.role === 'approach' && !joins(s, main)) {
           const d = gapM(s, main);
           if (d <= JUNCTION_TOLERANCE_M) {
             console.warn(`${s.segmentId} does not meet ${main.segmentId} (${d.toFixed(1)} m)`);
           }
         }
-        if (s.role === 'exit' && !plan.exits.includes(s)) {
+        if (s.role === 'exit' && !joins(main, s)) {
           const d = gapM(main, s);
           if (d <= JUNCTION_TOLERANCE_M) {
             console.warn(`${s.segmentId} does not meet ${main.segmentId} (${d.toFixed(1)} m)`);
