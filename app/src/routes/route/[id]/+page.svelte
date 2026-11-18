@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
-  import JournalControls from '$lib/components/JournalControls.svelte';
+  import HikeLog from '$lib/components/HikeLog.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
@@ -141,7 +141,7 @@
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
 
-  <JournalControls routeId={r.id}
+  <HikeLog routeId={r.id}
     plan={plan.choice.main
       ? {
           approach: plan.choice.approach ?? undefined,

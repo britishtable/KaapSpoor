@@ -3,12 +3,14 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { hydrate } from '$lib/journal/store';
+  import ActiveHikeBanner from '$lib/components/ActiveHikeBanner.svelte';
   import type { LayoutProps } from './$types';
   let { children }: LayoutProps = $props();
   onMount(() => { hydrate(); });
 </script>
 
 <header><a href="{base}/">KaapSpoor</a> · <a href="{base}/settings">Settings</a></header>
+<ActiveHikeBanner />
 <main>{@render children()}</main>
 
 <style>
