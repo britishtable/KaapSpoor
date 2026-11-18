@@ -6,7 +6,7 @@ export interface Data { hikes: Hike[]; routeNotes: RouteNotes[] }
 
 /**
  * The hikes an export may contain: the viewer's and unowned ones. Signed out, that is
- * only unowned hikes — the same lock an import applies (see merge).
+ * only unowned hikes: the same lock an import applies (see merge).
  */
 export function exportableHikes(all: Hike[], viewer: string | null): Hike[] {
   return all.filter((h) => !h.deleted && (h.owner === null || h.owner === viewer));
@@ -91,8 +91,8 @@ function newer<T extends { updatedAt: string }>(a: T | undefined, b: T): T {
 /**
  * `current` is everything on the device, tombstones and other owners included.
  * A local hike is never overwritten by an import when it is a tombstone
- * (deletion is final) or belongs to an account other than the viewer's — which,
- * signed out, is every account (shared phone).
+ * (deletion is final) or belongs to an account other than the viewer's (which,
+ * signed out, is every account) on a shared phone.
  */
 export function merge(
   current: Data, incoming: Data, mode: 'merge' | 'replace', viewer: string | null = null
