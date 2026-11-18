@@ -2,12 +2,7 @@
 
 These are carried out of the plan 1 build (branch `r1-server-foundation`). Each item has a destination plan.
 
-## Before any client refresh logic lands (first task of R1 plan 2)
-
-- **Expired Bearer header blocks `/api/v1/auth/**`.** `app/src/lib/api/client.ts` attaches `Authorization: Bearer` to every request. `BearerTokenAuthenticationFilter` validates it even on `permitAll` paths, so `/auth/refresh` returns 401 exactly when the access token has expired. The same happens on login, register and oidc.
-  - Fix: add a `BearerTokenResolver` bean that wraps `DefaultBearerTokenResolver` and returns `null` for paths starting `/api/v1/auth/`, and register it with `oauth2ResourceServer(rs -> rs.bearerTokenResolver(...))`.
-  - Test: refresh with a garbage Bearer header reaches the controller.
-  - Optionally, `client.ts` also skips the header on `/auth/*`.
+Fixed in plan 2, Task 1: the auth endpoints now ignore a stale Bearer header.
 
 ## Client auth handling (R1 plan 2 / plan 6)
 

@@ -7,13 +7,15 @@ import type { paths } from './schema';
  */
 export function createApiClient(
 	baseUrl: string,
-	getAccessToken: () => string | null,
+	getAccessToken: () => string | null | Promise<string | null>,
 	fetch?: typeof globalThis.fetch
 ) {
 	const client = createClient<paths>({ baseUrl, fetch });
 	client.use({
-		onRequest({ request }) {
-			const token = getAccessToken();
+		async onRequest({ request }) {
+			// The auth endpoints are public; a stale token there would only get in the way.
+			if (new URL(request.url).pathname.startsWith('/api/v1/auth/')) return request;
+			const token = await getAccessToken();
 			if (token) request.headers.set('Authorization', `Bearer ${token}`);
 			return request;
 		}

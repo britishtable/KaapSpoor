@@ -20,6 +20,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -32,10 +34,13 @@ public class SecurityConfig {
     /** The access token's {@code role} claim, as written by {@code TokenService}. */
     static final String ROLE_CLAIM = "role";
 
+    private static final String AUTH_PATH_PREFIX = "/api/v1/auth/";
+
     @Bean
     SecurityFilterChain filterChain(
             HttpSecurity http,
             Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter,
+            BearerTokenResolver bearerTokenResolver,
             ObjectMapper json) throws Exception {
         AuthenticationEntryPoint entryPoint = problemEntryPoint(json);
         http.csrf(csrf -> csrf.disable()) // bearer tokens only, no cookies
@@ -51,8 +56,23 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
                 .oauth2ResourceServer(rs -> rs
                         .authenticationEntryPoint(entryPoint)
+                        .bearerTokenResolver(bearerTokenResolver)
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
         return http.build();
+    }
+
+    /**
+     * Ignores the Authorization header on {@code /api/v1/auth/**}. Those paths are public, but the bearer
+     * filter validates any header it sees, so a stale access token would 401 the very refresh or login
+     * that replaces it.
+     */
+    @Bean
+    BearerTokenResolver bearerTokenResolver() {
+        DefaultBearerTokenResolver defaults = new DefaultBearerTokenResolver();
+        return request -> {
+            String path = request.getRequestURI().substring(request.getContextPath().length());
+            return path.startsWith(AUTH_PATH_PREFIX) ? null : defaults.resolve(request);
+        };
     }
 
     /** Maps the {@code role} claim to {@code ROLE_<role>}; the default converter reads only scope/scp. */
