@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import {
   hikes, visibleHikes, doneRouteIds, activeHike, hikesForRoute, viewer,
   logHike, updateHike, deleteHike, startHike, finishHike, setRouteNotes,
-  hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError
+  hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
 } from './store';
 import { getAllHikes } from './db';
 import type { Hike } from '../data/types';
@@ -57,16 +57,41 @@ describe('hike store', () => {
     expect([...get(doneRouteIds)]).toEqual(['r1']);
   });
 
-  it('deleteHike hides it and clears notes', async () => {
-    const h = await logHike({ routeId: 'r1', date: null, notes: 'secret', plan: { reversed: true } });
+  it('deleteHike hides it and scrubs notes, plan and when it was hiked', async () => {
+    const h = await startHike('r1', { reversed: true });
+    await updateHike(h.id, { notes: 'secret' });
+    await finishHike(h.id);
     await deleteHike(h.id);
     expect(get(visibleHikes)).toHaveLength(0);
     expect(get(doneRouteIds).size).toBe(0);
     const t = get(hikes).get(h.id)!;
-    expect(t.deleted).toBe(true);
-    expect(t.notes).toBe('');
+    expect(t).toMatchObject({ deleted: true, notes: '', date: null, startedAt: null, finishedAt: null, routeId: 'r1' });
     expect(t.plan).toBeUndefined();
     expect(t.pending).toBe(true);
+  });
+
+  it("signed in, new hikes are the viewer's and an edit claims an unowned hike", async () => {
+    await replaceAll({ hikes: [hike('free')], routeNotes: [] });
+    viewer.set('u1');
+    expect((await logHike({ routeId: 'r1', date: null, notes: '' })).owner).toBe('u1');
+    const started = await startHike('r2');
+    expect(started.owner).toBe('u1');
+    await updateHike('free', { notes: 'mine now' });
+    expect(get(hikes).get('free')!.owner).toBe('u1');
+    viewer.set(null);
+    expect((await logHike({ routeId: 'r1', date: null, notes: '' })).owner).toBeNull();
+  });
+
+  it('signed out, a hike saved to an account cannot be edited or deleted', async () => {
+    await replaceAll({ hikes: [hike('theirs', { owner: 'u1', notes: 'keep' }), hike('free')], routeNotes: [] });
+    await expect(updateHike('theirs', { notes: 'x' })).rejects.toBeInstanceOf(LockedHikeError);
+    await expect(deleteHike('theirs')).rejects.toBeInstanceOf(LockedHikeError);
+    expect(get(hikes).get('theirs')).toMatchObject({ notes: 'keep', deleted: false, pending: false });
+    await deleteHike('free');
+    expect(get(hikes).get('free')!.deleted).toBe(true);
+    viewer.set('u1');
+    await updateHike('theirs', { notes: 'x' });
+    expect(get(hikes).get('theirs')!.notes).toBe('x');
   });
 
   it('startHike sets today and startedAt; a second start throws ActiveHikeError', async () => {

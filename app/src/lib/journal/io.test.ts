@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serialize, parse, merge } from './io';
+import { serialize, parse, merge, exportableHikes } from './io';
 import type { Hike } from '../data/types';
 
 const h = (id: string, over: Partial<Hike> = {}): Hike => ({
@@ -54,6 +54,28 @@ describe('v2 serialize / parse', () => {
   it('malformed hike rejected with the message', () => {
     const bad = JSON.stringify({ version: 2, exportedAt: '', hikes: [{ id: 1 }], routeNotes: [] });
     expect(() => parse(bad)).toThrow('The file contains a malformed hike.');
+  });
+
+  it('a plan with null legs (as the server writes it) imports, nulls dropped', () => {
+    const raw = JSON.parse(serialize({ hikes: [h('1')], routeNotes: [] }));
+    raw.hikes[0].plan = { approach: null, main: 'm', exit: null, reversed: false };
+    const [out] = parse(JSON.stringify(raw)).hikes;
+    expect(out.plan).toEqual({ main: 'm', reversed: false });
+  });
+
+  it('a date not written as YYYY-MM-DD is a malformed hike', () => {
+    const raw = JSON.parse(serialize({ hikes: [h('1')], routeNotes: [] }));
+    raw.hikes[0].date = '21/07/2026';
+    expect(() => parse(JSON.stringify(raw))).toThrow('The file contains a malformed hike.');
+    raw.hikes[0].date = null;
+    expect(parse(JSON.stringify(raw)).hikes[0].date).toBeNull();
+  });
+
+  it("exportable hikes: the viewer's and unowned; signed out, only unowned", () => {
+    const all = [h('mine', { owner: 'u1' }), h('theirs', { owner: 'u2' }), h('free', { owner: null }),
+      h('gone', { owner: null, deleted: true })];
+    expect(exportableHikes(all, 'u1').map((x) => x.id)).toEqual(['mine', 'free']);
+    expect(exportableHikes(all, null).map((x) => x.id)).toEqual(['free']);
   });
 
   it('rejects junk with the friendly messages', () => {

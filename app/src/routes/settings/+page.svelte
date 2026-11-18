@@ -1,8 +1,8 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { base } from '$app/paths';
-  import { hikes, routeNotes, visibleHikes, viewer, replaceAll } from '$lib/journal/store';
-  import { serialize, parse, merge } from '$lib/journal/io';
+  import { hikes, routeNotes, viewer, replaceAll } from '$lib/journal/store';
+  import { serialize, parse, merge, exportableHikes } from '$lib/journal/io';
 
   let mode = $state<'merge' | 'replace'>('merge');
   let pending = $state<string | null>(null);
@@ -13,7 +13,7 @@
   }
 
   function exportData() {
-    const blob = new Blob([serialize({ hikes: get(visibleHikes), routeNotes: [...get(routeNotes).values()] })], { type: 'application/json' });
+    const blob = new Blob([serialize({ hikes: exportableHikes([...get(hikes).values()], get(viewer)), routeNotes: [...get(routeNotes).values()] })], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'kaapspoor-data.json'; a.click();
@@ -61,5 +61,5 @@
 <style>
   .page { padding: 1rem; max-width: 60rem; margin: 0 auto; }
   section { margin: 1.5rem 0; }
-  .error { color: #c0392b; }
+  .error { color: var(--ks-error); }
 </style>

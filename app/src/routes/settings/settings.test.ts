@@ -71,4 +71,28 @@ describe('settings', () => {
     viewer.set(null);
     expect(JSON.parse(text).hikes.map((x: { id: string }) => x.id)).toEqual(['a']);
   });
+
+  it("signed out, exports only unowned hikes: an account's hikes stay locked", async () => {
+    const base = {
+      date: null, notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE', startedAt: null,
+      finishedAt: null, updatedAt: '2026-01-01T00:00:00.000Z', deleted: false, pending: false
+    } as const;
+    await replaceAll({
+      hikes: [{ ...base, id: 'a', routeId: 'r1', owner: 'u1' }, { ...base, id: 'free', routeId: 'r2', owner: null }],
+      routeNotes: []
+    });
+    viewer.set(null);
+    let blob: Blob | undefined;
+    URL.createObjectURL = vi.fn((b: Blob) => { blob = b; return 'blob:x'; });
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(Page);
+    await fireEvent.click(screen.getByRole('button', { name: /export my data/i }));
+    const text = await new Promise<string>((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.readAsText(blob!);
+    });
+    expect(JSON.parse(text).hikes.map((x: { id: string }) => x.id)).toEqual(['free']);
+  });
 });

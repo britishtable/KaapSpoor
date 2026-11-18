@@ -1,4 +1,15 @@
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  /* Text colours that keep WCAG AA (>= 4.5:1) on the light and the dark canvas. */
+  --ks-error: #b91c1c;
+  --ks-accent-text: #c2410c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ks-error: #f87171;
+    --ks-accent-text: #fb923c;
+  }
+}
 body {
   font-family: system-ui, sans-serif;
   margin: 0;

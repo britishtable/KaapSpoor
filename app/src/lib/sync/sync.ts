@@ -4,31 +4,37 @@ import type { Hike } from '$lib/data/types';
 import { api, session } from '$lib/account/session';
 import { hikes, visibleHikes, applyServerHike, onLocalWrite, now } from '$lib/journal/store';
 import { getMeta, setMeta } from '$lib/journal/db';
+import { cleanPlan } from '$lib/journal/convert';
 
 type ServerHike = components['schemas']['Hike'];
 type HikeWrite = components['schemas']['HikeWrite'];
 type Client = NonNullable<ReturnType<typeof api>>;
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
-export interface SyncState { status: SyncStatus; pendingCount: number; lastSyncedAt: string | null }
+/** pendingCount: waiting to upload. errorCount: the server refused them (each carries syncError). */
+export interface SyncState { status: SyncStatus; pendingCount: number; errorCount: number; lastSyncedAt: string | null }
 
 const DEBOUNCE_MS = 2000;
 
-const engine = writable<{ status: Exclude<SyncStatus, 'off'>; lastSyncedAt: string | null }>({
-	status: 'idle', lastSyncedAt: null
+/** The engine's state belongs to the user it last ran for; another user starts from scratch. */
+const engine = writable<{ user: string | null; status: Exclude<SyncStatus, 'off'>; lastSyncedAt: string | null }>({
+	user: null, status: 'idle', lastSyncedAt: null
 });
 
 export const syncState: Readable<SyncState> = derived([engine, session, visibleHikes], ([$e, $s, $v]): SyncState => {
 	const me = $s?.id ?? null;
+	const ours = $e.user !== null && $e.user === me;
+	const mine = $v.filter((h) => h.owner === null || h.owner === me);
 	return {
-		status: me === null || api() === null ? 'off' : $e.status,
-		pendingCount: $v.filter((h) => h.pending && (h.owner === null || h.owner === me)).length,
-		lastSyncedAt: $e.lastSyncedAt
+		status: me === null || api() === null ? 'off' : ours ? $e.status : 'idle',
+		pendingCount: mine.filter((h) => h.pending && !h.syncError).length,
+		errorCount: mine.filter((h) => h.syncError).length,
+		lastSyncedAt: ours ? $e.lastSyncedAt : null
 	};
 });
 
-function setStatus(status: Exclude<SyncStatus, 'off'>): void {
-	engine.update((e) => ({ ...e, status }));
+function setStatus(me: string, status: Exclude<SyncStatus, 'off'>): void {
+	engine.update((e) => (e.user === me ? { ...e, status } : { user: me, status, lastSyncedAt: null }));
 }
 
 /** The server body, field by field: owner, pending and syncError never leave the device. */
@@ -51,7 +57,8 @@ function fromServer(s: ServerHike, owner: string): Hike {
 		finishedAt: s.finishedAt === null ? null : canonical(s.finishedAt),
 		updatedAt: canonical(s.updatedAt), deleted: s.deleted, owner, pending: false
 	};
-	if (s.plan) h.plan = s.plan;
+	// Jackson may write absent legs as null; the device never stores them so.
+	if (s.plan) h.plan = cleanPlan(s.plan);
 	return h;
 }
 
@@ -99,7 +106,7 @@ async function push(client: Client, me: string): Promise<void> {
 		}
 		stillSignedInAs(me);
 		if (status === 400 || status === 409) {
-			// Keep the data; the next edit re-queues it.
+			// Keep the data; the next edit, sign-in or app start re-queues it.
 			if (current === sent) await applyServerHike({ ...current, pending: false, syncError: problemDetail(res.error) });
 		} else {
 			// 401: the session has already decided. Anything else: try again on the next trigger.
@@ -132,19 +139,31 @@ async function runOnce(): Promise<void> {
 	const client = api();
 	if (me === null || client === null) return;
 	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-		setStatus('offline');
+		setStatus(me, 'offline');
 		return;
 	}
-	setStatus('syncing');
+	setStatus(me, 'syncing');
 	try {
 		await push(client, me);
 		await pull(client, me);
-		engine.set({ status: 'idle', lastSyncedAt: now() });
+		engine.set({ user: me, status: 'idle', lastSyncedAt: now() });
 	} catch (e) {
-		if (e instanceof Offline) setStatus('offline');
-		else if (e instanceof Stop) setStatus('idle'); // signed out or switched user; that change triggers its own run
-		else setStatus('error');
+		if (e instanceof Offline) setStatus(me, 'offline');
+		else if (e instanceof Stop) setStatus(me, 'idle'); // signed out or switched user; that change triggers its own run
+		else setStatus(me, 'error');
 	}
+}
+
+/**
+ * Gives every hike the server refused one more try, so a fix on the server heals it without
+ * an edit. Its syncError stays until the server answers again. The store updates before this
+ * returns (only the disk write is awaited), so a sync started right after already sees them.
+ */
+export function requeueRefused(me: string): Promise<void> {
+	const refused = [...get(hikes).values()].filter(
+		(h) => h.syncError && !h.pending && (h.owner === null || h.owner === me)
+	);
+	return Promise.all(refused.map((h) => applyServerHike({ ...h, pending: true }))).then(() => undefined);
 }
 
 let running: Promise<void> | null = null;
@@ -171,7 +190,11 @@ export function startSync(): () => void {
 
 	const offSession = session.subscribe((s) => {
 		const id = s?.id ?? null;
-		if (id !== null && id !== user) trigger();
+		// Sign-in, or the session restored at app start: retry refused hikes once, then sync.
+		if (id !== null && id !== user) {
+			void requeueRefused(id).catch(() => undefined); // a failed disk write rolls back; the retry waits for next time
+			trigger();
+		}
 		user = id;
 	});
 	const offWrite = onLocalWrite(() => {

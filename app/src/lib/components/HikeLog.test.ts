@@ -5,8 +5,15 @@ import 'fake-indexeddb/auto';
 import HikeLog from './HikeLog.svelte';
 import { configureSession, restoreSession } from '../account/session';
 import {
-  activeHike, visibleHikes, routeNotes, replaceAll, logHike, startHike, setClockForTests
+  activeHike, visibleHikes, routeNotes, replaceAll, logHike, startHike, setClockForTests, viewer
 } from '../journal/store';
+import type { Hike } from '../data/types';
+
+const stored = (id: string, over: Partial<Hike> = {}): Hike => ({
+  id, routeId: 'r1', date: '2026-07-21', notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+  startedAt: null, finishedAt: null, updatedAt: '2026-11-18T10:00:00.000Z', deleted: false,
+  owner: null, pending: false, ...over
+});
 
 beforeEach(async () => { await replaceAll({ hikes: [], routeNotes: [] }); });
 afterEach(() => { setClockForTests(null); });
@@ -139,5 +146,53 @@ describe('HikeLog', () => {
     render(HikeLog, { routeId: 'r1', plan });
     await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
     await waitFor(() => expect(get(activeHike)?.plan).toEqual(plan));
+  });
+
+  it("signed out, an account's hikes are read-only with one hint; unowned ones stay editable", async () => {
+    viewer.set(null);
+    await replaceAll({
+      hikes: [
+        stored('a1', { owner: 'u1', notes: 'saved one' }),
+        stored('a2', { owner: 'u1', notes: 'saved two', date: '2026-07-20' }),
+        stored('free', { notes: 'on this phone', date: '2026-07-19' })
+      ],
+      routeNotes: []
+    });
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.getByText('saved one')).toBeTruthy();
+    expect(screen.getByText('saved two')).toBeTruthy();
+    expect(screen.getAllByText('Sign in to change hikes saved to your account.')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1);
+  });
+
+  it('no hint when every hike here can be changed', async () => {
+    viewer.set('u1');
+    try {
+      await replaceAll({ hikes: [stored('a1', { owner: 'u1' }), stored('free')], routeNotes: [] });
+      render(HikeLog, { routeId: 'r1' });
+      expect(screen.queryByText('Sign in to change hikes saved to your account.')).toBeNull();
+      expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(2);
+    } finally {
+      viewer.set(null);
+    }
+  });
+
+  it('the form limits the date to 1950..tomorrow and notes to 5000 characters', async () => {
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
+    const date = screen.getByLabelText('Date') as HTMLInputElement;
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const p = (n: number) => String(n).padStart(2, '0');
+    expect(date.min).toBe('1950-01-01');
+    expect(date.max).toBe(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+    expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).maxLength).toBe(5000);
+  });
+
+  it('a date not written as YYYY-MM-DD is shown as written, not thrown on', async () => {
+    await replaceAll({ hikes: [stored('odd', { date: '21/07/2026' })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.getByText('21/07/2026')).toBeTruthy();
   });
 });

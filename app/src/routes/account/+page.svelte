@@ -47,7 +47,14 @@
     if (Math.abs(hours) < 24) return relFmt.format(hours, 'hour');
     return relFmt.format(Math.round(hours / 24), 'day');
   }
-  let waiting = $derived($syncState.pendingCount);
+  const hikesN = (n: number) => `${n} ${n === 1 ? 'hike' : 'hikes'}`;
+  let statusLine = $derived.by(() => {
+    const { pendingCount, errorCount } = $syncState;
+    const parts: string[] = [];
+    if (errorCount > 0) parts.push(`${hikesN(errorCount)} couldn't sync`);
+    if (pendingCount > 0) parts.push(`${hikesN(pendingCount)} waiting to sync`);
+    return parts.length ? parts.join('. ') : 'All hikes synced';
+  });
 
   async function leave() {
     error = null;
@@ -62,7 +69,7 @@
     <p>Accounts aren't available in this build yet. Your hikes are saved on this device.</p>
   {:else if $session}
     <p class="who">Signed in as {$session.displayName}</p>
-    <p class="status" role="status">{waiting === 0 ? 'All hikes synced' : `${waiting} ${waiting === 1 ? 'hike' : 'hikes'} waiting to sync`}</p>
+    <p class="status" role="status">{statusLine}</p>
     {#if $syncState.lastSyncedAt}<p class="hint">Last synced {relative($syncState.lastSyncedAt)}</p>{/if}
     <p class="hint">Your hikes stay on this device.</p>
     <button class="wide" onclick={leave}>Sign out</button>
@@ -120,7 +127,7 @@
   .link { border: none; text-decoration: underline; }
   button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #c2410c; outline-offset: 2px; }
   .who { margin: 0; font-weight: 600; font-size: 1.15em; }
-  .err { margin: 0; color: #b91c1c; font-size: 0.9em; }
+  .err { margin: 0; color: var(--ks-error); font-size: 0.9em; }
   .hint { margin: 0; font-size: 0.85em; opacity: 0.75; }
   .status { margin: 0; }
 </style>

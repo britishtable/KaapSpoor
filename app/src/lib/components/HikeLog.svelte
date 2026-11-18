@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import {
     activeHike, hikesForRoute, routeNotes, setRouteNotes, startHike, finishHike,
-    logHike, updateHike, deleteHike, ActiveHikeError
+    logHike, updateHike, deleteHike, ActiveHikeError, viewer, isLocked
   } from '../journal/store';
   import { syncState } from '../sync/sync';
   import type { Hike, JournalPlan, Visibility } from '../data/types';
@@ -20,11 +20,24 @@
   const dateFmt = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   const timeFmt = new Intl.DateTimeFormat('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-  /** "2026-07-21" as a LOCAL date: new Date('2026-07-21') is UTC midnight and can show the day before. */
+  /**
+   * "2026-07-21" as a LOCAL date: new Date('2026-07-21') is UTC midnight and can show the day before.
+   * Anything else is shown as written rather than thrown on.
+   */
   function formatDate(iso: string): string {
-    const [y, m, d] = iso.split('-').map(Number);
-    return dateFmt.format(new Date(y, m - 1, d));
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    const date = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+    return date && !Number.isNaN(date.getTime()) ? dateFmt.format(date) : iso;
   }
+  /** The server accepts dates from 1950 to tomorrow (it allows for time zones ahead of this one). */
+  const MIN_DATE = '1950-01-01';
+  function tomorrow(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  let maxDate = $state(tomorrow());
   function formatTime(iso: string): string {
     return timeFmt.format(new Date(iso)).replace(/\s/g, '').replace('.', ':');
   }
@@ -58,10 +71,12 @@
   let fNotesVis = $state<Visibility>('PRIVATE');
 
   function openNew(): void {
+    maxDate = tomorrow();
     fDate = ''; fUnknown = false; fNotes = ''; fVis = 'PRIVATE'; fNotesVis = 'PRIVATE';
     formFor = 'new';
   }
   function openEdit(h: Hike): void {
+    maxDate = tomorrow();
     fDate = h.date ?? ''; fUnknown = h.date === null; fNotes = h.notes;
     fVis = h.visibility; fNotesVis = h.notesVisibility;
     formFor = h.id;
@@ -108,6 +123,9 @@
     }
   }
 
+  // Signed out, hikes saved to an account are shown but read-only: anyone may hold the phone.
+  let anyLocked = $derived($hikes.some((h) => isLocked(h, $viewer)));
+
   const clip = (s: string) => (s.length > 140 ? `${s.slice(0, 140)}…` : s);
 </script>
 
@@ -115,7 +133,7 @@
   <form class="form" onsubmit={save}>
     <div class="field">
       <label for="hl-date">Date</label>
-      <input id="hl-date" type="date" bind:value={fDate} disabled={fUnknown} />
+      <input id="hl-date" type="date" min={MIN_DATE} max={maxDate} bind:value={fDate} disabled={fUnknown} />
       <label class="check">
         <input type="checkbox" bind:checked={fUnknown} onchange={() => { if (fUnknown) fDate = ''; }} />
         I don't remember the date
@@ -123,7 +141,7 @@
     </div>
     <div class="field">
       <label for="hl-notes">Notes</label>
-      <textarea id="hl-notes" rows="3" bind:value={fNotes}></textarea>
+      <textarea id="hl-notes" rows="3" maxlength="5000" bind:value={fNotes}></textarea>
     </div>
     <div class="field">
       <label for="hl-vis">Who can see this hike</label>
@@ -166,6 +184,7 @@
   {#if $hikes.length === 0}
     <p class="empty">No hikes logged here yet.</p>
   {:else}
+    {#if anyLocked}<p class="hint">Sign in to change hikes saved to your account.</p>{/if}
     <ul class="hikes">
       {#each $hikes as h (h.id)}
         <li>
@@ -181,7 +200,9 @@
             {:else if h.pending && $syncState.status !== 'off'}
               <p class="hint">{$syncState.status === 'offline' ? 'Will send when you have signal' : 'Not synced yet'}</p>
             {/if}
-            {#if confirming === h.id}
+            {#if isLocked(h, $viewer)}
+              <!-- read-only: the hint above the list says why -->
+            {:else if confirming === h.id}
               <div class="row">
                 <span class="ask">Delete this hike?</span>
                 <button type="button" class="danger" onclick={() => remove(h.id)}>Delete</button>
@@ -216,13 +237,13 @@
   }
   .wide { width: 100%; }
   .primary { background: #c2410c; border-color: #c2410c; color: #fff; font-weight: 600; }
-  .danger { border-color: #b91c1c; color: #b91c1c; }
+  .danger { border-color: var(--ks-error); color: var(--ks-error); }
   .disclosure { justify-content: flex-start; width: 100%; }
   button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
     outline: 3px solid #c2410c; outline-offset: 2px;
   }
   .since { margin: 0; font-weight: 600; }
-  .err { margin: 0; color: #b91c1c; font-size: 0.9em; }
+  .err { margin: 0; color: var(--ks-error); font-size: 0.9em; }
   .hint, .empty { margin: 0; font-size: 0.85em; opacity: 0.75; }
   .form { display: grid; gap: 0.75rem; }
   .field { display: grid; gap: 0.3rem; }
@@ -240,7 +261,7 @@
   .hikes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .hikes li { padding: 0.25rem 0.6rem; border-left: 3px solid #c2410c; display: grid; gap: 0.3rem; }
   .head { display: flex; gap: 0.6rem; align-items: baseline; }
-  .tag { font-size: 0.8em; padding: 0 0.4rem; border: 1px solid #c2410c; border-radius: 0.3rem; color: #c2410c; }
+  .tag { font-size: 0.8em; padding: 0 0.4rem; border: 1px solid var(--ks-accent-text); border-radius: 0.3rem; color: var(--ks-accent-text); }
   .notes { margin: 0; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>

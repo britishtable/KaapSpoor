@@ -14,6 +14,19 @@ export class ActiveHikeError extends Error {
   }
 }
 
+/** Editing or deleting a hike saved to an account other than the viewer's (signed out: any account). */
+export class LockedHikeError extends Error {
+  constructor() {
+    super('Sign in to change hikes saved to your account.');
+    this.name = 'LockedHikeError';
+  }
+}
+
+/** Signed out, a hike saved to an account is read-only: anyone may be holding the phone. */
+export function isLocked(h: Hike, viewer: string | null): boolean {
+  return h.owner !== null && h.owner !== viewer;
+}
+
 let clock: () => string = () => new Date().toISOString();
 export function now(): string { return clock(); }
 export function setClockForTests(fn: (() => string) | null): void {
@@ -101,7 +114,9 @@ async function writeHike(hike: Hike): Promise<void> {
 }
 
 async function localWriteHike(hike: Hike): Promise<Hike> {
-  const stamped: Hike = { ...hike, updatedAt: now(), pending: true };
+  // Written while signed in: the hike is the viewer's now, so it can never upload to the next account.
+  const owner = hike.owner ?? get(viewer);
+  const stamped: Hike = { ...hike, owner, updatedAt: now(), pending: true };
   delete stamped.syncError;
   await writeHike(stamped);
   notifyLocalWrite();
@@ -111,6 +126,12 @@ async function localWriteHike(hike: Hike): Promise<Hike> {
 function requireHike(id: string): Hike {
   const h = get(hikes).get(id);
   if (!h) throw new Error(`No hike ${id}.`);
+  return h;
+}
+
+function requireEditable(id: string): Hike {
+  const h = requireHike(id);
+  if (isLocked(h, get(viewer))) throw new LockedHikeError();
   return h;
 }
 
@@ -124,7 +145,7 @@ export async function logHike(input: {
     id: crypto.randomUUID(), routeId: input.routeId, date: input.date, notes: input.notes,
     visibility: input.visibility ?? 'PRIVATE', notesVisibility: input.notesVisibility ?? 'PRIVATE',
     startedAt: null, finishedAt: null, updatedAt: now(),
-    deleted: false, owner: null, pending: true
+    deleted: false, owner: get(viewer), pending: true
   };
   if (input.plan) hike.plan = input.plan;
   return localWriteHike(hike);
@@ -134,11 +155,14 @@ export async function updateHike(
   id: string,
   patch: Partial<Pick<Hike, 'date' | 'notes' | 'visibility' | 'notesVisibility' | 'plan'>>
 ): Promise<void> {
-  await localWriteHike({ ...requireHike(id), ...patch });
+  await localWriteHike({ ...requireEditable(id), ...patch });
 }
 
+/** Final and scrubbed, as on the server: only the route and visibility stay. */
 export async function deleteHike(id: string): Promise<void> {
-  const next: Hike = { ...requireHike(id), deleted: true, notes: '' };
+  const next: Hike = {
+    ...requireEditable(id), deleted: true, notes: '', date: null, startedAt: null, finishedAt: null
+  };
   delete next.plan;
   await localWriteHike(next);
 }
@@ -149,7 +173,7 @@ export async function startHike(routeId: string, plan?: JournalPlan): Promise<Hi
     id: crypto.randomUUID(), routeId, date: localDate(), notes: '',
     visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
     startedAt: now(), finishedAt: null, updatedAt: now(),
-    deleted: false, owner: null, pending: true
+    deleted: false, owner: get(viewer), pending: true
   };
   if (plan) hike.plan = plan;
   return localWriteHike(hike);

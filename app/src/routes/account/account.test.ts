@@ -82,6 +82,21 @@ describe('account page', () => {
 		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('2 hikes waiting to sync'));
 	});
 
+	it("status line counts hikes the server refused, and only then is not 'All hikes synced'", async () => {
+		setup();
+		const refused = (id: string): Hike => ({ ...pending(id), pending: false, syncError: 'That route does not exist.' });
+		await replaceAll({ hikes: [refused('h1')], routeNotes: [] });
+		render(Page);
+		await signInOnPage();
+		await syncNow();
+		expect(screen.getByRole('status').textContent).toBe("1 hike couldn't sync");
+		await replaceAll({ hikes: [refused('h1'), refused('h2'), pending('h3')], routeNotes: [] });
+		await waitFor(() => expect(screen.getByRole('status').textContent)
+			.toBe("2 hikes couldn't sync. 1 hike waiting to sync"));
+		await replaceAll({ hikes: [], routeNotes: [] });
+		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('All hikes synced'));
+	});
+
 	it('status line shows when it last synced', async () => {
 		setup();
 		setClockForTests(() => '2026-11-18T12:00:00.000Z');

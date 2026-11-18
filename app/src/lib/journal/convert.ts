@@ -1,13 +1,23 @@
 import type { Hike, JournalPlan, RouteNotes } from '../data/types';
 
+/** A plan whose legs are absent, null (as a server or an export of one may write them) or ids. */
 export function isPlan(x: unknown): x is JournalPlan {
   if (typeof x !== 'object' || x === null) return false;
   const p = x as Record<string, unknown>;
-  const optionalId = (v: unknown) => v === undefined || typeof v === 'string';
+  const optionalId = (v: unknown) => v === undefined || v === null || typeof v === 'string';
   return (
     typeof p.reversed === 'boolean' &&
     optionalId(p.approach) && optionalId(p.main) && optionalId(p.exit)
   );
+}
+
+/** The plan as the app stores it: absent legs omitted, never null or empty. */
+export function cleanPlan(p: { approach?: string | null; main?: string | null; exit?: string | null; reversed: boolean }): JournalPlan {
+  const plan: JournalPlan = { reversed: p.reversed };
+  if (p.approach) plan.approach = p.approach;
+  if (p.main) plan.main = p.main;
+  if (p.exit) plan.exit = p.exit;
+  return plan;
 }
 
 /**
@@ -30,7 +40,7 @@ export function convertJournal(
     const routeId = e.routeId;
     const date = typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null;
     const notes = typeof e.notes === 'string' ? e.notes : '';
-    const plan = isPlan(e.plan) ? e.plan : undefined;
+    const plan = isPlan(e.plan) ? cleanPlan(e.plan) : undefined;
 
     if (e.done) {
       const hike: Hike = {

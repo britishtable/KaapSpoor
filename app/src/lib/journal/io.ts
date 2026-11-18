@@ -1,8 +1,16 @@
 import type { Hike, JournalPlan, RouteNotes, Visibility } from '../data/types';
-import { convertJournal, isPlan } from './convert';
+import { cleanPlan, convertJournal, isPlan } from './convert';
 import { now } from './store';
 
 export interface Data { hikes: Hike[]; routeNotes: RouteNotes[] }
+
+/**
+ * The hikes an export may contain: the viewer's and unowned ones. Signed out, that is
+ * only unowned hikes — the same lock an import applies (see merge).
+ */
+export function exportableHikes(all: Hike[], viewer: string | null): Hike[] {
+  return all.filter((h) => !h.deleted && (h.owner === null || h.owner === viewer));
+}
 
 export function serialize(d: Data): string {
   const hikes = d.hikes.filter((h) => !h.deleted).map((h) => {
@@ -17,21 +25,15 @@ export function serialize(d: Data): string {
 const VIS: Visibility[] = ['PRIVATE', 'FRIENDS', 'PUBLIC'];
 const isVis = (x: unknown): x is Visibility => VIS.includes(x as Visibility);
 const isStrOrNull = (x: unknown) => x === null || typeof x === 'string';
-
-function rebuildPlan(p: JournalPlan): JournalPlan {
-  const plan: JournalPlan = { reversed: p.reversed };
-  if (p.approach) plan.approach = p.approach;
-  if (p.main) plan.main = p.main;
-  if (p.exit) plan.exit = p.exit;
-  return plan;
-}
+/** A calendar date as the app writes it ("2026-07-21"); a hand-edited "21/07/2026" is malformed. */
+const isDateOrNull = (x: unknown) => x === null || (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x));
 
 function toHike(x: unknown): Hike | null {
   if (typeof x !== 'object' || x === null) return null;
   const h = x as Record<string, unknown>;
   if (
     typeof h.id !== 'string' || typeof h.routeId !== 'string' ||
-    !isStrOrNull(h.date) || typeof h.notes !== 'string' ||
+    !isDateOrNull(h.date) || typeof h.notes !== 'string' ||
     !isVis(h.visibility) || !isVis(h.notesVisibility) ||
     !isStrOrNull(h.startedAt) || !isStrOrNull(h.finishedAt) ||
     typeof h.updatedAt !== 'string' || typeof h.deleted !== 'boolean' ||
@@ -43,7 +45,7 @@ function toHike(x: unknown): Hike | null {
     startedAt: h.startedAt as string | null, finishedAt: h.finishedAt as string | null,
     updatedAt: h.updatedAt, deleted: h.deleted, owner: null, pending: true
   };
-  if (h.plan) hike.plan = rebuildPlan(h.plan as JournalPlan);
+  if (h.plan) hike.plan = cleanPlan(h.plan as JournalPlan);
   return hike;
 }
 
@@ -53,7 +55,7 @@ function toNotes(x: unknown): RouteNotes | null {
   if (typeof n.routeId !== 'string' || typeof n.notes !== 'string' || typeof n.updatedAt !== 'string') return null;
   if (n.plan !== undefined && !isPlan(n.plan)) return null;
   const out: RouteNotes = { routeId: n.routeId, notes: n.notes, updatedAt: n.updatedAt };
-  if (n.plan) out.plan = rebuildPlan(n.plan as JournalPlan);
+  if (n.plan) out.plan = cleanPlan(n.plan as JournalPlan);
   return out;
 }
 
@@ -89,7 +91,8 @@ function newer<T extends { updatedAt: string }>(a: T | undefined, b: T): T {
 /**
  * `current` is everything on the device, tombstones and other owners included.
  * A local hike is never overwritten by an import when it is a tombstone
- * (deletion is final) or belongs to another signed-in account (shared phone).
+ * (deletion is final) or belongs to an account other than the viewer's — which,
+ * signed out, is every account (shared phone).
  */
 export function merge(
   current: Data, incoming: Data, mode: 'merge' | 'replace', viewer: string | null = null

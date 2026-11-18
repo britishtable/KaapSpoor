@@ -6,6 +6,7 @@ import { syncNow, startSync as realStartSync, syncState } from './sync';
 import { configureSession, signIn, signOut, type TokenStorage, type StoredSession } from '$lib/account/session';
 import { hikes, visibleHikes, replaceAll, logHike, updateHike, setClockForTests } from '$lib/journal/store';
 import { getMeta, setMeta } from '$lib/journal/db';
+import { serialize, parse, exportableHikes } from '$lib/journal/io';
 import type { Hike } from '$lib/data/types';
 import type { components } from '$lib/api/schema';
 import HikeLog from '$lib/components/HikeLog.svelte';
@@ -35,10 +36,14 @@ function fakeServer() {
 	const held = { count: 0 };
 	let pageSize = 50;
 
+	/** Jackson's default inclusion writes an absent leg as null, so the fake does too. */
+	const jacksonPlan = (p: HikeWrite['plan']) =>
+		(p ? { approach: p.approach ?? null, main: p.main ?? null, exit: p.exit ?? null, reversed: p.reversed } : null) as ServerHike['plan'];
+
 	function store(owner: string, id: string, w: HikeWrite): ServerHike {
 		const hike: ServerHike = {
 			id, routeId: w.routeId, date: w.date ?? null, notes: w.notes, visibility: w.visibility,
-			notesVisibility: w.notesVisibility, plan: w.plan ?? null, startedAt: w.startedAt ?? null,
+			notesVisibility: w.notesVisibility, plan: jacksonPlan(w.plan), startedAt: w.startedAt ?? null,
 			finishedAt: w.finishedAt ?? null, updatedAt: instant(w.updatedAt), deleted: w.deleted,
 			revision: ++revision
 		};
@@ -350,6 +355,84 @@ describe('sync engine', () => {
 		await syncNow();
 		expect(get(visibleHikes).map((x) => x.id)).not.toContain(h.id);
 		expect(server.puts.filter((p) => p.user === 'user-b')).toHaveLength(0);
+	});
+
+	it('a hike logged signed in but not yet sent stays with that account, never the next', async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		const h = await logHike({ routeId: 'r1', date: '2026-07-21', notes: 'offline by A' });
+		await syncNow();
+		expect(server.puts).toHaveLength(0);
+		online = true;
+		server.net.down = false;
+		await signOut();
+		await signInAs('b');
+		await syncNow();
+		expect(get(visibleHikes).map((x) => x.id)).not.toContain(h.id);
+		expect(server.puts.filter((p) => p.user === 'user-b')).toHaveLength(0);
+		expect(get(hikes).get(h.id)).toMatchObject({ owner: 'user-a', pending: true });
+	});
+
+	it('a pulled plan with null legs is stored without them and survives export then import', async () => {
+		await signInAs('a');
+		server.store('user-a', 'p1', write({ plan: { main: 'r1/main/main', reversed: true } }));
+		expect(server.rows.get('p1')!.hike.plan).toEqual({ approach: null, main: 'r1/main/main', exit: null, reversed: true });
+		await syncNow();
+		const pulled = get(hikes).get('p1')!;
+		expect(pulled.plan).toEqual({ main: 'r1/main/main', reversed: true });
+		const file = serialize({ hikes: exportableHikes([...get(hikes).values()], 'user-a'), routeNotes: [] });
+		const back = parse(file);
+		expect(back.hikes).toHaveLength(1);
+		expect(back.hikes[0].plan).toEqual({ main: 'r1/main/main', reversed: true });
+	});
+
+	it('sign-in retries a refused hike once, so a server-side fix heals it without an edit', async () => {
+		await replaceAll({
+			hikes: [local('h1', { owner: 'user-a', pending: false, syncError: 'That route does not exist.' })],
+			routeNotes: []
+		});
+		const stop = startSync();
+		await signInAs('a');
+		await vi.waitFor(() => expect(get(hikes).get('h1')!.pending).toBe(false));
+		await syncNow();
+		expect(server.puts.map((p) => p.id)).toEqual(['h1']);
+		expect(get(hikes).get('h1')).not.toHaveProperty('syncError');
+		expect(get(syncState)).toMatchObject({ pendingCount: 0, errorCount: 0 });
+		await syncNow();
+		expect(server.puts).toHaveLength(1);
+		stop();
+	});
+
+	it('a retried hike the server still refuses keeps its error and is not retried again', async () => {
+		await replaceAll({
+			hikes: [local('h1', { routeId: 'bad', owner: 'user-a', pending: false, syncError: 'old reason' })],
+			routeNotes: []
+		});
+		const stop = startSync();
+		await signInAs('a');
+		expect(get(hikes).get('h1')).toMatchObject({ pending: true, syncError: 'old reason' });
+		expect(get(syncState)).toMatchObject({ pendingCount: 0, errorCount: 1 });
+		await vi.waitFor(() => expect(get(hikes).get('h1')!.pending).toBe(false));
+		await syncNow();
+		expect(get(hikes).get('h1')!.syncError).toBe('That route does not exist.');
+		await syncNow();
+		expect(server.puts).toHaveLength(1);
+		stop();
+	});
+
+	it("sync state is per user: B never sees A's last-synced time or status", async () => {
+		await signInAs('a');
+		await syncNow();
+		expect(get(syncState).lastSyncedAt).not.toBeNull();
+		server.net.down = true;
+		await replaceAll({ hikes: [local('h1')], routeNotes: [] });
+		await syncNow();
+		expect(get(syncState).status).toBe('offline');
+		server.net.down = false;
+		await signOut();
+		await signInAs('b');
+		expect(get(syncState)).toMatchObject({ status: 'idle', lastSyncedAt: null });
 	});
 
 	it('a pending hike of another user is never pushed', async () => {
