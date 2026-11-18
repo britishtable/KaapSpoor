@@ -1,0 +1,5 @@
+[
+  {"id": "a", "title": "Route A", "area": ["Cape Peninsula"], "coords": {"lat": -33.9, "lon": 18.4}, "coordsSource": "crawl", "extra": "ignored"},
+  {"id": "b", "title": "Route B", "area": ["Boland", "Hex River"], "coords": {"lat": -33.5, "lon": 19.1}, "coordsSource": "area-approx"},
+  {"id": "c", "title": "Route C", "area": ["Karoo"], "coords": null, "coordsSource": null}
+]
