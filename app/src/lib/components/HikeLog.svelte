@@ -65,6 +65,13 @@
     fVis = h.visibility; fNotesVis = h.notesVisibility;
     formFor = h.id;
   }
+  // Closing a form also drops its stale error. Only one form is open at a time:
+  // the other entry points (Log a past hike, every Edit) are disabled while one
+  // is, so a half-typed draft can never be overwritten by the shared fields.
+  function closeForm(): void {
+    formFor = null;
+    error = '';
+  }
   async function save(e: Event): Promise<void> {
     e.preventDefault();
     error = '';
@@ -75,7 +82,7 @@
       } else if (formFor) {
         await updateHike(formFor, { date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis });
       }
-      formFor = null;
+      closeForm();
     } catch {
       error = "Couldn't save that on this device. Your entry is still here.";
     }
@@ -132,7 +139,7 @@
     <p class="hint">For now only you can see your hikes. This choice applies once sharing arrives.</p>
     <div class="row">
       <button type="submit" class="primary">Save hike</button>
-      <button type="button" onclick={() => (formFor = null)}>Cancel</button>
+      <button type="button" onclick={closeForm}>Cancel</button>
     </div>
   </form>
 {/snippet}
@@ -151,7 +158,7 @@
   {#if error}<p class="err" role="alert">{error}</p>{/if}
 
   <button type="button" class="disclosure" aria-expanded={formFor === 'new'}
-    onclick={() => (formFor === 'new' ? (formFor = null) : openNew())}>Log a past hike</button>
+    disabled={formFor !== null} onclick={openNew}>Log a past hike</button>
   {#if formFor === 'new'}{@render hikeForm()}{/if}
 
   <h2>Your hikes here</h2>
@@ -178,7 +185,7 @@
               </div>
             {:else}
               <div class="row">
-                <button type="button" onclick={() => openEdit(h)}>Edit</button>
+                <button type="button" disabled={formFor !== null} onclick={() => openEdit(h)}>Edit</button>
                 <button type="button" onclick={() => (confirming = h.id)}>Delete</button>
               </div>
             {/if}

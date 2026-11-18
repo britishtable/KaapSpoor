@@ -51,6 +51,19 @@ describe('HikeLog', () => {
     expect(get(visibleHikes)[0].date).toBeNull();
   });
 
+  it('while a form is open the other entry points are disabled and the draft survives', async () => {
+    await logHike({ routeId: 'r1', date: '2026-07-21', notes: 'existing' });
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
+    await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'my draft' } });
+    expect((screen.getByRole('button', { name: 'Edit' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Log a past hike' }) as HTMLButtonElement).disabled).toBe(true);
+    // Real clicks never reach a disabled button; the draft is simply still there.
+    expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('my draft');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect((screen.getByRole('button', { name: 'Edit' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('shows a known date as D MMM YYYY without a timezone shift', async () => {
     await logHike({ routeId: 'r1', date: '2026-07-21', notes: '' });
     render(HikeLog, { routeId: 'r1' });
