@@ -10,7 +10,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Seeds the route table from the app's build/data/routes-index.json. */
 @Component
@@ -40,12 +41,17 @@ public class RouteIndexLoader implements ApplicationRunner {
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final TransactionTemplate tx;
     private final String indexPath;
 
     public RouteIndexLoader(
-            JdbcTemplate jdbc, ObjectMapper mapper, @Value("${kaapspoor.routes-index:}") String indexPath) {
+            JdbcTemplate jdbc,
+            ObjectMapper mapper,
+            PlatformTransactionManager txManager,
+            @Value("${kaapspoor.routes-index:}") String indexPath) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.tx = new TransactionTemplate(txManager);
         this.indexPath = indexPath;
     }
 
@@ -56,11 +62,19 @@ public class RouteIndexLoader implements ApplicationRunner {
         }
     }
 
-    @Transactional
     public LoadResult load(Path indexJson) throws IOException {
         List<Entry> entries = mapper.readValue(
                 indexJson.toFile(),
                 mapper.getTypeFactory().constructCollectionType(List.class, Entry.class));
+        if (entries.isEmpty()) {
+            // An empty or truncated index would retire every route; refuse rather than wipe the table.
+            throw new IllegalStateException("Route index " + indexJson + " has no entries; refusing to load it");
+        }
+        // run() calls this on `this`, bypassing any proxy, so the transaction is explicit.
+        return tx.execute(status -> upsertAndRetire(entries));
+    }
+
+    private LoadResult upsertAndRetire(List<Entry> entries) {
 
         for (Entry e : entries) {
             // area-approx coordinates are a region centroid, not a trailhead: keep them out of spatial queries.

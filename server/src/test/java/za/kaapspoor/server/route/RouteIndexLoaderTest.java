@@ -5,12 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.BeforeEach;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
 import za.kaapspoor.server.TestcontainersConfig;
 
 @SpringBootTest
@@ -21,6 +25,8 @@ class RouteIndexLoaderTest {
     @Autowired RouteIndexLoader loader;
     @Autowired RouteRepository routes;
     @Autowired JdbcTemplate jdbc;
+    @Autowired ObjectMapper mapper;
+    @Autowired PlatformTransactionManager txManager;
 
     private static Path fixture(String name) {
         return Paths.get("src/test/resources", name);
@@ -64,5 +70,28 @@ class RouteIndexLoaderTest {
         loader.load(fixture("routes-index-fixture.json"));
 
         assertThat(routes.existsByIdAndRetiredAtIsNull("b")).isTrue();
+    }
+
+    @Test
+    void startupRunIsAtomicWhenALaterEntryFails() {
+        // Built directly, as the runner is: run() calls load() on itself, with no proxy in between.
+        var runner = new RouteIndexLoader(
+                jdbc, mapper, txManager, fixture("routes-index-bad-second.json").toString());
+
+        assertThatThrownBy(() -> runner.run(null)).isInstanceOf(Exception.class);
+
+        assertThat(jdbc.queryForObject("select count(*) from route", Integer.class)).isZero();
+    }
+
+    @Test
+    void emptyIndexIsRefusedAndRetiresNothing() throws Exception {
+        loader.load(fixture("routes-index-fixture.json"));
+
+        assertThatThrownBy(() -> loader.load(fixture("routes-index-empty.json")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no entries");
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from route where retired_at is null", Integer.class)).isEqualTo(3);
     }
 }
