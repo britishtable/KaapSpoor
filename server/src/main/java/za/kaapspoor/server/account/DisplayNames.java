@@ -1,6 +1,7 @@
 package za.kaapspoor.server.account;
 
 import java.util.Locale;
+import za.kaapspoor.server.web.BadRequestException;
 
 public final class DisplayNames {
 
@@ -8,17 +9,17 @@ public final class DisplayNames {
 
     private DisplayNames() {}
 
-    /** Returns the trimmed name, or throws {@link IllegalArgumentException} (mapped to 400) if unusable. */
+    /** Returns the trimmed name, or throws {@link BadRequestException} (mapped to 400) if unusable. */
     public static String validate(String name) {
         if (name == null) {
-            throw new IllegalArgumentException("Display name is required");
+            throw new BadRequestException("Display name is required");
         }
         String trimmed = name.trim();
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException("Display name must not be blank");
+            throw new BadRequestException("Display name must not be blank");
         }
         if (trimmed.codePointCount(0, trimmed.length()) > MAX_CODE_POINTS) {
-            throw new IllegalArgumentException("Display name must be at most " + MAX_CODE_POINTS + " characters");
+            throw new BadRequestException("Display name must be at most " + MAX_CODE_POINTS + " characters");
         }
         return trimmed;
     }

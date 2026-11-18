@@ -10,6 +10,7 @@ import za.kaapspoor.server.account.AppUser;
 import za.kaapspoor.server.account.AppUserRepository;
 import za.kaapspoor.server.account.DisplayNames;
 import za.kaapspoor.server.account.Emails;
+import za.kaapspoor.server.web.BadRequestException;
 
 /** Signs in with a Google or Apple ID token, finding, linking or creating the KaapSpoor user. */
 @Service
@@ -92,7 +93,7 @@ public class OidcAuthService {
         for (String candidate : new String[] {tokenName, requestedName}) {
             try {
                 return DisplayNames.validate(candidate);
-            } catch (IllegalArgumentException unusable) {
+            } catch (BadRequestException unusable) {
                 // try the next one
             }
         }
