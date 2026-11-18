@@ -4,6 +4,7 @@
     activeHike, hikesForRoute, routeNotes, setRouteNotes, startHike, finishHike,
     logHike, updateHike, deleteHike, ActiveHikeError
   } from '../journal/store';
+  import { syncState } from '../sync/sync';
   import type { Hike, JournalPlan, Visibility } from '../data/types';
 
   let { routeId, plan }: { routeId: string; plan?: JournalPlan } = $props();
@@ -176,7 +177,10 @@
               {#if active?.id === h.id}<span class="tag">In progress</span>{/if}
             </div>
             {#if h.notes}<p class="notes">{clip(h.notes)}</p>{/if}
-            {#if h.syncError}<p class="err">Couldn't sync: {h.syncError}</p>{/if}
+            {#if h.syncError}<p class="err">Couldn't sync: {h.syncError}</p>
+            {:else if h.pending && $syncState.status !== 'off'}
+              <p class="hint">{$syncState.status === 'offline' ? 'Will send when you have signal' : 'Not synced yet'}</p>
+            {/if}
             {#if confirming === h.id}
               <div class="row">
                 <span class="ask">Delete this hike?</span>

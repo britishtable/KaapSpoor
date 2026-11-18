@@ -28,6 +28,14 @@ beforeEach(async () => {
 });
 
 describe('hike store', () => {
+  it('replaceAll (an import) notifies onLocalWrite', async () => {
+    const fn = vi.fn();
+    const off = onLocalWrite(fn);
+    await replaceAll({ hikes: [], routeNotes: [] });
+    off();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
   it('logHike adds a pending hike and notifies onLocalWrite', async () => {
     setClockForTests(() => '2026-05-05T10:00:00.000Z');
     const fn = vi.fn();

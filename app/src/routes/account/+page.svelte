@@ -2,6 +2,8 @@
   import { base } from '$app/paths';
   import { apiBaseUrl } from '$lib/api/config';
   import { session, signIn, register, signOut, SessionError } from '$lib/account/session';
+  import { syncState } from '$lib/sync/sync';
+  import { now } from '$lib/journal/store';
 
   let mode = $state<'signin' | 'create'>('signin');
   let displayName = $state('');
@@ -35,6 +37,18 @@
     }
   }
 
+  const relFmt = new Intl.RelativeTimeFormat('en-ZA', { numeric: 'auto' });
+  function relative(iso: string): string {
+    const secs = Math.round((Date.parse(iso) - Date.parse(now())) / 1000);
+    if (Math.abs(secs) < 60) return 'just now';
+    const mins = Math.round(secs / 60);
+    if (Math.abs(mins) < 60) return relFmt.format(mins, 'minute');
+    const hours = Math.round(mins / 60);
+    if (Math.abs(hours) < 24) return relFmt.format(hours, 'hour');
+    return relFmt.format(Math.round(hours / 24), 'day');
+  }
+  let waiting = $derived($syncState.pendingCount);
+
   async function leave() {
     error = null;
     await signOut();
@@ -48,7 +62,8 @@
     <p>Accounts aren't available in this build yet. Your hikes are saved on this device.</p>
   {:else if $session}
     <p class="who">Signed in as {$session.displayName}</p>
-    <p class="hint">Your hikes stay on this device.</p>
+    <p class="status" role="status">{waiting === 0 ? 'All hikes synced' : `${waiting} ${waiting === 1 ? 'hike' : 'hikes'} waiting to sync`}</p>
+    {#if $syncState.lastSyncedAt}<p class="hint">Last synced {relative($syncState.lastSyncedAt)}</p>{/if}
     <button class="wide" onclick={leave}>Sign out</button>
   {:else}
     <form onsubmit={submit} novalidate>
@@ -106,4 +121,5 @@
   .who { margin: 0; font-weight: 600; font-size: 1.15em; }
   .err { margin: 0; color: #b91c1c; font-size: 0.9em; }
   .hint { margin: 0; font-size: 0.85em; opacity: 0.75; }
+  .status { margin: 0; }
 </style>

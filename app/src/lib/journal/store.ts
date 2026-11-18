@@ -78,6 +78,8 @@ export async function replaceAll(d: { hikes: Hike[]; routeNotes: RouteNotes[] })
   await replaceAllData(d);
   hikes.set(new Map(d.hikes.map((x) => [x.id, x])));
   routeNotes.set(new Map(d.routeNotes.map((x) => [x.routeId, x])));
+  // An import is a local write: imported pending hikes should sync too.
+  notifyLocalWrite();
 }
 
 /** Optimistic write of one hike; rolls back only if this call's value is still current. */

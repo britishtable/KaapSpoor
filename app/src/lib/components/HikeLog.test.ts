@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
 import HikeLog from './HikeLog.svelte';
+import { configureSession, restoreSession } from '../account/session';
 import {
   activeHike, visibleHikes, routeNotes, replaceAll, logHike, startHike, setClockForTests
 } from '../journal/store';
@@ -108,6 +109,20 @@ describe('HikeLog', () => {
     render(HikeLog, { routeId: 'r1' });
     expect(screen.getByText("Couldn't sync: Too long")).toBeTruthy();
     expect(screen.queryByText(/not synced yet/i)).toBeNull();
+  });
+
+  it('signed in: a pending hike shows Not synced yet', async () => {
+    const user = { id: 'u1', displayName: 'Thandi', initials: 'T' };
+    const s = { accessToken: 'a', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r', user };
+    configureSession({ storage: { load: () => s, save: () => {}, clear: () => {} }, baseUrl: 'http://srv' });
+    restoreSession();
+    try {
+      await logHike({ routeId: 'r1', date: '2026-07-21', notes: 'x' });
+      render(HikeLog, { routeId: 'r1' });
+      expect(screen.getByText('Not synced yet')).toBeTruthy();
+    } finally {
+      configureSession();
+    }
   });
 
   it('planning notes persist to routeNotes', async () => {
