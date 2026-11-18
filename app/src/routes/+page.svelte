@@ -1,7 +1,7 @@
 <script lang="ts">
   import { buildAreaTree } from '$lib/data/areas';
   import { filterEntries, type FilterOptions } from '$lib/data/filter';
-  import { journal } from '$lib/journal/store';
+  import { doneRouteIds } from '$lib/journal/store';
   import AreaTree from '$lib/components/AreaTree.svelte';
   import Filters from '$lib/components/Filters.svelte';
   import MapView from '$lib/components/MapView.svelte';
@@ -13,7 +13,7 @@
 
   let { data }: { data: PageData } = $props();
   let opts = $state<FilterOptions>({ query: '', status: 'all', located: 'all' });
-  let doneIds = $derived(new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId)));
+  let doneIds = $derived($doneRouteIds);
   // Only what this build can actually show. The camera is clamped to the region
   // and there is no basemap beyond it, so the other areas offered routes that
   // could never be reached — 51 of them, pinned over blank background.

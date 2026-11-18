@@ -1,41 +1,24 @@
 <script lang="ts">
-  import { journal, setEntry } from '../journal/store';
-  import type { JournalEntry, JournalPlan } from '../data/types';
+  import { doneRouteIds, logHike } from '../journal/store';
+  import type { JournalPlan } from '../data/types';
+  // Interim control: Task 5 replaces it with the hike log. Done is now derived
+  // from hikes, so ticking logs a hike and the tick locks once the route is done.
   let { routeId, plan }: { routeId: string; plan?: JournalPlan } = $props();
-  let entry = $derived<JournalEntry>(
-    $journal.get(routeId) ?? { routeId, done: false, date: null, notes: '' }
-  );
+  let done = $derived($doneRouteIds.has(routeId));
 
-  // Ticking Done attaches the plan currently on screen, replacing any plan
-  // already stored — a re-tick after changing the plan should record what is
-  // now shown, not what was recorded last time. Un-ticking, and ticking a
-  // route with nothing drawn (plan is undefined), leave the stored plan
-  // untouched: neither is a statement about which way they went.
   function toggle(): void {
-    const turningOn = !entry.done;
-    const next: JournalEntry = { ...entry, done: turningOn };
-    if (turningOn && plan) next.plan = plan;
-    void setEntry(next);
+    if (!done) void logHike({ routeId, date: null, notes: '', plan });
   }
 </script>
 
 <fieldset class="journal">
   <legend>Journal</legend>
   <label>
-    <input type="checkbox" checked={entry.done} onchange={toggle} aria-label="Mark done" />
+    <input type="checkbox" checked={done} disabled={done} onchange={toggle} aria-label="Mark done" />
     Done
-  </label>
-  <label>Date
-    <input type="date" value={entry.date ?? ''}
-      onchange={(e) => setEntry({ ...entry, date: (e.currentTarget as HTMLInputElement).value || null })} />
-  </label>
-  <label>Notes
-    <textarea value={entry.notes}
-      onchange={(e) => setEntry({ ...entry, notes: (e.currentTarget as HTMLTextAreaElement).value })}></textarea>
   </label>
 </fieldset>
 
 <style>
   .journal { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 1.5rem; }
-  textarea { width: 100%; min-height: 4rem; }
 </style>

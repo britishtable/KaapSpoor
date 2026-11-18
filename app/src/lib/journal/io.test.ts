@@ -1,74 +1,84 @@
 import { describe, it, expect } from 'vitest';
 import { serialize, parse, merge } from './io';
-import type { JournalEntry } from '../data/types';
+import type { Hike } from '../data/types';
 
-const e = (routeId: string, done = true): JournalEntry => ({ routeId, done, date: null, notes: '' });
+const h = (id: string, over: Partial<Hike> = {}): Hike => ({
+  id, routeId: 'a--b--c', date: '2026-07-02', notes: 'n',
+  visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+  startedAt: null, finishedAt: null, updatedAt: '2026-07-02T10:00:00.000Z',
+  deleted: false, owner: 'u1', pending: false, ...over
+});
 
-describe('serialize / parse round-trip', () => {
-  it('preserves entries', () => {
-    const entries = [e('r1'), e('r2', false)];
-    expect(parse(serialize(entries))).toEqual(entries);
+describe('v2 serialize / parse', () => {
+  it('round-trip strips owner/pending/syncError and tombstones', () => {
+    const live = h('1', { syncError: 'x', plan: { main: 'a--b--c/main/main', reversed: true } });
+    const dead = h('2', { deleted: true });
+    const json = serialize({ hikes: [live, dead], routeNotes: [{ routeId: 'r', notes: 'p', updatedAt: 't' }] });
+    const raw = JSON.parse(json);
+    expect(raw.version).toBe(2);
+    expect(raw.hikes).toHaveLength(1);
+    expect(raw.hikes[0]).not.toHaveProperty('owner');
+    expect(raw.hikes[0]).not.toHaveProperty('pending');
+    expect(raw.hikes[0]).not.toHaveProperty('syncError');
+    const out = parse(json);
+    const { syncError: _s, ...expected } = live;
+    expect(out.hikes).toEqual([{ ...expected, owner: null, pending: true }]);
+    expect(out.routeNotes).toEqual([{ routeId: 'r', notes: 'p', updatedAt: 't' }]);
   });
-  it('rejects non-journal JSON', () => {
-    expect(() => parse('{"nope":1}')).toThrow();
+
+  it('v1 file converts', () => {
+    const json = JSON.stringify({
+      version: 1, exportedAt: '',
+      entries: [
+        { routeId: 'r1', done: true, date: '2026-07-02', notes: 'good day',
+          plan: { main: 'r1/main/main', reversed: false } },
+        { routeId: 'r2', done: false, date: null, notes: '' }
+      ]
+    });
+    const out = parse(json);
+    expect(out.hikes).toHaveLength(1);
+    expect(out.hikes[0]).toMatchObject({ routeId: 'r1', date: '2026-07-02', owner: null, pending: true });
+    expect(out.routeNotes).toHaveLength(1);
+    expect(out.routeNotes[0].notes).toBe('good day');
   });
-  it('rejects entries missing required fields', () => {
-    expect(() => parse('{"version":1,"entries":[{"routeId":"r1"}]}')).toThrow();
+
+  it('junk fields are dropped', () => {
+    const raw = JSON.parse(serialize({ hikes: [h('1', { plan: { main: 'm', reversed: false } })], routeNotes: [] }));
+    raw.hikes[0].extra = 99;
+    raw.hikes[0].plan.sneaky = 1;
+    const [out] = parse(JSON.stringify(raw)).hikes;
+    expect(out).not.toHaveProperty('extra');
+    expect(out.plan).toEqual({ main: 'm', reversed: false });
   });
-  it('rejects invalid JSON text', () => {
-    expect(() => parse('not json')).toThrow();
+
+  it('malformed hike rejected with the message', () => {
+    const bad = JSON.stringify({ version: 2, exportedAt: '', hikes: [{ id: 1 }], routeNotes: [] });
+    expect(() => parse(bad)).toThrow('The file contains a malformed hike.');
   });
-  it('rejects literal null with the friendly message', () => {
-    expect(() => parse('null')).toThrow('Not a KaapSpoor journal export.');
-  });
-  it('strips unknown extra fields from imported entries', () => {
-    const json = '{"version":1,"entries":[{"routeId":"r1","done":true,"date":null,"notes":"","extra":99}]}';
-    expect(parse(json)).toEqual([{ routeId: 'r1', done: true, date: null, notes: '' }]);
+
+  it('rejects junk with the friendly messages', () => {
+    expect(() => parse('not json')).toThrow('Not valid JSON.');
+    expect(() => parse('null')).toThrow('Not a KaapSpoor export.');
+    expect(() => parse('{"nope":1}')).toThrow('Not a KaapSpoor export.');
   });
 });
 
 describe('merge', () => {
-  const current = new Map([[ 'r1', e('r1') ], [ 'r2', e('r2') ]]);
-  it('merge overlays incoming, incoming winning on id clash', () => {
-    const out = merge(current, [e('r2', false), e('r3')], 'merge');
-    const byId = new Map(out.map((x) => [x.routeId, x]));
-    expect(byId.get('r2')!.done).toBe(false);
-    expect([...byId.keys()].sort()).toEqual(['r1', 'r2', 'r3']);
-  });
-  it('replace discards current entirely', () => {
-    expect(merge(current, [e('r3')], 'replace')).toEqual([e('r3')]);
-  });
-});
+  const cur = { hikes: [h('1', { notes: 'cur' }), h('2')], routeNotes: [{ routeId: 'r', notes: 'cur', updatedAt: '2026-02' }] };
 
-const withPlan = {
-  routeId: 'a--b--c', done: true, date: '2026-07-02', notes: '',
-  plan: { approach: 'a--b--c/approach/k', main: 'a--b--c/main/main', reversed: false }
-};
-
-describe('journal plans', () => {
-  it('round-trips a plan through export and import', () => {
-    expect(parse(serialize([withPlan]))[0].plan).toEqual(withPlan.plan);
+  it('merge keeps newer by updatedAt', () => {
+    const inc = {
+      hikes: [h('1', { notes: 'old', updatedAt: '2026-01-01T00:00:00.000Z' }), h('3')],
+      routeNotes: [{ routeId: 'r', notes: 'inc', updatedAt: '2026-03' }]
+    };
+    const out = merge(cur, inc, 'merge');
+    expect(out.hikes.find((x) => x.id === '1')!.notes).toBe('cur');
+    expect(out.hikes.map((x) => x.id).sort()).toEqual(['1', '2', '3']);
+    expect(out.routeNotes[0].notes).toBe('inc');
   });
 
-  it('accepts an entry with no plan, which is every entry written before today', () => {
-    const legacy = { routeId: 'a--b--c', done: true, date: null, notes: 'x' };
-    const [out] = parse(serialize([legacy]));
-    expect(out.plan).toBeUndefined();
-    expect(out.done).toBe(true);
-  });
-
-  it('rejects a plan that is not shaped like one', () => {
-    const bad = JSON.stringify({
-      version: 1, exportedAt: '', entries: [{ ...withPlan, plan: { reversed: 'yes' } }]
-    });
-    expect(() => parse(bad)).toThrow(/malformed/);
-  });
-
-  it('strips junk fields from inside the plan', () => {
-    const junk = JSON.stringify({
-      version: 1, exportedAt: '',
-      entries: [{ ...withPlan, plan: { ...withPlan.plan, sneaky: 1 } }]
-    });
-    expect(parse(junk)[0].plan).toEqual(withPlan.plan);
+  it('replace replaces', () => {
+    const inc = { hikes: [h('9')], routeNotes: [] };
+    expect(merge(cur, inc, 'replace')).toEqual(inc);
   });
 });

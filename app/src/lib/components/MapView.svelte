@@ -26,7 +26,7 @@
   import { pinsPaint, uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
   import { summariseGrade } from '$lib/data/grade';
   import { selection, setHovered, setSelected } from '$lib/map/selection';
-  import { journal } from '$lib/journal/store';
+  import { doneRouteIds } from '$lib/journal/store';
   import { SHIPPED_REGION } from '$lib/map/region';
   import type { RouteIndexEntry } from '$lib/data/types';
 
@@ -315,7 +315,7 @@
 
   // Paint done state from the journal.
   $effect(() => {
-    const done = new Set([...$journal.values()].filter((e) => e.done).map((e) => e.routeId));
+    const done = $doneRouteIds;
     dataVersion; // re-run after the source data above is swapped
     if (!map || !loaded) return;
     for (const e of entries) {

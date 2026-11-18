@@ -1,44 +1,181 @@
-import { writable } from 'svelte/store';
-import type { JournalEntry } from '../data/types';
-import { getAllEntries, putEntry, clearEntries } from './db';
+import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
+import type { Hike, JournalPlan, RouteNotes, Visibility } from '../data/types';
+import { getAllHikes, getAllRouteNotes, putHike, putRouteNotes, replaceAllData } from './db';
 
-export const journal = writable<Map<string, JournalEntry>>(new Map());
+export const hikes = writable<Map<string, Hike>>(new Map());
+export const routeNotes = writable<Map<string, RouteNotes>>(new Map());
+/** The signed-in user id. Set by the account flow; null when signed out. */
+export const viewer = writable<string | null>(null);
 
-function update(fn: (m: Map<string, JournalEntry>) => void): void {
-  journal.update((m) => { const next = new Map(m); fn(next); return next; });
+export class ActiveHikeError extends Error {
+  constructor() {
+    super('A hike is already in progress.');
+    this.name = 'ActiveHikeError';
+  }
 }
+
+let clock: () => string = () => new Date().toISOString();
+export function now(): string { return clock(); }
+export function setClockForTests(fn: (() => string) | null): void {
+  clock = fn ?? (() => new Date().toISOString());
+}
+
+const listeners = new Set<() => void>();
+export function onLocalWrite(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => { listeners.delete(fn); };
+}
+function notifyLocalWrite(): void {
+  for (const fn of [...listeners]) fn();
+}
+
+function updateMap<T>(store: Writable<Map<string, T>>, fn: (m: Map<string, T>) => void): void {
+  store.update((m) => { const next = new Map(m); fn(next); return next; });
+}
+
+function localDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// ---- derived ----
+
+export const visibleHikes: Readable<Hike[]> = derived([hikes, viewer], ([$h, $v]) =>
+  [...$h.values()].filter((h) => !h.deleted && ($v === null || h.owner === null || h.owner === $v))
+);
+
+export const doneRouteIds: Readable<Set<string>> = derived(
+  visibleHikes, ($v) => new Set($v.map((h) => h.routeId))
+);
+
+export const activeHike: Readable<Hike | null> = derived(
+  visibleHikes, ($v) => $v.find((h) => h.startedAt !== null && h.finishedAt === null) ?? null
+);
+
+export function hikesForRoute(routeId: string): Readable<Hike[]> {
+  return derived(visibleHikes, ($v) =>
+    $v.filter((h) => h.routeId === routeId).sort((a, b) => {
+      if (a.date !== b.date) {
+        if (a.date === null) return 1;
+        if (b.date === null) return -1;
+        return a.date < b.date ? 1 : -1;
+      }
+      return a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0;
+    })
+  );
+}
+
+// ---- persistence ----
 
 export async function hydrate(): Promise<void> {
-  const rows = await getAllEntries();
-  journal.set(new Map(rows.map((r) => [r.routeId, r])));
+  const [h, n] = await Promise.all([getAllHikes(), getAllRouteNotes()]);
+  hikes.set(new Map(h.map((x) => [x.id, x])));
+  routeNotes.set(new Map(n.map((x) => [x.routeId, x])));
 }
 
-export async function setEntry(entry: JournalEntry): Promise<void> {
-  let previous: JournalEntry | undefined;
-  journal.subscribe((m) => (previous = m.get(entry.routeId)))();
+export async function replaceAll(d: { hikes: Hike[]; routeNotes: RouteNotes[] }): Promise<void> {
+  await replaceAllData(d);
+  hikes.set(new Map(d.hikes.map((x) => [x.id, x])));
+  routeNotes.set(new Map(d.routeNotes.map((x) => [x.routeId, x])));
+}
 
-  // Update the store first: the checkbox flips optimistically on click, so the
-  // store must match it immediately or a reload in between loses the toggle.
-  update((m) => m.set(entry.routeId, entry));
-
+/** Optimistic write of one hike; rolls back only if this call's value is still current. */
+async function writeHike(hike: Hike): Promise<void> {
+  const previous = get(hikes).get(hike.id);
+  // Update the store first so the UI and a reload in between agree.
+  updateMap(hikes, (m) => m.set(hike.id, hike));
   try {
-    await putEntry(entry);
+    await putHike(hike);
   } catch (err) {
-    // Roll back so the UI stops claiming a save that did not happen — but only
-    // if this call's value is still the current one. Two saves to the same route
-    // can overlap; if a newer one already replaced ours, rolling back would
-    // clobber it with state from before both.
-    update((m) => {
-      if (m.get(entry.routeId) !== entry) return;
-      if (previous) m.set(entry.routeId, previous);
-      else m.delete(entry.routeId);
+    // Only undo our own value: a newer overlapping write must survive.
+    updateMap(hikes, (m) => {
+      if (m.get(hike.id) !== hike) return;
+      if (previous) m.set(hike.id, previous);
+      else m.delete(hike.id);
     });
     throw err;
   }
 }
 
-export async function replaceAll(entries: JournalEntry[]): Promise<void> {
-  await clearEntries();
-  for (const e of entries) await putEntry(e);
-  journal.set(new Map(entries.map((e) => [e.routeId, e])));
+async function localWriteHike(hike: Hike): Promise<Hike> {
+  const stamped: Hike = { ...hike, updatedAt: now(), pending: true };
+  delete stamped.syncError;
+  await writeHike(stamped);
+  notifyLocalWrite();
+  return stamped;
+}
+
+function requireHike(id: string): Hike {
+  const h = get(hikes).get(id);
+  if (!h) throw new Error(`No hike ${id}.`);
+  return h;
+}
+
+// ---- actions ----
+
+export async function logHike(input: {
+  routeId: string; date: string | null; notes: string;
+  visibility?: Visibility; notesVisibility?: Visibility; plan?: JournalPlan;
+}): Promise<Hike> {
+  const hike: Hike = {
+    id: crypto.randomUUID(), routeId: input.routeId, date: input.date, notes: input.notes,
+    visibility: input.visibility ?? 'PRIVATE', notesVisibility: input.notesVisibility ?? 'PRIVATE',
+    startedAt: null, finishedAt: null, updatedAt: now(),
+    deleted: false, owner: null, pending: true
+  };
+  if (input.plan) hike.plan = input.plan;
+  return localWriteHike(hike);
+}
+
+export async function updateHike(
+  id: string,
+  patch: Partial<Pick<Hike, 'date' | 'notes' | 'visibility' | 'notesVisibility' | 'plan'>>
+): Promise<void> {
+  await localWriteHike({ ...requireHike(id), ...patch });
+}
+
+export async function deleteHike(id: string): Promise<void> {
+  const next: Hike = { ...requireHike(id), deleted: true, notes: '' };
+  delete next.plan;
+  await localWriteHike(next);
+}
+
+export async function startHike(routeId: string, plan?: JournalPlan): Promise<Hike> {
+  if (get(activeHike)) throw new ActiveHikeError();
+  const hike: Hike = {
+    id: crypto.randomUUID(), routeId, date: localDate(), notes: '',
+    visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+    startedAt: now(), finishedAt: null, updatedAt: now(),
+    deleted: false, owner: null, pending: true
+  };
+  if (plan) hike.plan = plan;
+  return localWriteHike(hike);
+}
+
+export async function finishHike(id: string): Promise<void> {
+  await localWriteHike({ ...requireHike(id), finishedAt: now() });
+}
+
+export async function setRouteNotes(routeId: string, notes: string, plan?: JournalPlan): Promise<void> {
+  const previous = get(routeNotes).get(routeId);
+  const next: RouteNotes = { routeId, notes, updatedAt: now() };
+  if (plan) next.plan = plan;
+  updateMap(routeNotes, (m) => m.set(routeId, next));
+  try {
+    await putRouteNotes(next);
+  } catch (err) {
+    updateMap(routeNotes, (m) => {
+      if (m.get(routeId) !== next) return;
+      if (previous) m.set(routeId, previous);
+      else m.delete(routeId);
+    });
+    throw err;
+  }
+  notifyLocalWrite();
+}
+
+/** Writes a server-sourced hike as given: no updatedAt or pending change, no listeners. */
+export async function applyServerHike(h: Hike): Promise<void> {
+  await writeHike(h);
 }

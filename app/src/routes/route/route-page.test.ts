@@ -86,7 +86,7 @@ const route: RouteContent = {
 };
 
 beforeEach(async () => {
-  await replaceAll([]);
+  await replaceAll({ hikes: [], routeNotes: [] });
   calls.length = 0;
 });
 

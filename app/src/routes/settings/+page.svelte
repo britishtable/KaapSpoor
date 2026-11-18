@@ -1,18 +1,22 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { base } from '$app/paths';
-  import { journal, replaceAll } from '$lib/journal/store';
+  import { hikes, routeNotes, replaceAll } from '$lib/journal/store';
   import { serialize, parse, merge } from '$lib/journal/io';
 
   let mode = $state<'merge' | 'replace'>('merge');
   let pending = $state<string | null>(null);
   let error = $state<string | null>(null);
 
-  function exportJournal() {
-    const blob = new Blob([serialize([...get(journal).values()])], { type: 'application/json' });
+  function current() {
+    return { hikes: [...get(hikes).values()], routeNotes: [...get(routeNotes).values()] };
+  }
+
+  function exportData() {
+    const blob = new Blob([serialize(current())], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'kaapspoor-journal.json'; a.click();
+    a.href = url; a.download = 'kaapspoor-data.json'; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -26,7 +30,7 @@
     if (!pending) return;
     try {
       const incoming = parse(pending);
-      await replaceAll(merge(get(journal), incoming, mode));
+      await replaceAll(merge(current(), incoming, mode));
       pending = null;
     } catch (err) {
       error = (err as Error).message;
@@ -39,7 +43,7 @@
 
   <section>
     <h2>Export</h2>
-    <button onclick={exportJournal}>Export journal</button>
+    <button onclick={exportData}>Export my data</button>
   </section>
 
   <section>

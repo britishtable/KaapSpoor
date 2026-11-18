@@ -1,85 +1,139 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
-import { journal, hydrate, setEntry, replaceAll } from './store';
-import { clearEntries, getAllEntries } from './db';
+import {
+  hikes, visibleHikes, doneRouteIds, activeHike, hikesForRoute, viewer,
+  logHike, updateHike, deleteHike, startHike, finishHike, setRouteNotes,
+  hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError
+} from './store';
+import { getAllHikes } from './db';
+import type { Hike } from '../data/types';
 
-// Passthrough mock: real behaviour by default, so existing tests are unaffected.
-// One test below overrides putEntry to force a write failure.
+// Passthrough mock: real behaviour by default; one test forces a write failure.
 vi.mock('./db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./db')>();
-  return { ...actual, putEntry: vi.fn(actual.putEntry) };
+  return { ...actual, putHike: vi.fn(actual.putHike) };
 });
 
-beforeEach(async () => { await clearEntries(); await replaceAll([]); });
+const hike = (id: string, over: Partial<Hike> = {}): Hike => ({
+  id, routeId: 'r1', date: null, notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+  startedAt: null, finishedAt: null, updatedAt: '2026-01-01T00:00:00.000Z',
+  deleted: false, owner: null, pending: false, ...over
+});
 
-describe('journal store', () => {
-  it('write-through updates both the store and the db', async () => {
-    await setEntry({ routeId: 'r1', done: true, date: '2026-07-21', notes: 'x' });
-    expect(get(journal).get('r1')?.done).toBe(true);
-    expect(await getAllEntries()).toHaveLength(1);
-  });
-  it('hydrate loads existing db rows into the store', async () => {
-    await setEntry({ routeId: 'r3', done: true, date: null, notes: '' });
-    await replaceAll([]);            // empties store+db
-    await setEntry({ routeId: 'r3', done: true, date: null, notes: '' });
-    await hydrate();
-    expect(get(journal).get('r3')?.done).toBe(true);
-  });
-  it('replaceAll swaps the entire journal', async () => {
-    await setEntry({ routeId: 'old', done: true, date: null, notes: '' });
-    await replaceAll([{ routeId: 'new', done: false, date: null, notes: 'n' }]);
-    expect([...get(journal).keys()]).toEqual(['new']);
-  });
+beforeEach(async () => {
+  setClockForTests(null);
+  viewer.set(null);
+  await replaceAll({ hikes: [], routeNotes: [] });
+});
 
-  it('reflects the entry in the store before the write resolves', async () => {
-    const pending = setEntry({ routeId: 'r9', done: true, date: null, notes: '' });
-    // Deliberately not awaited yet: the store must already show the change, so a
-    // reload in this window cannot lose the toggle.
-    expect(get(journal).get('r9')?.done).toBe(true);
-    await pending;
-    expect(await getAllEntries()).toHaveLength(1);
+describe('hike store', () => {
+  it('logHike adds a pending hike and notifies onLocalWrite', async () => {
+    setClockForTests(() => '2026-05-05T10:00:00.000Z');
+    const fn = vi.fn();
+    const off = onLocalWrite(fn);
+    const h = await logHike({ routeId: 'r1', date: '2026-05-05', notes: 'x' });
+    off();
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(h.pending).toBe(true);
+    expect(h.updatedAt).toBe('2026-05-05T10:00:00.000Z');
+    expect(h.visibility).toBe('PRIVATE');
+    expect(get(hikes).get(h.id)).toEqual(h);
+    expect(await getAllHikes()).toEqual([h]);
   });
 
-  it('rolls the store back when the write fails', async () => {
-    const db = await import('./db');
-    vi.mocked(db.putEntry).mockRejectedValueOnce(new Error('disk full'));
-
-    await expect(
-      setEntry({ routeId: 'r10', done: true, date: null, notes: '' })
-    ).rejects.toThrow('disk full');
-
-    // The optimistic update must not survive a failed write.
-    expect(get(journal).get('r10')).toBeUndefined();
+  it('two hikes on one route both count, route is done', async () => {
+    await logHike({ routeId: 'r1', date: '2026-01-01', notes: '' });
+    await logHike({ routeId: 'r1', date: '2026-02-01', notes: '' });
+    expect(get(visibleHikes)).toHaveLength(2);
+    expect([...get(doneRouteIds)]).toEqual(['r1']);
   });
 
-  it('restores the previous value when a write over an existing entry fails', async () => {
-    await setEntry({ routeId: 'r11', done: true, date: '2026-01-01', notes: 'first' });
+  it('deleteHike hides it and clears notes', async () => {
+    const h = await logHike({ routeId: 'r1', date: null, notes: 'secret', plan: { reversed: true } });
+    await deleteHike(h.id);
+    expect(get(visibleHikes)).toHaveLength(0);
+    expect(get(doneRouteIds).size).toBe(0);
+    const t = get(hikes).get(h.id)!;
+    expect(t.deleted).toBe(true);
+    expect(t.notes).toBe('');
+    expect(t.plan).toBeUndefined();
+    expect(t.pending).toBe(true);
+  });
 
-    const db = await import('./db');
-    vi.mocked(db.putEntry).mockRejectedValueOnce(new Error('quota exceeded'));
-    await expect(
-      setEntry({ routeId: 'r11', done: false, date: null, notes: 'second' })
-    ).rejects.toThrow('quota exceeded');
+  it('startHike sets today and startedAt; a second start throws ActiveHikeError', async () => {
+    setClockForTests(() => '2026-05-05T10:00:00.000Z');
+    const h = await startHike('r1');
+    expect(h.startedAt).toBe('2026-05-05T10:00:00.000Z');
+    expect(h.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(get(activeHike)?.id).toBe(h.id);
+    await expect(startHike('r2')).rejects.toBeInstanceOf(ActiveHikeError);
+  });
 
-    // Rolls back to the stored entry, not to absent.
-    expect(get(journal).get('r11')).toEqual({
-      routeId: 'r11', done: true, date: '2026-01-01', notes: 'first'
+  it('finishHike clears activeHike', async () => {
+    const h = await startHike('r1');
+    await finishHike(h.id);
+    expect(get(activeHike)).toBeNull();
+    expect(get(hikes).get(h.id)?.finishedAt).not.toBeNull();
+  });
+
+  it('updateHike clears syncError and marks pending', async () => {
+    await replaceAll({ hikes: [hike('a', { syncError: 'bad' })], routeNotes: [] });
+    await updateHike('a', { notes: 'edited' });
+    const h = get(hikes).get('a')!;
+    expect(h.notes).toBe('edited');
+    expect(h.syncError).toBeUndefined();
+    expect(h.pending).toBe(true);
+  });
+
+  it("viewer filter hides another owner's hikes, shows unowned ones", async () => {
+    await replaceAll({
+      hikes: [hike('a', { owner: 'u1' }), hike('b', { owner: 'u2' }), hike('c', { owner: null })],
+      routeNotes: []
     });
+    expect(get(visibleHikes)).toHaveLength(3);
+    viewer.set('u1');
+    expect(get(visibleHikes).map((h) => h.id).sort()).toEqual(['a', 'c']);
   });
 
-  it('does not clobber a newer write when an older one fails', async () => {
+  it('a failed write rolls back', async () => {
     const db = await import('./db');
-    // The first save fails slowly; the second succeeds in the meantime.
-    vi.mocked(db.putEntry).mockImplementationOnce(
+    vi.mocked(db.putHike).mockRejectedValueOnce(new Error('disk full'));
+    await expect(logHike({ routeId: 'r1', date: null, notes: '' })).rejects.toThrow('disk full');
+    expect(get(hikes).size).toBe(0);
+  });
+
+  it('a failed edit restores the previous hike, and does not clobber a newer write', async () => {
+    const h = await logHike({ routeId: 'r1', date: null, notes: 'first' });
+    const db = await import('./db');
+    vi.mocked(db.putHike).mockImplementationOnce(
       () => new Promise((_, reject) => setTimeout(() => reject(new Error('slow fail')), 20))
     );
+    const older = updateHike(h.id, { notes: 'older' });
+    await updateHike(h.id, { notes: 'newer' });
+    await expect(older).rejects.toThrow('slow fail');
+    expect(get(hikes).get(h.id)?.notes).toBe('newer');
+  });
 
-    const first = setEntry({ routeId: 'r12', done: true, date: null, notes: 'older' });
-    await setEntry({ routeId: 'r12', done: false, date: null, notes: 'newer' });
-    await expect(first).rejects.toThrow('slow fail');
+  it('hikesForRoute orders dated newest first, undated last', async () => {
+    await replaceAll({
+      hikes: [
+        hike('undated', { date: null }),
+        hike('old', { date: '2026-01-01' }),
+        hike('new', { date: '2026-03-01' }),
+        hike('other', { routeId: 'r2', date: '2026-04-01' })
+      ],
+      routeNotes: []
+    });
+    expect(get(hikesForRoute('r1')).map((h) => h.id)).toEqual(['new', 'old', 'undated']);
+  });
 
-    // The newer write must survive the older one's rollback.
-    expect(get(journal).get('r12')?.notes).toBe('newer');
+  it('hydrate loads db rows; setRouteNotes and applyServerHike persist', async () => {
+    await applyServerHike(hike('s', { owner: 'u1', pending: false }));
+    await setRouteNotes('r1', 'plan notes');
+    hikes.set(new Map());
+    await hydrate();
+    expect(get(hikes).get('s')?.pending).toBe(false);
+    expect(get(hikes).get('s')?.updatedAt).toBe('2026-01-01T00:00:00.000Z');
   });
 });
