@@ -58,8 +58,13 @@ public class HikeService {
         Instant effective = min(w.updatedAt().truncatedTo(ChronoUnit.MICROS), now);
         if (found.isPresent()) {
             Hike stored = found.get();
-            if (stored.isTombstone() || stored.getClientUpdatedAt().isAfter(effective)) {
+            // A stored tombstone is final. An incoming delete skips last-write-wins (deletion beats any
+            // edit, whichever is newer), but the LWW key never moves backwards.
+            if (stored.isTombstone() || (!w.deleted() && stored.getClientUpdatedAt().isAfter(effective))) {
                 return toDto(stored);
+            }
+            if (stored.getClientUpdatedAt().isAfter(effective)) {
+                effective = stored.getClientUpdatedAt();
             }
         }
         long revision = jdbc.queryForObject(

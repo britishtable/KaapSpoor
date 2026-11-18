@@ -217,6 +217,36 @@ class HikeApiTest {
     }
 
     @Test
+    void staleDeleteStillWins() throws Exception {
+        String t = register("a@example.com");
+        UUID id = UUID.randomUUID();
+        ObjectNode b = body("edited", at(0));
+        b.putObject("plan").put("main", "m-1").put("reversed", false);
+        putOk(t, id, b);
+        ObjectNode del = body("edited", at(-60));
+        del.put("deleted", true);
+        JsonNode r = putOk(t, id, del);
+        assertEquals(true, r.get("deleted").asBoolean());
+        assertEquals("", r.get("notes").asText());
+        assertEquals(true, r.get("plan").isNull());
+        assertEquals(2, r.get("revision").asLong());
+        JsonNode f = feed(t, "?since=1");
+        assertEquals(1, f.get("hikes").size());
+        assertEquals(true, f.get("hikes").get(0).get("deleted").asBoolean());
+        assertEquals(2, f.get("next").asLong());
+    }
+
+    @Test
+    void unknownVisibilityIs400() throws Exception {
+        String t = register("a@example.com");
+        ObjectNode b = body("n", at(0));
+        b.put("visibility", "SECRET");
+        putRaw(t, UUID.randomUUID(), b)
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
     void otherUsersIdIs409() throws Exception {
         String a = register("a@example.com");
         String b = register("b@example.com");
