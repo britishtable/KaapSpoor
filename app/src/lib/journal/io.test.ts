@@ -77,6 +77,12 @@ describe('merge', () => {
     expect(out.routeNotes[0].notes).toBe('inc');
   });
 
+  it('merge compares instants, not strings', () => {
+    const c = { hikes: [h('1', { notes: 'cur', updatedAt: '2026-07-02T10:00:05Z' })], routeNotes: [] };
+    const inc = { hikes: [h('1', { notes: 'inc', updatedAt: '2026-07-02T10:00:05.500Z' })], routeNotes: [] };
+    expect(merge(c, inc, 'merge', 'u1').hikes[0].notes).toBe('inc');
+  });
+
   it('replace replaces', () => {
     const inc = { hikes: [h('9')], routeNotes: [] };
     expect(merge(cur, inc, 'replace', 'u1')).toEqual(inc);

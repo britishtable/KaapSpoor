@@ -64,6 +64,7 @@
     <p class="who">Signed in as {$session.displayName}</p>
     <p class="status" role="status">{waiting === 0 ? 'All hikes synced' : `${waiting} ${waiting === 1 ? 'hike' : 'hikes'} waiting to sync`}</p>
     {#if $syncState.lastSyncedAt}<p class="hint">Last synced {relative($syncState.lastSyncedAt)}</p>{/if}
+    <p class="hint">Your hikes stay on this device.</p>
     <button class="wide" onclick={leave}>Sign out</button>
   {:else}
     <form onsubmit={submit} novalidate>

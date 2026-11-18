@@ -82,7 +82,8 @@ export function parse(json: string): Data {
 }
 
 function newer<T extends { updatedAt: string }>(a: T | undefined, b: T): T {
-  return a && a.updatedAt > b.updatedAt ? a : b;
+  // Compare as instants: "…:05Z" and "…:05.500Z" sort wrongly as strings.
+  return a && Date.parse(a.updatedAt) > Date.parse(b.updatedAt) ? a : b;
 }
 
 /**

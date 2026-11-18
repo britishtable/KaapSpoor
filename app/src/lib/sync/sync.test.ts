@@ -32,6 +32,7 @@ function fakeServer() {
 	const gets: { user: string; since: number }[] = [];
 	const net = { down: false };
 	let gate: Promise<void> | null = null;
+	const held = { count: 0 };
 	let pageSize = 50;
 
 	function store(owner: string, id: string, w: HikeWrite): ServerHike {
@@ -60,7 +61,7 @@ function fakeServer() {
 		const user = USERS[key];
 		if (!user) return json({ detail: 'Sign in again.' }, 401);
 		if (p === '/api/v1/me') return json({ ...user, role: 'USER' });
-		if (gate) await gate;
+		if (gate) { held.count++; await gate; }
 		const m = p.match(/^\/api\/v1\/hikes\/(.+)$/);
 		if (m && req.method === 'PUT') {
 			const id = m[1];
@@ -90,7 +91,7 @@ function fakeServer() {
 	}) as typeof fetch;
 
 	return {
-		f, rows, puts, gets, net, store,
+		f, rows, puts, gets, net, store, held,
 		setPageSize(n: number) { pageSize = n; },
 		hold() { let open!: () => void; gate = new Promise((r) => { open = () => { gate = null; r(); }; }); return open; }
 	};
@@ -214,12 +215,39 @@ describe('sync engine', () => {
 		expect(server.rows.get('mine')!.hike.notes).toBe('my edit');
 	});
 
-	it('equal instants in different formats count as server-wins, not local-newer', async () => {
+	it('pull compares instants, not strings: a pending local edit 0.5 s newer is kept', async () => {
 		await signInAs('a');
-		server.store('user-a', 'h1', write({ notes: 'server', updatedAt: '2026-11-18T13:00:00.000Z' }));
-		await replaceAll({ hikes: [local('h1', { owner: 'user-a', pending: false, updatedAt: '2026-11-18T13:00:00.000Z' })], routeNotes: [] });
+		// The server copy is exactly 13:00:05 and arrives as "…:05Z"; as strings it would sort after "…:05.500Z".
+		server.store('user-a', 'h1', write({ notes: 'other phone', updatedAt: '2026-11-18T13:00:05.000Z' }));
+		await replaceAll({
+			hikes: [
+				local('h0'),
+				local('h1', { owner: 'user-a', pending: false, notes: 'old', updatedAt: '2026-11-18T12:00:00.000Z' })
+			],
+			routeNotes: []
+		});
+		const open = server.hold();
+		const run = syncNow();
+		await vi.waitFor(() => expect(server.held.count).toBe(1)); // h0's PUT is in flight
+		setClockForTests(() => '2026-11-18T13:00:05.500Z');
+		await updateHike('h1', { notes: 'my edit' }); // pending at pull time, half a second newer
+		open();
+		await run;
+		expect(get(hikes).get('h1')).toMatchObject({ notes: 'my edit', pending: true });
 		await syncNow();
-		expect(get(hikes).get('h1')!.notes).toBe('server');
+		expect(server.rows.get('h1')!.hike.notes).toBe('my edit');
+	});
+
+	it('a pulled hike is stored with canonical instants', async () => {
+		await signInAs('a');
+		server.store('user-a', 'h1', write({
+			updatedAt: '2026-11-18T13:00:05.000Z', startedAt: '2026-11-18T08:00:00.000Z', finishedAt: '2026-11-18T12:00:00.000Z'
+		}));
+		expect(server.rows.get('h1')!.hike.updatedAt).toBe('2026-11-18T13:00:05Z');
+		await syncNow();
+		expect(get(hikes).get('h1')).toMatchObject({
+			updatedAt: '2026-11-18T13:00:05.000Z', startedAt: '2026-11-18T08:00:00.000Z', finishedAt: '2026-11-18T12:00:00.000Z'
+		});
 	});
 
 	it('pull pages with hasMore and stores the cursor per user', async () => {
@@ -305,6 +333,23 @@ describe('sync engine', () => {
 		expect(server.puts.filter((p) => p.user === 'user-b').map((p) => p.id)).toEqual([h2.id]);
 		expect(get(visibleHikes).map((h) => h.id)).toEqual([h2.id]);
 		expect(get(hikes).get(h1.id)!.owner).toBe('user-a');
+	});
+
+	it('sign-out during an in-flight PUT still records the owner, so B never sees the hike', async () => {
+		await signInAs('a');
+		const h = await logHike({ routeId: 'r1', date: '2026-07-21', notes: 'by A' });
+		const open = server.hold();
+		const run = syncNow();
+		await vi.waitFor(() => expect(server.held.count).toBe(1));
+		await signOut();
+		open();
+		await run;
+		expect(server.rows.get(h.id)!.owner).toBe('user-a');
+		expect(get(hikes).get(h.id)).toMatchObject({ owner: 'user-a', pending: false });
+		await signInAs('b');
+		await syncNow();
+		expect(get(visibleHikes).map((x) => x.id)).not.toContain(h.id);
+		expect(server.puts.filter((p) => p.user === 'user-b')).toHaveLength(0);
 	});
 
 	it('a pending hike of another user is never pushed', async () => {

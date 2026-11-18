@@ -67,6 +67,7 @@ describe('account page', () => {
 		await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'a-long-password' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 		expect(await screen.findByText('Signed in as Thandi')).toBeTruthy();
+		expect(screen.getByText('Your hikes stay on this device.')).toBeTruthy();
 		expect(screen.getByRole('status').textContent).toBe('All hikes synced');
 		expect(screen.queryByText(/Last synced/)).toBeNull();
 	});

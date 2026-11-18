@@ -40,11 +40,16 @@ function toWrite(h: Hike): HikeWrite {
 	};
 }
 
+/** Canonical ISO form, so instants stored locally all compare and sort the same way. */
+const canonical = (iso: string) => new Date(iso).toISOString();
+
 function fromServer(s: ServerHike, owner: string): Hike {
 	const h: Hike = {
 		id: s.id, routeId: s.routeId, date: s.date, notes: s.notes, visibility: s.visibility,
-		notesVisibility: s.notesVisibility, startedAt: s.startedAt, finishedAt: s.finishedAt,
-		updatedAt: s.updatedAt, deleted: s.deleted, owner, pending: false
+		notesVisibility: s.notesVisibility,
+		startedAt: s.startedAt === null ? null : canonical(s.startedAt),
+		finishedAt: s.finishedAt === null ? null : canonical(s.finishedAt),
+		updatedAt: canonical(s.updatedAt), deleted: s.deleted, owner, pending: false
 	};
 	if (s.plan) h.plan = s.plan;
 	return h;
@@ -61,31 +66,39 @@ const time = (iso: string) => Date.parse(iso);
 class Offline extends Error {}
 class Stop extends Error {}
 
-/** One request; a rejected fetch means no signal, and a changed user means this run is over. */
-async function call<T>(me: string, fn: () => Promise<T>): Promise<T> {
-	let res: T;
+/** One request; a rejected fetch means no signal. */
+async function request<T>(fn: () => Promise<T>): Promise<T> {
 	try {
-		res = await fn();
+		return await fn();
 	} catch {
 		throw new Offline();
 	}
+}
+
+/** A sign-out or user switch ends the run: no further requests or pulled writes for the old user. */
+function stillSignedInAs(me: string): void {
 	if (get(session)?.id !== me) throw new Stop();
-	return res;
 }
 
 async function push(client: Client, me: string): Promise<void> {
 	const queue = [...get(hikes).values()].filter((h) => h.pending && (h.owner === null || h.owner === me));
 	for (const sent of queue) {
-		const res = await call(me, () =>
+		const res = await request(() =>
 			client.PUT('/api/v1/hikes/{id}', { params: { path: { id: sent.id } }, body: toWrite(sent) })
 		);
 		const current = get(hikes).get(sent.id);
 		const status = res.response.status;
 		if (res.data) {
+			// The server now holds this hike under `me`. Record that even if the user signed out
+			// meanwhile, or it would stay unowned and show up for the next person on this phone.
 			if (current === sent) await applyServerHike(fromServer(res.data, me));
 			// Edited while in flight: the server's answer is already stale. Claim it and keep it queued.
 			else if (current) await applyServerHike({ ...current, owner: me });
-		} else if (status === 400 || status === 409) {
+			stillSignedInAs(me);
+			continue;
+		}
+		stillSignedInAs(me);
+		if (status === 400 || status === 409) {
 			// Keep the data; the next edit re-queues it.
 			if (current === sent) await applyServerHike({ ...current, pending: false, syncError: problemDetail(res.error) });
 		} else {
@@ -99,7 +112,8 @@ async function pull(client: Client, me: string): Promise<void> {
 	const key = `syncCursor:${me}`;
 	let since = (await getMeta<number>(key)) ?? 0;
 	for (;;) {
-		const res = await call(me, () => client.GET('/api/v1/hikes', { params: { query: { since } } }));
+		const res = await request(() => client.GET('/api/v1/hikes', { params: { query: { since } } }));
+		stillSignedInAs(me);
 		if (!res.data) throw new Error(`GET ${res.response.status}`);
 		for (const s of res.data.hikes) {
 			const local = get(hikes).get(s.id);
