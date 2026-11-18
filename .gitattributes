@@ -4,3 +4,7 @@
 *.sh text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Generated files. Keep LF so regenerating them on Windows shows no diff (CI runs git diff --exit-code).
+server/openapi.json text eol=lf
+app/src/lib/api/schema.d.ts text eol=lf

@@ -13,6 +13,10 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "email",
+          "password"
+        ],
         "type" : "object"
       },
       "MeResponse" : {
@@ -38,6 +42,12 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "displayName",
+          "id",
+          "initials",
+          "role"
+        ],
         "type" : "object"
       },
       "Oidc" : {
@@ -58,6 +68,7 @@
           }
         },
         "required" : [
+          "idToken",
           "provider"
         ],
         "type" : "object"
@@ -69,6 +80,9 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "refreshToken"
+        ],
         "type" : "object"
       },
       "Register" : {
@@ -86,6 +100,11 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "displayName",
+          "email",
+          "password"
+        ],
         "type" : "object"
       },
       "TokenPair" : {
@@ -101,6 +120,11 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "accessExpiresAt",
+          "accessToken",
+          "refreshToken"
+        ],
         "type" : "object"
       },
       "UpdateMeRequest" : {
@@ -109,6 +133,9 @@
             "type" : "string"
           }
         },
+        "required" : [
+          "displayName"
+        ],
         "type" : "object"
       }
     }
@@ -131,7 +158,7 @@
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TokenPair"
                 }
@@ -184,13 +211,23 @@
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TokenPair"
                 }
               }
             },
-            "description" : "OK"
+            "description" : "Signed in an existing user"
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "description" : "Created a new user and signed them in"
           }
         },
         "tags" : [
@@ -214,7 +251,7 @@
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TokenPair"
                 }
@@ -244,7 +281,7 @@
         "responses" : {
           "201" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TokenPair"
                 }
@@ -264,7 +301,7 @@
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MeResponse"
                 }
@@ -292,7 +329,7 @@
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MeResponse"
                 }

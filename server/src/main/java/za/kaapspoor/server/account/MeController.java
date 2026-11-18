@@ -1,7 +1,11 @@
 package za.kaapspoor.server.account;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,12 +17,19 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/api/v1/me")
+@RequestMapping(path = "/api/v1/me", produces = MediaType.APPLICATION_JSON_VALUE)
 public class MeController {
 
-    public record MeResponse(UUID id, String displayName, String initials, String email, Role role) {}
+    /** email is null for a provider account whose email was unverified or already taken. */
+    public record MeResponse(
+            @Schema(requiredMode = REQUIRED) UUID id,
+            @Schema(requiredMode = REQUIRED) String displayName,
+            @Schema(requiredMode = REQUIRED) String initials,
+            String email,
+            @Schema(requiredMode = REQUIRED) Role role) {}
 
-    public record UpdateMeRequest(String displayName) {}
+    /** displayName is validated by {@link DisplayNames#validate}, which rejects a missing one. */
+    public record UpdateMeRequest(@Schema(requiredMode = REQUIRED) String displayName) {}
 
     private final AppUserRepository users;
 

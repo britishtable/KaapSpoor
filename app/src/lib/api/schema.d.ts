@@ -105,40 +105,40 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Login: {
-            email?: string;
-            password?: string;
+            email: string;
+            password: string;
         };
         MeResponse: {
-            displayName?: string;
+            displayName: string;
             email?: string;
             /** Format: uuid */
-            id?: string;
-            initials?: string;
+            id: string;
+            initials: string;
             /** @enum {string} */
-            role?: "USER" | "ADMIN";
+            role: "USER" | "ADMIN";
         };
         Oidc: {
             displayName?: string;
-            idToken?: string;
+            idToken: string;
             /** @enum {string} */
             provider: "GOOGLE" | "APPLE";
         };
         RefreshToken: {
-            refreshToken?: string;
+            refreshToken: string;
         };
         Register: {
-            displayName?: string;
-            email?: string;
-            password?: string;
+            displayName: string;
+            email: string;
+            password: string;
         };
         TokenPair: {
             /** Format: date-time */
-            accessExpiresAt?: string;
-            accessToken?: string;
-            refreshToken?: string;
+            accessExpiresAt: string;
+            accessToken: string;
+            refreshToken: string;
         };
         UpdateMeRequest: {
-            displayName?: string;
+            displayName: string;
         };
     };
     responses: never;
@@ -168,7 +168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["TokenPair"];
                 };
             };
         };
@@ -208,13 +208,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
+            /** @description Signed in an existing user */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description Created a new user and signed them in */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
                 };
             };
         };
@@ -238,7 +247,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["TokenPair"];
                 };
             };
         };
@@ -262,7 +271,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["TokenPair"];
                 };
             };
         };
@@ -282,7 +291,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MeResponse"];
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
         };
@@ -306,7 +315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MeResponse"];
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
         };

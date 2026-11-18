@@ -1,7 +1,11 @@
 package za.kaapspoor.server.auth;
 
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -10,7 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping(path = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
 public class AuthController {
 
     private final PasswordAuthService passwordAuth;
@@ -36,6 +40,12 @@ public class AuthController {
 
     /** 201 when the token's identity created a new user, 200 when it signed in an existing one. */
     @PostMapping("/oidc")
+    @ApiResponse(responseCode = "200", description = "Signed in an existing user",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = TokenPair.class)))
+    @ApiResponse(responseCode = "201", description = "Created a new user and signed them in",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = TokenPair.class)))
     public ResponseEntity<TokenPair> oidc(@Valid @RequestBody AuthRequests.Oidc request) {
         OidcAuthService.SignIn signIn = oidcAuth.signIn(request);
         return ResponseEntity.status(signIn.created() ? HttpStatus.CREATED : HttpStatus.OK).body(signIn.tokens());

@@ -1,5 +1,8 @@
 package za.kaapspoor.server.auth;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,11 +12,20 @@ public final class AuthRequests {
 
     private AuthRequests() {}
 
+    /** Phone keyboards append a space; trimming here, before validation, keeps register and login alike. */
+    private static String trim(String email) {
+        return email == null ? null : email.trim();
+    }
+
     /** displayName is validated by {@code DisplayNames.validate} in the service. */
     public record Register(
-            @NotBlank @Email String email,
-            @NotBlank @Size(min = 10, max = 72) String password,
-            String displayName) {
+            @Schema(requiredMode = REQUIRED) @NotBlank @Email String email,
+            @Schema(requiredMode = REQUIRED) @NotBlank @Size(min = 10, max = 72) String password,
+            @Schema(requiredMode = REQUIRED) String displayName) {
+
+        public Register {
+            email = trim(email);
+        }
 
         @Override
         public String toString() {
@@ -21,7 +33,13 @@ public final class AuthRequests {
         }
     }
 
-    public record Login(@NotBlank String email, @NotBlank @Size(max = 72) String password) {
+    public record Login(
+            @Schema(requiredMode = REQUIRED) @NotBlank String email,
+            @Schema(requiredMode = REQUIRED) @NotBlank @Size(max = 72) String password) {
+
+        public Login {
+            email = trim(email);
+        }
 
         @Override
         public String toString() {
@@ -30,7 +48,10 @@ public final class AuthRequests {
     }
 
     /** displayName is a fallback for providers (Apple) that omit the name from the token. */
-    public record Oidc(@NotNull OidcProvider provider, @NotBlank String idToken, String displayName) {
+    public record Oidc(
+            @Schema(requiredMode = REQUIRED) @NotNull OidcProvider provider,
+            @Schema(requiredMode = REQUIRED) @NotBlank String idToken,
+            String displayName) {
 
         @Override
         public String toString() {
@@ -38,7 +59,7 @@ public final class AuthRequests {
         }
     }
 
-    public record RefreshToken(@NotBlank String refreshToken) {
+    public record RefreshToken(@Schema(requiredMode = REQUIRED) @NotBlank String refreshToken) {
 
         @Override
         public String toString() {

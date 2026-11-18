@@ -35,6 +35,7 @@ class PasswordAuthFlowTest {
 
     @BeforeEach
     void clean() {
+        jdbc.update("delete from identity");
         jdbc.update("delete from refresh_token");
         jdbc.update("delete from app_user");
     }
@@ -75,6 +76,13 @@ class PasswordAuthFlowTest {
     void loginIgnoresEmailCaseAndSpaces() throws Exception {
         register("sam@example.com", "correct-horse", "Sam");
         assertThat(login(" Sam@Example.COM ", "correct-horse").getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void registerTrimsEmailBeforeValidating() throws Exception {
+        assertThat(register(" sam@example.com ", "correct-horse", "Sam").getResponse().getStatus())
+                .isEqualTo(201);
+        assertThat(login("sam@example.com", "correct-horse").getResponse().getStatus()).isEqualTo(200);
     }
 
     @Test
