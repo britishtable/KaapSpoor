@@ -35,6 +35,7 @@ class IdentityPersistenceTest {
     void clean() {
         jdbc.update("delete from refresh_token");
         jdbc.update("delete from identity");
+        jdbc.update("delete from hike");
         jdbc.update("delete from app_user");
     }
 

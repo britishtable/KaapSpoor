@@ -40,6 +40,7 @@ class TokenServiceTest {
     @BeforeEach
     void setUp() {
         jdbc.update("delete from refresh_token");
+        jdbc.update("delete from hike");
         jdbc.update("delete from app_user");
         // Whole seconds, because JWT timestamps are whole seconds.
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));

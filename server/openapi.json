@@ -1,6 +1,209 @@
 {
   "components" : {
     "schemas" : {
+      "Hike" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "deleted" : {
+            "type" : "boolean"
+          },
+          "finishedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "notes" : {
+            "type" : "string"
+          },
+          "notesVisibility" : {
+            "enum" : [
+              "PRIVATE",
+              "FRIENDS",
+              "PUBLIC"
+            ],
+            "type" : "string"
+          },
+          "plan" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/HikePlan"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "revision" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "routeId" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "visibility" : {
+            "enum" : [
+              "PRIVATE",
+              "FRIENDS",
+              "PUBLIC"
+            ],
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "date",
+          "deleted",
+          "finishedAt",
+          "id",
+          "notes",
+          "notesVisibility",
+          "plan",
+          "revision",
+          "routeId",
+          "startedAt",
+          "updatedAt",
+          "visibility"
+        ],
+        "type" : "object"
+      },
+      "HikeChanges" : {
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "hikes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Hike"
+            },
+            "type" : "array"
+          },
+          "next" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "hasMore",
+          "hikes",
+          "next"
+        ],
+        "type" : "object"
+      },
+      "HikePlan" : {
+        "properties" : {
+          "approach" : {
+            "type" : "string"
+          },
+          "exit" : {
+            "type" : "string"
+          },
+          "main" : {
+            "type" : "string"
+          },
+          "reversed" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "reversed"
+        ],
+        "type" : "object"
+      },
+      "HikeWrite" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "deleted" : {
+            "type" : "boolean"
+          },
+          "finishedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "notes" : {
+            "type" : "string"
+          },
+          "notesVisibility" : {
+            "enum" : [
+              "PRIVATE",
+              "FRIENDS",
+              "PUBLIC"
+            ],
+            "type" : "string"
+          },
+          "plan" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/HikePlan"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "routeId" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "visibility" : {
+            "enum" : [
+              "PRIVATE",
+              "FRIENDS",
+              "PUBLIC"
+            ],
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "deleted",
+          "notes",
+          "notesVisibility",
+          "routeId",
+          "updatedAt",
+          "visibility"
+        ],
+        "type" : "object"
+      },
       "Login" : {
         "properties" : {
           "email" : {
@@ -292,6 +495,89 @@
         },
         "tags" : [
           "auth-controller"
+        ]
+      }
+    },
+    "/api/v1/hikes" : {
+      "get" : {
+        "operationId" : "changes",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "since",
+            "required" : false,
+            "schema" : {
+              "default" : 0,
+              "format" : "int64",
+              "type" : "integer"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "limit",
+            "required" : false,
+            "schema" : {
+              "default" : 500,
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HikeChanges"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "hike-controller"
+        ]
+      }
+    },
+    "/api/v1/hikes/{id}" : {
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "id",
+            "required" : true,
+            "schema" : {
+              "format" : "uuid",
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/HikeWrite"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Hike"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "hike-controller"
         ]
       }
     },
