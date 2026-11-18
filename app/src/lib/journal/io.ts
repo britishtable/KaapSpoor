@@ -1,4 +1,5 @@
 import type { JournalEntry, JournalPlan } from '../data/types';
+import { isPlan } from './convert';
 
 export interface JournalExport {
   version: 1;
@@ -9,16 +10,6 @@ export interface JournalExport {
 export function serialize(entries: JournalEntry[]): string {
   const payload: JournalExport = { version: 1, exportedAt: new Date().toISOString(), entries };
   return JSON.stringify(payload, null, 2);
-}
-
-function isPlan(x: unknown): x is JournalPlan {
-  if (typeof x !== 'object' || x === null) return false;
-  const p = x as Record<string, unknown>;
-  const optionalId = (v: unknown) => v === undefined || typeof v === 'string';
-  return (
-    typeof p.reversed === 'boolean' &&
-    optionalId(p.approach) && optionalId(p.main) && optionalId(p.exit)
-  );
 }
 
 function isEntry(x: unknown): x is JournalEntry {

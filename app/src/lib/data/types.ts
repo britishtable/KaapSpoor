@@ -133,3 +133,32 @@ export interface JournalEntry {
   notes: string;
   plan?: JournalPlan;
 }
+
+export type Visibility = 'PRIVATE' | 'FRIENDS' | 'PUBLIC';
+
+/** One walk of a route. Many per route; the journal's unit from v3 on. */
+export interface Hike {
+  id: string; // crypto.randomUUID()
+  routeId: string;
+  date: string | null; // YYYY-MM-DD; null = date not recorded
+  notes: string;
+  visibility: Visibility;
+  notesVisibility: Visibility;
+  plan?: JournalPlan;
+  startedAt: string | null; // ISO instant
+  finishedAt: string | null;
+  updatedAt: string; // ISO instant, LWW key
+  deleted: boolean;
+  // local sync state, never sent or exported
+  owner: string | null; // user id this hike is synced to; null = never synced
+  pending: boolean; // has local changes the server has not accepted
+  syncError?: string; // server 400/409 detail; cleared by the next edit
+}
+
+/** Per-route planning notes, separate from any hike. */
+export interface RouteNotes {
+  routeId: string;
+  notes: string;
+  plan?: JournalPlan;
+  updatedAt: string;
+}

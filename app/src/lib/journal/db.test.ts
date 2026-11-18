@@ -1,35 +1,92 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
-import { putEntry, getAllEntries, clearEntries } from './db';
+import { openDB } from 'idb';
+import {
+  putHike, getAllHikes, putRouteNotes, getAllRouteNotes, replaceAllData,
+  getMeta, setMeta, resetDbForTests
+} from './db';
+import type { Hike } from '../data/types';
 
-beforeEach(async () => { await clearEntries(); });
+const hike = (id: string, routeId = 'r1'): Hike => ({
+  id, routeId, date: '2026-07-21', notes: 'n', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+  startedAt: null, finishedAt: null, updatedAt: '2026-07-21T08:00:00.000Z',
+  deleted: false, owner: null, pending: true
+});
 
-describe('journal db', () => {
-  it('stores and returns an entry', async () => {
-    await putEntry({ routeId: 'r1', done: true, date: '2026-07-21', notes: 'nice' });
-    expect(await getAllEntries()).toEqual([
-      { routeId: 'r1', done: true, date: '2026-07-21', notes: 'nice' }
-    ]);
+async function seedV2() {
+  const raw = await openDB('kaapspoor', 2, {
+    upgrade(d) { d.createObjectStore('journal', { keyPath: 'routeId' }); }
   });
-  it('overwrites an entry with the same routeId', async () => {
-    await putEntry({ routeId: 'r1', done: true, date: null, notes: '' });
-    await putEntry({ routeId: 'r1', done: false, date: null, notes: 'redone' });
-    const all = await getAllEntries();
-    expect(all).toHaveLength(1);
-    expect(all[0].notes).toBe('redone');
-  });
-  it('clears all entries', async () => {
-    await putEntry({ routeId: 'r1', done: true, date: null, notes: '' });
-    await clearEntries();
-    expect(await getAllEntries()).toEqual([]);
-  });
+  await raw.put('journal', { routeId: 'a', done: true, date: '2026-07-21', notes: 'nice', plan: { reversed: true } });
+  await raw.put('journal', { routeId: 'b', done: false, date: null, notes: 'later' });
+  await raw.put('journal', { routeId: 'c', done: true, date: null, notes: '' });
+  raw.close();
+}
 
-  it('stores and returns an entry carrying a plan', async () => {
-    await putEntry({
-      routeId: 'a--b--c', done: true, date: null, notes: '',
-      plan: { main: 'a--b--c/main/main', reversed: true }
+beforeEach(async () => {
+  await resetDbForTests();
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase('kaapspoor');
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+});
+
+describe('hikes db', () => {
+  it('upgrades a v2 journal', async () => {
+    await seedV2();
+    await resetDbForTests();
+    const hikes = await getAllHikes();
+    const notes = await getAllRouteNotes();
+    expect(hikes.map((h) => h.routeId).sort()).toEqual(['a', 'c']);
+    expect(hikes.find((h) => h.routeId === 'a')).toMatchObject({
+      date: '2026-07-21', plan: { reversed: true }, pending: true
     });
-    const [entry] = await getAllEntries();
-    expect(entry.plan?.reversed).toBe(true);
+    expect(notes.map((n) => n.routeId).sort()).toEqual(['a', 'b']);
+    await resetDbForTests();
+    const raw = await openDB('kaapspoor');
+    expect(raw.version).toBe(3);
+    expect([...raw.objectStoreNames]).not.toContain('journal');
+    raw.close();
+  });
+
+  it('a failing upgrade leaves v2 intact', async () => {
+    await seedV2();
+    await resetDbForTests({ convert: () => { throw new Error('boom'); } });
+    await expect(getAllHikes()).rejects.toBeDefined();
+    await resetDbForTests();
+    const raw = await openDB('kaapspoor');
+    expect(raw.version).toBe(2);
+    expect(await raw.getAll('journal')).toHaveLength(3);
+    raw.close();
+  });
+
+  it('retries after a failed open', async () => {
+    await seedV2();
+    await resetDbForTests({ convert: () => { throw new Error('boom'); } });
+    await expect(getAllHikes()).rejects.toBeDefined();
+    await resetDbForTests();
+    expect(await getAllHikes()).toHaveLength(2);
+  });
+
+  it('round-trips a hike and route notes', async () => {
+    await putHike(hike('h1'));
+    await putRouteNotes({ routeId: 'r1', notes: 'plan', updatedAt: 'x' });
+    expect(await getAllHikes()).toEqual([hike('h1')]);
+    expect(await getAllRouteNotes()).toEqual([{ routeId: 'r1', notes: 'plan', updatedAt: 'x' }]);
+  });
+
+  it('replaceAllData replaces both stores', async () => {
+    await putHike(hike('old'));
+    await putRouteNotes({ routeId: 'old', notes: '', updatedAt: 'x' });
+    await replaceAllData({ hikes: [hike('new')], routeNotes: [{ routeId: 'new', notes: 'q', updatedAt: 'y' }] });
+    expect((await getAllHikes()).map((h) => h.id)).toEqual(['new']);
+    expect((await getAllRouteNotes()).map((n) => n.routeId)).toEqual(['new']);
+  });
+
+  it('meta get/set', async () => {
+    expect(await getMeta('k')).toBeUndefined();
+    await setMeta('k', { a: 1 });
+    expect(await getMeta('k')).toEqual({ a: 1 });
   });
 });
