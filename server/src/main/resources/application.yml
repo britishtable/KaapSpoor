@@ -8,3 +8,6 @@ management:
     web:
       exposure:
         include: health
+kaapspoor:
+  cors:
+    allowed-origins: http://localhost:5173,https://britishtable.github.io,https://localhost,capacitor://localhost

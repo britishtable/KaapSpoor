@@ -51,6 +51,9 @@ public class AppUser {
         this.createdAt = createdAt;
     }
 
+    /** Caller validates via {@link DisplayNames#validate}. */
+    public void rename(String displayName) { this.displayName = displayName; }
+
     public UUID getId() { return id; }
     public String getEmail() { return email; }
     public boolean isEmailVerified() { return emailVerified; }
