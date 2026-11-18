@@ -93,6 +93,18 @@ class TokenServiceTest {
     }
 
     @Test
+    void tokenMissedByFamilyRevocationIsStillRejected() {
+        String r1 = tokens.issue(user).refreshToken();
+        String r2 = tokens.refresh(r1).refreshToken();
+        // As if a revocation's UPDATE revoked r1 but never saw r2 (minted concurrently, uncommitted).
+        jdbc.update("update refresh_token set revoked_at = now() where used_at is not null");
+
+        assertThatThrownBy(() -> tokens.refresh(r2)).isInstanceOf(InvalidTokenException.class);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from refresh_token where revoked_at is null", Integer.class)).isZero();
+    }
+
+    @Test
     void expiredRefreshTokenRejected() {
         String r1 = tokens.issue(user).refreshToken();
 

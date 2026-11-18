@@ -16,6 +16,8 @@ interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenHash(byte[] tokenHash);
 
+    boolean existsByFamilyIdAndRevokedAtIsNotNull(UUID familyId);
+
     @Modifying
     @Query("update RefreshToken t set t.revokedAt = :now where t.familyId = :familyId and t.revokedAt is null")
     int revokeFamily(@Param("familyId") UUID familyId, @Param("now") Instant now);

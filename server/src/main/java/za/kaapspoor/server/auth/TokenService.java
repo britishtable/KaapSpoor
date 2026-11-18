@@ -58,7 +58,11 @@ public class TokenService {
         Instant now = clock.instant();
         RefreshToken token = refreshTokens.findByTokenHash(hash(refreshToken))
                 .orElseThrow(InvalidTokenException::new);
-        if (token.getRevokedAt() != null) {
+        // A revoked sibling means the family is dead. Checking the family, not just this row, catches a
+        // token minted concurrently with a revocation whose UPDATE could not see it (READ COMMITTED).
+        if (token.getRevokedAt() != null
+                || refreshTokens.existsByFamilyIdAndRevokedAtIsNotNull(token.getFamilyId())) {
+            refreshTokens.revokeFamily(token.getFamilyId(), now);
             throw new InvalidTokenException();
         }
         if (token.getUsedAt() != null) {
