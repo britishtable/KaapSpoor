@@ -2,6 +2,7 @@ package za.kaapspoor.server.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public final class AuthRequests {
@@ -25,6 +26,15 @@ public final class AuthRequests {
         @Override
         public String toString() {
             return "Login[email=" + email + "]";
+        }
+    }
+
+    /** displayName is a fallback for providers (Apple) that omit the name from the token. */
+    public record Oidc(@NotNull OidcProvider provider, @NotBlank String idToken, String displayName) {
+
+        @Override
+        public String toString() {
+            return "Oidc[provider=" + provider + ", idToken=<redacted>]";
         }
     }
 

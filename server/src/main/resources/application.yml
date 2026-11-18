@@ -11,3 +11,11 @@ management:
 kaapspoor:
   cors:
     allowed-origins: http://localhost:5173,https://britishtable.github.io,https://localhost,capacitor://localhost
+  # Audiences (client ids) are deployment config, e.g. KAAPSPOOR_OIDC_GOOGLE_AUDIENCES. Unset rejects every token.
+  oidc:
+    google:
+      issuers: https://accounts.google.com,accounts.google.com
+      jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+    apple:
+      issuers: https://appleid.apple.com
+      jwks-uri: https://appleid.apple.com/auth/keys
