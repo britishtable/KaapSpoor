@@ -31,6 +31,17 @@ or the managed provider's equivalent role). The alternative is to have an admini
 extension in the database beforehand, after which the statement is a no-op and the application role
 needs no extra privilege.
 
+## Running the app against a local server
+
+Start the server (see Configuration), then create `app/.env.local` with:
+
+```
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+and run `npm run dev` in `app/`. Without this variable the app has no accounts (the GitHub Pages build sets nothing).
+The default CORS allow-list already includes the dev origin (`http://localhost:5173`).
+
 ## Running the tests
 
 Needs JDK 21 and a running Docker daemon. Testcontainers starts a `postgis/postgis:16-3.4` container.
