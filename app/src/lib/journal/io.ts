@@ -94,7 +94,7 @@ export function merge(
   current: Data, incoming: Data, mode: 'merge' | 'replace', viewer: string | null = null
 ): Data {
   const locked = (h: Hike) =>
-    h.deleted || (viewer !== null && h.owner !== null && h.owner !== viewer);
+    h.deleted || (h.owner !== null && h.owner !== viewer);
   const hikes = new Map<string, Hike>();
   for (const h of current.hikes) {
     if (mode === 'merge' || locked(h)) hikes.set(h.id, h);

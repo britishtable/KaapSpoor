@@ -79,7 +79,7 @@ describe('merge', () => {
 
   it('replace replaces', () => {
     const inc = { hikes: [h('9')], routeNotes: [] };
-    expect(merge(cur, inc, 'replace')).toEqual(inc);
+    expect(merge(cur, inc, 'replace', 'u1')).toEqual(inc);
   });
 
   it("replace keeps another owner's hikes and local tombstones", () => {
@@ -97,6 +97,13 @@ describe('merge', () => {
       hikes: [h('theirs', { notes: 'x', owner: null, updatedAt: '2030-01-01T00:00:00.000Z' })], routeNotes: []
     };
     expect(merge(c, inc, 'merge', 'u1').hikes[0].notes).toBe('theirs');
+  });
+
+  it('signed out: replace keeps a synced hike, merge skips its id', () => {
+    const c = { hikes: [h('s', { owner: 'u1', notes: 'synced' })], routeNotes: [] };
+    const inc = { hikes: [h('s', { owner: null, notes: 'x', updatedAt: '2030-01-01T00:00:00.000Z' })], routeNotes: [] };
+    expect(merge(c, { hikes: [], routeNotes: [] }, 'replace', null).hikes.map((x) => x.id)).toEqual(['s']);
+    expect(merge(c, inc, 'merge', null).hikes[0].notes).toBe('synced');
   });
 
   it('does not resurrect a local tombstone, even with a newer live hike', () => {
