@@ -19,3 +19,5 @@ tools/geocode/work/
 app/static/tiles/
 app/static/fonts/
 data/dem/
+
+server/target/

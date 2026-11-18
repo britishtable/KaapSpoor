@@ -1,0 +1,3 @@
+kaapspoor:
+  # base64 of 34 bytes; test-only
+  jwt-secret: a2Fhc3Bvb3ItdGVzdC1qd3Qtc2VjcmV0LTMyLWJ5dGVzIQ==
