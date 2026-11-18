@@ -97,8 +97,12 @@ public class Hike {
         this.revision = revision;
         this.receivedAt = now;
         if (w.deleted()) {
-            // Final and scrubbed: the route, date and visibility stay; the private content goes.
+            // Final and scrubbed: only the route (a NOT NULL FK) and visibility stay; what was
+            // written and when it was hiked go.
             this.deletedAt = now;
+            this.hikedOn = null;
+            this.startedAt = null;
+            this.finishedAt = null;
             this.notes = "";
             this.plan = null;
         } else {

@@ -2,6 +2,7 @@ package za.kaapspoor.server.hike;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,7 +13,8 @@ public final class HikeDtos {
 
     private HikeDtos() {}
 
-    /** Mirrors JournalPlan in app/src/lib/data/types.ts. */
+    /** Mirrors JournalPlan in app/src/lib/data/types.ts, whose absent legs are omitted, never null. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HikePlan(String approach, String main, String exit, @Schema(requiredMode = REQUIRED) boolean reversed) {}
 
     /** Everything the client may set. Required fields are checked by the service (a missing one is a 400). */

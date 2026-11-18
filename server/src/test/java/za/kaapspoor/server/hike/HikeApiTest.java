@@ -193,14 +193,17 @@ class HikeApiTest {
         UUID id = UUID.randomUUID();
         ObjectNode b = body("secret", at(0));
         b.putObject("plan").put("main", "m-1").put("reversed", false);
+        dated(b);
         putOk(t, id, b);
         clock.advance(1);
         ObjectNode del = body("secret", at(0));
+        dated(del);
         del.put("deleted", true);
         JsonNode tomb = putOk(t, id, del);
         assertEquals(true, tomb.get("deleted").asBoolean());
         assertEquals("", tomb.get("notes").asText());
         assertEquals("r-1", tomb.get("routeId").asText());
+        assertWhenScrubbed(tomb);
         assertEquals(2, tomb.get("revision").asLong());
 
         clock.advance(1);
@@ -213,6 +216,7 @@ class HikeApiTest {
         JsonNode f = feed(t, "?since=0");
         assertEquals(1, f.get("hikes").size());
         assertEquals(true, f.get("hikes").get(0).get("deleted").asBoolean());
+        assertWhenScrubbed(f.get("hikes").get(0));
         assertEquals(2, f.get("next").asLong());
     }
 
@@ -222,18 +226,50 @@ class HikeApiTest {
         UUID id = UUID.randomUUID();
         ObjectNode b = body("edited", at(0));
         b.putObject("plan").put("main", "m-1").put("reversed", false);
+        dated(b);
         putOk(t, id, b);
         ObjectNode del = body("edited", at(-60));
+        dated(del);
         del.put("deleted", true);
         JsonNode r = putOk(t, id, del);
         assertEquals(true, r.get("deleted").asBoolean());
         assertEquals("", r.get("notes").asText());
         assertEquals(true, r.get("plan").isNull());
+        assertWhenScrubbed(r);
         assertEquals(2, r.get("revision").asLong());
         JsonNode f = feed(t, "?since=1");
         assertEquals(1, f.get("hikes").size());
         assertEquals(true, f.get("hikes").get(0).get("deleted").asBoolean());
+        assertWhenScrubbed(f.get("hikes").get(0));
         assertEquals(2, f.get("next").asLong());
+    }
+
+    @Test
+    void planOmitsAbsentLegsInsteadOfNull() throws Exception {
+        String t = register("a@example.com");
+        UUID id = UUID.randomUUID();
+        ObjectNode b = body("n", at(0));
+        b.putObject("plan").put("main", "m-1").put("reversed", false);
+        JsonNode plan = putOk(t, id, b).get("plan");
+        assertEquals("m-1", plan.get("main").asText());
+        assertEquals(false, plan.has("approach"));
+        assertEquals(false, plan.has("exit"));
+        JsonNode fed = feed(t, "").get("hikes").get(0).get("plan");
+        assertEquals(false, fed.has("approach"));
+        assertEquals(false, fed.has("exit"));
+    }
+
+    /** A hike with a date and start/finish times, so a delete has something to scrub. */
+    private void dated(ObjectNode b) {
+        b.put("date", "2026-07-21");
+        b.put("startedAt", at(-7200).toString());
+        b.put("finishedAt", at(-3600).toString());
+    }
+
+    private static void assertWhenScrubbed(JsonNode tomb) {
+        assertEquals(true, tomb.get("date").isNull());
+        assertEquals(true, tomb.get("startedAt").isNull());
+        assertEquals(true, tomb.get("finishedAt").isNull());
     }
 
     @Test
