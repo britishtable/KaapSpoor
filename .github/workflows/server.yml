@@ -1,9 +1,9 @@
 name: Server
 on:
   push:
-    paths: ['server/**', '.github/workflows/server.yml']
+    paths: ['server/**', 'app/src/lib/api/**', 'app/package*.json', '.github/workflows/server.yml']
   pull_request:
-    paths: ['server/**', '.github/workflows/server.yml']
+    paths: ['server/**', 'app/src/lib/api/**', 'app/package*.json', '.github/workflows/server.yml']
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -18,3 +18,20 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw -B verify
+  # The generated client must type-check against the committed OpenAPI snapshot before merge, not
+  # only in the deploy workflow on main. OpenApiSnapshotTest (above) ties the snapshot to the live spec.
+  client-contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run gen:api && git diff --exit-code src/lib/api/schema.d.ts
+      - run: npm run check
