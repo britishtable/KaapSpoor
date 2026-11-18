@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run",
-    "test:e2e": "playwright test && playwright test --config=playwright.subpath.config.ts"
+    "test:e2e": "playwright test && playwright test --config=playwright.subpath.config.ts",
+    "gen:api": "openapi-typescript ../server/openapi.json -o src/lib/api/schema.d.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
@@ -28,6 +29,7 @@
     "geotiff": "^3.0.5",
     "idb": "^8.0.0",
     "jsdom": "^25.0.0",
+    "openapi-typescript": "7.13.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "tsx": "^4.23.1",
@@ -37,6 +39,7 @@
   },
   "dependencies": {
     "maplibre-gl": "^6.0.0",
+    "openapi-fetch": "0.17.0",
     "pmtiles": "^4.4.1"
   }
 }
