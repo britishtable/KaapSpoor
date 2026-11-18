@@ -182,6 +182,50 @@ describe('api()', () => {
 		expect(st.value).toBeNull();
 	});
 
+	it('refresh network error keeps the session and does not retry', async () => {
+		const { f, paths } = fakeFetch((r) => {
+			if (new URL(r.url).pathname === '/api/v1/auth/refresh') throw new TypeError('timeout');
+			return invalid();
+		});
+		const st = memoryStorage(stored());
+		configureSession({ storage: st, fetch: f, baseUrl: BASE });
+		restoreSession();
+		const res = await api()!.GET('/api/v1/me');
+		expect(res.response.status).toBe(401);
+		expect(paths().filter((p) => p === '/api/v1/me')).toHaveLength(1);
+		expect(get(session)).toEqual(user);
+		expect(st.value).not.toBeNull();
+	});
+
+	it('refresh 500 keeps the session and does not retry', async () => {
+		const { f, paths } = fakeFetch((r) =>
+			new URL(r.url).pathname === '/api/v1/auth/refresh' ? new Response(null, { status: 500 }) : invalid());
+		const st = memoryStorage(stored());
+		configureSession({ storage: st, fetch: f, baseUrl: BASE });
+		restoreSession();
+		const res = await api()!.GET('/api/v1/me');
+		expect(res.response.status).toBe(401);
+		expect(paths().filter((p) => p === '/api/v1/me')).toHaveLength(1);
+		expect(get(session)).toEqual(user);
+	});
+
+	it('retrying a request with a JSON body resends the identical body with the new token', async () => {
+		const { f, calls } = fakeFetch((r) => {
+			if (new URL(r.url).pathname === '/api/v1/auth/refresh') return json(pair(2));
+			return r.headers.get('Authorization') === 'Bearer a2' ? json({ ...user, role: 'USER' }) : invalid();
+		});
+		configureSession({ storage: memoryStorage(stored()), fetch: f, baseUrl: BASE });
+		restoreSession();
+		const res = await api()!.PATCH('/api/v1/me', { body: { displayName: 'Thandi N' } });
+		expect(res.data?.id).toBe('u1');
+		const data = calls.filter((c) => new URL(c.url).pathname === '/api/v1/me');
+		expect(data).toHaveLength(2);
+		expect(data[1].method).toBe('PATCH');
+		expect(data[1].headers.get('Authorization')).toBe('Bearer a2');
+		expect(await data[0].text()).toBe('{"displayName":"Thandi N"}');
+		expect(await data[1].text()).toBe('{"displayName":"Thandi N"}');
+	});
+
 	it('is null without a base URL', () => {
 		configureSession({ storage: memoryStorage(), baseUrl: null });
 		expect(api()).toBeNull();

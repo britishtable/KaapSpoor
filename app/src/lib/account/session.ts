@@ -195,7 +195,11 @@ function retryingFetch(): typeof fetch {
 		if (res.status !== 401 || !(res.headers.get('WWW-Authenticate') ?? '').includes('invalid_token')) return res;
 		const sent = req.headers.get('Authorization');
 		if (!current) return res;
-		if (sent === `Bearer ${current.accessToken}`) await refresh(); // else another caller already refreshed
+		if (sent === `Bearer ${current.accessToken}`) {
+			await refresh(); // else another caller already refreshed
+			// Refresh failed for a reason that keeps the session (offline, 5xx): the token is unchanged, so a retry would only 401 again.
+			if (current && sent === `Bearer ${current.accessToken}`) return res;
+		}
 		if (!current) return res;
 		retry.headers.set('Authorization', `Bearer ${current.accessToken}`);
 		const second = await base(retry);
