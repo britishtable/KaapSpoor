@@ -85,10 +85,26 @@ function newer<T extends { updatedAt: string }>(a: T | undefined, b: T): T {
   return a && a.updatedAt > b.updatedAt ? a : b;
 }
 
-export function merge(current: Data, incoming: Data, mode: 'merge' | 'replace'): Data {
-  if (mode === 'replace') return { hikes: [...incoming.hikes], routeNotes: [...incoming.routeNotes] };
-  const hikes = new Map(current.hikes.map((h) => [h.id, h]));
-  for (const h of incoming.hikes) hikes.set(h.id, newer(hikes.get(h.id), h));
+/**
+ * `current` is everything on the device, tombstones and other owners included.
+ * A local hike is never overwritten by an import when it is a tombstone
+ * (deletion is final) or belongs to another signed-in account (shared phone).
+ */
+export function merge(
+  current: Data, incoming: Data, mode: 'merge' | 'replace', viewer: string | null = null
+): Data {
+  const locked = (h: Hike) =>
+    h.deleted || (viewer !== null && h.owner !== null && h.owner !== viewer);
+  const hikes = new Map<string, Hike>();
+  for (const h of current.hikes) {
+    if (mode === 'merge' || locked(h)) hikes.set(h.id, h);
+  }
+  for (const h of incoming.hikes) {
+    const local = current.hikes.find((x) => x.id === h.id);
+    if (local && locked(local)) continue;
+    hikes.set(h.id, mode === 'merge' ? newer(hikes.get(h.id), h) : h);
+  }
+  if (mode === 'replace') return { hikes: [...hikes.values()], routeNotes: [...incoming.routeNotes] };
   const notes = new Map(current.routeNotes.map((n) => [n.routeId, n]));
   for (const n of incoming.routeNotes) notes.set(n.routeId, newer(notes.get(n.routeId), n));
   return { hikes: [...hikes.values()], routeNotes: [...notes.values()] };

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { base } from '$app/paths';
-  import { hikes, routeNotes, replaceAll } from '$lib/journal/store';
+  import { hikes, routeNotes, visibleHikes, viewer, replaceAll } from '$lib/journal/store';
   import { serialize, parse, merge } from '$lib/journal/io';
 
   let mode = $state<'merge' | 'replace'>('merge');
@@ -13,7 +13,7 @@
   }
 
   function exportData() {
-    const blob = new Blob([serialize(current())], { type: 'application/json' });
+    const blob = new Blob([serialize({ hikes: get(visibleHikes), routeNotes: [...get(routeNotes).values()] })], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'kaapspoor-data.json'; a.click();
@@ -30,7 +30,7 @@
     if (!pending) return;
     try {
       const incoming = parse(pending);
-      await replaceAll(merge(current(), incoming, mode));
+      await replaceAll(merge(current(), incoming, mode, get(viewer)));
       pending = null;
     } catch (err) {
       error = (err as Error).message;
