@@ -54,6 +54,15 @@ public class AppUser {
     /** Caller validates via {@link DisplayNames#validate}. */
     public void rename(String displayName) { this.displayName = displayName; }
 
+    /**
+     * A provider has proven ownership of this email, which nobody had before. Any password was set by
+     * whoever registered the unproven email, so it is dropped. The caller must also revoke the user's sessions.
+     */
+    public void claimEmailByVerifiedOwner() {
+        this.emailVerified = true;
+        this.passwordHash = null;
+    }
+
     public UUID getId() { return id; }
     public String getEmail() { return email; }
     public boolean isEmailVerified() { return emailVerified; }

@@ -60,8 +60,15 @@ public class OidcAuthService {
         if (identity.emailVerified() && email != null) {
             Optional<AppUser> owner = users.findByEmailAndDeletedAtIsNull(email);
             if (owner.isPresent()) {
-                link(identity, owner.get());
-                return new SignIn(tokens.issue(owner.get()), false);
+                AppUser user = owner.get();
+                if (!user.isEmailVerified()) {
+                    // Whoever registered this email never proved it; they may not be the person now
+                    // proving it. Lock their credentials out before handing the account over.
+                    user.claimEmailByVerifiedOwner();
+                    tokens.revokeAllForUser(user.getId());
+                }
+                link(identity, user);
+                return new SignIn(tokens.issue(user), false);
             }
         }
 

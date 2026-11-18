@@ -187,6 +187,52 @@ class OidcAuthFlowTest {
     }
 
     @Test
+    void linkToUnverifiedPasswordAccountLocksOutPriorCredentials() throws Exception {
+        MvcResult registered = mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "email", "sam@example.com", "password", "correct-horse", "displayName", "Sam"))))
+                .andReturn();
+        String priorRefresh = body(registered).get("refreshToken").asText();
+        String passwordUserId = me(registered).get("id").asText();
+
+        MvcResult google = oidc("GOOGLE", google("g-sam", "sam@example.com", true, "Sam G"), null);
+        assertThat(google.getResponse().getStatus()).isEqualTo(200);
+
+        assertThat(refresh(priorRefresh).getResponse().getStatus()).isEqualTo(401);
+        MvcResult login = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", "sam@example.com", "password", "correct-horse"))))
+                .andReturn();
+        assertThat(login.getResponse().getStatus()).isEqualTo(401);
+        assertThat(body(login).get("detail").asText()).isEqualTo("Email or password is incorrect");
+
+        JsonNode me = me(google);
+        assertThat(me.get("id").asText()).isEqualTo(passwordUserId);
+        assertThat(refresh(body(google).get("refreshToken").asText()).getResponse().getStatus()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("select email_verified from app_user", Boolean.class)).isTrue();
+    }
+
+    @Test
+    void linkToVerifiedAccountKeepsItsSessions() throws Exception {
+        MvcResult first = oidc("GOOGLE", google("g-1", "thandi@example.com", true, "Thandi"), null);
+        assertThat(first.getResponse().getStatus()).isEqualTo(201);
+        String appleToken = TestIdTokens.sign(APPLE_ISSUER, APPLE_AUDIENCE, "a-1", "thandi@example.com", true, null,
+                now(), now().plus(Duration.ofMinutes(5)));
+        MvcResult apple = oidc("APPLE", appleToken, null);
+        assertThat(apple.getResponse().getStatus()).isEqualTo(200);
+        assertThat(me(apple).get("id").asText()).isEqualTo(me(first).get("id").asText());
+        assertThat(refresh(body(first).get("refreshToken").asText()).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    private MvcResult refresh(String refreshToken) throws Exception {
+        return mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("refreshToken", refreshToken))))
+                .andReturn();
+    }
+
+    @Test
     void unverifiedEmailDoesNotLink() throws Exception {
         String passwordUserId = registerSam();
         MvcResult r = oidc("GOOGLE", google("g-sam", "Sam@example.com", false, "Sam G"), null);

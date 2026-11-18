@@ -85,6 +85,15 @@ public class TokenService {
                 .ifPresent(token -> refreshTokens.revokeFamily(token.getFamilyId(), clock.instant()));
     }
 
+    /**
+     * Ends every session of the user. A token minted concurrently by a refresh that could not yet see
+     * this update is still refused later, because {@link #refresh} checks the whole family.
+     */
+    @Transactional
+    public void revokeAllForUser(UUID userId) {
+        refreshTokens.revokeAllForUser(userId, clock.instant());
+    }
+
     private TokenPair issueInFamily(AppUser user, UUID familyId, Instant now) {
         byte[] raw = new byte[REFRESH_BYTES];
         random.nextBytes(raw);
