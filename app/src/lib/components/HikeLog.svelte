@@ -13,8 +13,7 @@
   import type { Hike, JournalPlan, Review, Visibility } from '../data/types';
   import { loadRouteReports } from '../reports/reports';
   import { answerReport, pendingOutbox } from '../reports/outbox';
-  import { mineIds } from '../reports/mine';
-  import { CATEGORY_COLOURS, CATEGORY_LABELS } from '../reports/labels';
+  import { ANSWERS, CATEGORY_COLOURS, CATEGORY_LABELS } from '../reports/labels';
   import { formatAge } from '../reports/age';
   import type { Answer, PublicReport } from '../reports/types';
 
@@ -143,7 +142,7 @@
     try {
       if (formFor === 'new') {
         await logHike({ routeId, date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis, plan });
-        void askStillThere();
+        if (recent(date)) void askStillThere();
       } else if (formFor) {
         await updateHike(formFor, { date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis });
       }
@@ -180,11 +179,15 @@
   // ---- "Still there?" ----
   // Asked once, right after a hike here ends or is logged: the reader has just been on the route,
   // so what others reported is worth checking. Nothing is sent unless an answer is tapped.
-  const ANSWERS: { value: Answer; label: string }[] = [
-    { value: 'STILL_THERE', label: 'Still there' },
-    { value: 'GONE', label: 'Gone' },
-    { value: 'NOT_SURE', label: 'Not sure' }
-  ];
+  // A logged hike is asked about only if it was today or yesterday: "Still there" from someone who
+  // was here last month would mark a report as freshly confirmed when nobody has seen it lately.
+  function recent(date: string | null): boolean {
+    if (!date) return false;
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return date === localDate() || date === `${y.getFullYear()}-${p(y.getMonth() + 1)}-${p(y.getDate())}`;
+  }
   let stillThere = $state<PublicReport[]>([]);
   let stAnswers = $state<Record<string, Answer>>({});
   let stError = $state('');
@@ -196,8 +199,9 @@
     const ask = ++askedFor;
     const r = await loadRouteReports(routeId);
     if (ask !== askedFor || typeof r === 'string') return;
-    const own = mineIds(me);
-    for (const h of r.mineHeld) own.add(h.id);
+    // Own: every report the server knows as ours, and any of ours still waiting to send.
+    const own = new Set([...r.mineIds, ...r.mineHeld.map((h) => h.id),
+      ...$pendingOutbox.flatMap((i) => (i.kind === 'report' ? [i.id] : []))]);
     stNow = new Date();
     stAnswers = {};
     stError = '';
@@ -216,7 +220,7 @@
     askedFor++;
     stillThere = [];
   }
-  let stQueued = $derived(new Set($pendingOutbox.flatMap((i) => (i.kind === 'confirmation' && !i.error ? [i.reportId] : []))));
+  let stQueued = $derived(new Map($pendingOutbox.flatMap((i) => (i.kind === 'confirmation' ? [[i.reportId, i] as const] : []))));
 
   const clip = (s: string) => (s.length > 140 ? `${s.slice(0, 140)}…` : s);
 </script>
@@ -286,11 +290,15 @@
             {#if r.note}<p class="notes">{clip(r.note)}</p>{/if}
             <div class="answers" role="group" aria-label="Is it still there?">
               {#each ANSWERS as a (a.value)}
-                <button type="button" aria-pressed={stAnswers[r.id] === a.value}
+                <button type="button" aria-pressed={!stQueued.get(r.id)?.error && stAnswers[r.id] === a.value}
                   onclick={() => answerStillThere(r.id, a.value)}>{a.label}</button>
               {/each}
             </div>
-            {#if stAnswers[r.id] && stQueued.has(r.id)}<p class="hint" role="status">Will send when you have signal</p>{/if}
+            {#if stAnswers[r.id] && stQueued.get(r.id)?.error}
+              <p class="err" role="alert">{stQueued.get(r.id)?.error}</p>
+            {:else if stAnswers[r.id] && stQueued.has(r.id)}
+              <p class="hint" role="status">Will send when you have signal</p>
+            {/if}
           </li>
         {/each}
       </ul>

@@ -1,4 +1,4 @@
-import type { Category } from './types';
+import type { Answer, Category } from './types';
 
 /** The eight report categories in the order a reader is offered them, with their labels. */
 export const CATEGORIES: readonly Category[] = [
@@ -34,3 +34,11 @@ export const CATEGORY_COLOURS: Record<Category, string> = {
 	WILDLIFE: '#4d7c0f',
 	SAFETY: '#6d28d9'
 };
+
+/** The three answers to "is it still there?", in the order they are offered. */
+export const ANSWERS: readonly { value: Answer; label: string }[] = [
+	{ value: 'STILL_THERE', label: 'Still there' },
+	{ value: 'GONE', label: 'Gone' },
+	{ value: 'NOT_SURE', label: 'Not sure' }
+];
+export const ANSWER_WORDS: Record<Answer, string> = { STILL_THERE: 'Still there', GONE: 'Gone', NOT_SURE: 'Not sure' };

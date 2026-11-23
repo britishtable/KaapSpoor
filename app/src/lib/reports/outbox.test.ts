@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
 import { fileReport, answerReport, discardOutboxItem, pendingOutbox, onOutboxWrite, hydrateOutbox, SignInRequiredError, waitsOnHike } from './outbox';
-import { mineIds } from './mine';
 import type { OutboxItem } from './types';
 import { getAllOutbox, getOutboxFor, resetDbForTests } from '$lib/journal/db';
 import { configureSession, signIn, signOut, type StoredSession, type TokenStorage } from '$lib/account/session';
@@ -136,14 +135,6 @@ describe('outbox', () => {
 		await signInOffline('a');
 		expect(get(pendingOutbox).map((i) => i.id)).toEqual([id]);
 	});
-	it('fileReport remembers the id as filed by this account', async () => {
-		localStorage.clear();
-		await signInOffline('a');
-		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
-		expect(mineIds('user-a').has(id)).toBe(true);
-		expect(mineIds('user-b').has(id)).toBe(false);
-	});
-
 	it('waitsOnHike: a report waits on a local hike that is pending or refused, not on a synced one', async () => {
 		const hike = (id: string, over: object) => ({
 			id, routeId: 'r1', date: null, notes: '', visibility: 'PRIVATE' as const, notesVisibility: 'PRIVATE' as const,

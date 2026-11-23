@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { writable, type Writable } from 'svelte/store';
 import type { OutboxItem, PublicReport, MyReport, ReportItem, RouteReportsView } from '$lib/reports/types';
@@ -8,7 +9,6 @@ const h = vi.hoisted(() => ({
   answer: vi.fn(async (_id: string, _a: string) => {}),
   discard: vi.fn(async (_id: string) => {}),
   waits: vi.fn((_i: unknown) => false),
-  mine: new Set<string>(),
   outbox: null as null | Writable<OutboxItem[]>,
   user: null as null | Writable<unknown>
 }));
@@ -23,7 +23,6 @@ vi.mock('$lib/reports/outbox', async () => {
     pendingOutbox: { subscribe: (fn: (v: OutboxItem[]) => void) => h.outbox!.subscribe(fn) }
   };
 });
-vi.mock('$lib/reports/mine', () => ({ mineIds: () => h.mine }));
 vi.mock('$lib/account/session', async () => {
   const { writable } = await import('svelte/store');
   h.user = writable({ id: 'u1', displayName: 'Thandi', initials: 'T' });
@@ -47,15 +46,20 @@ const queued = (id: string, over: Partial<ReportItem> = {}): ReportItem => ({
   body: { routeId: 'r1', category: 'WATER', note: 'spring dry', observedAt: ago(0) }, ...over
 });
 const view = (over: Partial<RouteReportsView> = {}): RouteReportsView =>
-  ({ active: [], history: [], mineHeld: [], minePending: [], ...over });
+  ({ active: [], history: [], mineHeld: [], minePending: [], mineIds: [], ...over });
 
 beforeEach(() => {
   h.load.mockReset();
-  h.answer.mockClear();
-  h.discard.mockClear();
+  h.answer.mockReset();
+  // As the real outbox does: the answer is queued (replacing an older one) before the call resolves.
+  h.answer.mockImplementation(async (id, answer) => {
+    h.outbox!.update((q) => [...q.filter((i) => i.id !== `${id}:u1`),
+      { id: `${id}:u1`, owner: 'u1', createdAt: ago(0), kind: 'confirmation', reportId: id, answer: answer as 'GONE' }]);
+  });
+  h.discard.mockReset();
+  h.discard.mockImplementation(async (id) => { h.outbox!.update((q) => q.filter((i) => i.id !== id)); });
   h.waits.mockReset();
   h.waits.mockReturnValue(false);
-  h.mine = new Set();
   h.outbox!.set([]);
   h.user!.set({ id: 'u1', displayName: 'Thandi', initials: 'T' });
 });
@@ -65,8 +69,12 @@ describe('RouteReports', () => {
     h.load.mockResolvedValue('unavailable');
     const { container } = render(RouteReports, { routeId: 'r1' });
     await waitFor(() => expect(h.load).toHaveBeenCalledWith('r1'));
-    await Promise.resolve();
+    // The load has settled and the component has rendered its answer, not merely not yet.
+    expect(await h.load.mock.results[0].value).toBe('unavailable');
+    await tick();
     expect(container.querySelector('section')).toBeNull();
+    expect(screen.queryByText('Reports need a connection.')).toBeNull();
+    expect(screen.queryByText('Nothing reported recently.')).toBeNull();
   });
 
   it('offline line', async () => {
@@ -122,8 +130,7 @@ describe('RouteReports', () => {
   });
 
   it("own report shows It's gone now instead of three answers", async () => {
-    h.mine = new Set(['own']);
-    h.load.mockResolvedValue(view({ active: [pub('own', { displayName: 'Thandi' })] }));
+    h.load.mockResolvedValue(view({ active: [pub('own', { displayName: 'Thandi' })], mineIds: ['own'] }));
     render(RouteReports, { routeId: 'r1' });
     await screen.findByText('You reported this');
     expect(screen.queryByRole('button', { name: 'Still there' })).toBeNull();
@@ -132,12 +139,44 @@ describe('RouteReports', () => {
     expect(h.answer).toHaveBeenCalledWith('own', 'GONE');
   });
 
-  it('signed out: reports show but offer no answers', async () => {
+  it('signed out: reports show, offer no answers, and say how to answer', async () => {
     h.user!.set(null);
     h.load.mockResolvedValue(view({ active: [pub('a')] }));
     render(RouteReports, { routeId: 'r1' });
     await screen.findByText('Bongi');
     expect(screen.queryByRole('button', { name: 'Gone' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Sign in to report what you see.' }).getAttribute('href')).toMatch(/\/account$/);
+  });
+
+  it('signed in, no sign-in line', async () => {
+    h.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('Bongi');
+    expect(screen.queryByRole('link', { name: 'Sign in to report what you see.' })).toBeNull();
+  });
+
+  it('a report still in the outbox counts as own even when already public', async () => {
+    h.load.mockResolvedValue(view({ active: [pub('q1')] }));
+    h.outbox!.set([queued('q1')]);
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('You reported this');
+    expect(screen.queryByRole('button', { name: 'Still there' })).toBeNull();
+  });
+
+  it('a change of account reloads: nothing of the previous account\u2019s own or answers stays', async () => {
+    h.load.mockResolvedValue(view({ active: [pub('a')], mineIds: ['a'] }));
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('You reported this');
+    await fireEvent.click(screen.getByRole('button', { name: "It's gone now" }));
+    h.outbox!.set([]); // sent
+    await screen.findByText('Answer sent: Gone.');
+    h.load.mockResolvedValue(view({ active: [pub('a')], mineIds: [] }));
+    h.user!.set({ id: 'u2', displayName: 'Sipho', initials: 'S' });
+    await screen.findByRole('button', { name: 'Still there' });
+    expect(screen.queryByText('You reported this')).toBeNull();
+    expect(screen.queryByText(/Answer sent/)).toBeNull();
+    expect(screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toEqual([]);
+    expect(h.load.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   it('held and pending own reports show their lines', async () => {
@@ -195,9 +234,6 @@ describe('RouteReports', () => {
 
   it('answering shows Will send when you have signal while queued', async () => {
     h.load.mockResolvedValue(view({ active: [pub('a')] }));
-    h.answer.mockImplementation(async (id, answer) => {
-      h.outbox!.set([{ id: `${id}:u1`, owner: 'u1', createdAt: ago(0), kind: 'confirmation', reportId: id, answer: answer as 'GONE' }]);
-    });
     render(RouteReports, { routeId: 'r1' });
     await screen.findByText('Bongi');
     expect(screen.queryByText('Will send when you have signal')).toBeNull();
@@ -210,8 +246,37 @@ describe('RouteReports', () => {
     h.outbox!.set([{ id: 'a:u1', owner: 'u1', createdAt: ago(0), kind: 'confirmation', reportId: 'a', answer: 'GONE', error: 'This report is no longer active.' }]);
     render(RouteReports, { routeId: 'r1' });
     await screen.findByText('This report is no longer active.');
+    expect(screen.getByRole('button', { name: 'Gone' }).getAttribute('aria-pressed')).toBe('false');
     await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
     expect(h.discard).toHaveBeenCalledWith('a:u1');
+    await waitFor(() => expect(screen.queryByText('This report is no longer active.')).toBeNull());
+    expect(screen.queryByText(/Answer sent/)).toBeNull();
+    expect(screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toEqual([]);
+  });
+
+  it('an answer queued here, then refused, then discarded never reads as sent', async () => {
+    h.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('Bongi');
+    await fireEvent.click(screen.getByRole('button', { name: 'Gone' }));
+    await screen.findByText('Will send when you have signal');
+    h.outbox!.update((q) => q.map((i) => ({ ...i, error: 'This report is no longer active.' })));
+    await screen.findByText('This report is no longer active.');
+    expect(screen.queryByText(/Answer sent/)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByText('This report is no longer active.')).toBeNull());
+    expect(screen.queryByText(/Answer sent/)).toBeNull();
+    expect(screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toEqual([]);
+  });
+
+  it('an answer that leaves the queue without an error reads as sent and stays pressed', async () => {
+    h.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('Bongi');
+    await fireEvent.click(screen.getByRole('button', { name: 'Still there' }));
+    h.outbox!.set([]);
+    await screen.findByText('Answer sent: Still there.');
+    expect(screen.getByRole('button', { name: 'Still there' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('once a queued answer sends, the list reloads', async () => {

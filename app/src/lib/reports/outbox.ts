@@ -2,7 +2,6 @@ import { derived, get, writable, type Readable } from 'svelte/store';
 import { api, session } from '$lib/account/session';
 import { hikes, now } from '$lib/journal/store';
 import { deleteOutboxItem, getAllOutbox, getOutboxFor, getOutboxItem, putOutboxItem } from '$lib/journal/db';
-import { rememberMine } from './mine';
 import { SignInRequiredError, type Answer, type OutboxItem, type ReportWrite } from './types';
 
 export { SignInRequiredError };
@@ -59,7 +58,6 @@ export async function fileReport(
 	const id = crypto.randomUUID();
 	const createdAt = now();
 	await enqueue({ id, owner, createdAt, kind: 'report', body: { ...input, observedAt: input.observedAt ?? createdAt } });
-	rememberMine(owner, id);
 	return id;
 }
 

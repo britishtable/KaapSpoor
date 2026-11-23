@@ -1,10 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { base } from '$app/paths';
   import { session } from '$lib/account/session';
   import { loadRouteReports } from '$lib/reports/reports';
   import { answerReport, discardOutboxItem, pendingOutbox, waitsOnHike } from '$lib/reports/outbox';
-  import { mineIds } from '$lib/reports/mine';
-  import { CATEGORY_COLOURS, CATEGORY_LABELS } from '$lib/reports/labels';
+  import { ANSWERS, ANSWER_WORDS, CATEGORY_COLOURS, CATEGORY_LABELS } from '$lib/reports/labels';
   import { formatAge } from '$lib/reports/age';
   import { SignInRequiredError } from '$lib/reports/types';
   import type { Answer, Category, OutboxItem, PublicReport, ReportItem, RouteReportsView } from '$lib/reports/types';
@@ -15,18 +15,12 @@
     onactive?: (reports: PublicReport[]) => void;
   } = $props();
 
-  const ANSWERS: { value: Answer; label: string }[] = [
-    { value: 'STILL_THERE', label: 'Still there' },
-    { value: 'GONE', label: 'Gone' },
-    { value: 'NOT_SURE', label: 'Not sure' }
-  ];
-  const ANSWER_WORDS: Record<Answer, string> = { STILL_THERE: 'Still there', GONE: 'Gone', NOT_SURE: 'Not sure' };
-
   let result = $state<RouteReportsView | 'offline' | 'unavailable' | null>(null);
-  /** Ids of reports the reader filed, as this device knows them (see mine.ts). */
-  let own = $state<Set<string>>(new Set());
-  /** Answers given here, so the pressed button survives the queue emptying. */
-  let answered = $state<Record<string, Answer>>({});
+  /**
+   * Answers seen to leave the queue with no error, i.e. accepted by the server. A refused answer
+   * keeps its item (with the reason) until discarded, so it never lands here.
+   */
+  let sent = $state<Record<string, Answer>>({});
   let answerError = $state<Record<string, string>>({});
   let flashed = $state<string | null>(null);
   let now = $state(new Date());
@@ -41,19 +35,19 @@
       if (quiet && typeof r === 'string') return;
       result = r;
       now = new Date();
-      const me = $session?.id;
-      const ids = me ? mineIds(me) : new Set<string>();
-      if (typeof r === 'object') for (const h of r.mineHeld) ids.add(h.id);
-      own = ids;
     });
   }
 
   // Client-side only: route pages are prerendered, and GitHub Pages has no API.
+  // Again whenever the account changes: on a shared phone nothing of the last reader's (which
+  // reports are theirs, what they answered) may carry over to the next.
+  let me = $derived($session?.id ?? null);
   $effect(() => {
     const id = routeId;
+    void me;
     generation++;
     result = null;
-    answered = {};
+    sent = {};
     answerError = {};
     load(id, false);
   });
@@ -76,29 +70,45 @@
   let pending = $derived($pendingOutbox.filter(
     (i): i is ReportItem => i.kind === 'report' && i.body.routeId === routeId && !listed.has(i.id)
   ));
+  /** The reader's own: every report the server knows as theirs, plus any still waiting to send. */
+  let own = $derived(new Set([
+    ...(loaded?.mineIds ?? []), ...(loaded?.mineHeld ?? []).map((r) => r.id),
+    ...$pendingOutbox.flatMap((i) => (i.kind === 'report' ? [i.id] : []))
+  ]));
   let answersQueued = $derived(new Map(
     $pendingOutbox.flatMap((i) => (i.kind === 'confirmation' ? [[i.reportId, i] as const] : []))
   ));
 
   // Once something of ours on this route leaves the queue it has been sent: read the lists again,
   // so a sent report shows as held and a sent answer shows its effect.
-  let sentWatch: Set<string> | null = null;
+  // Only an item that is gone from the queue altogether was sent; one that turned refused is
+  // still there, with its reason. The watch belongs to one account: a sign-out empties the
+  // visible queue without sending anything.
+  let sentWatch: { owner: string | null; items: Map<string, OutboxItem> } | null = null;
   $effect(() => {
-    const queued = new Set($pendingOutbox
+    const all = new Set($pendingOutbox.map((i) => i.id));
+    const items = new Map($pendingOutbox
       .filter((i) => i.error === undefined && (
         (i.kind === 'report' && i.body.routeId === routeId) || (i.kind === 'confirmation' && listed.has(i.reportId))
       ))
-      .map((i) => i.id));
+      .map((i) => [i.id, i] as const));
     const before = sentWatch;
-    sentWatch = queued;
-    if (before && [...before].some((id) => !queued.has(id))) load(routeId, true);
+    sentWatch = { owner: me, items };
+    if (!before || before.owner !== me) return;
+    const gone = [...before.items.values()].filter((i) => !all.has(i.id));
+    if (!gone.length) return;
+    const nowSent = { ...sent };
+    for (const i of gone) if (i.kind === 'confirmation') nowSent[i.reportId] = i.answer;
+    sent = nowSent;
+    load(routeId, true);
   });
 
   async function answer(id: string, value: Answer): Promise<void> {
     answerError = { ...answerError, [id]: '' };
+    const { [id]: _was, ...rest } = sent;
+    sent = rest; // a new answer is not sent until it leaves the queue
     try {
       await answerReport(id, value);
-      answered = { ...answered, [id]: value };
     } catch (e) {
       answerError = {
         ...answerError,
@@ -118,6 +128,11 @@
     setTimeout(() => { if (flashed === id) flashed = null; }, 2000);
   }
 
+  /** The answer to show as chosen: the queued one unless refused, else the one seen sent. */
+  function chosen(id: string): Answer | undefined {
+    const q = answersQueued.get(id);
+    return q ? (q.error ? undefined : q.answer) : sent[id];
+  }
   const label = (c: Category) => CATEGORY_LABELS[c];
   function seen(r: { observedAt: string; lastConfirmedAt: string | null }): string {
     const base = `Seen ${formatAge(r.observedAt, now)}`;
@@ -143,8 +158,8 @@
     {@render refused(q)}
   {:else if q}
     <p class="hint" role="status">Will send when you have signal</p>
-  {:else if answered[id]}
-    <p class="hint" role="status">Answer sent: {ANSWER_WORDS[answered[id]]}.</p>
+  {:else if sent[id]}
+    <p class="hint" role="status">Answer sent: {ANSWER_WORDS[sent[id]]}.</p>
   {/if}
   {#if answerError[id]}<p class="err" role="alert">{answerError[id]}</p>{/if}
 {/snippet}
@@ -213,13 +228,12 @@
               {/if}
               {#if $session}
                 {#if mine}
-                  <button type="button" class="wide" aria-pressed={answered[r.id] === 'GONE'}
+                  <button type="button" class="wide" aria-pressed={chosen(r.id) === 'GONE'}
                     onclick={() => answer(r.id, 'GONE')}>It's gone now</button>
                 {:else}
                   <div class="answers" role="group" aria-label="Is it still there?">
                     {#each ANSWERS as a (a.value)}
-                      {@const current = answered[r.id] ?? answersQueued.get(r.id)?.answer}
-                      <button type="button" aria-pressed={current === a.value}
+                      <button type="button" aria-pressed={chosen(r.id) === a.value}
                         onclick={() => answer(r.id, a.value)}>{a.label}</button>
                     {/each}
                   </div>
@@ -229,6 +243,9 @@
             </li>
           {/each}
         </ul>
+        {#if !$session}
+          <a class="btn wide" href="{base}/account">Sign in to report what you see.</a>
+        {/if}
       {/if}
 
       {#if loaded.history.length}
@@ -287,6 +304,12 @@
   }
   button[aria-pressed='true'] { background: #c2410c; border-color: #c2410c; color: #fff; font-weight: 600; }
   .wide { width: 100%; margin-top: 0.2rem; }
+  .btn {
+    min-height: 48px; padding: 0 1rem; box-sizing: border-box; display: inline-flex; align-items: center;
+    justify-content: center; text-decoration: none; color: inherit; border-radius: 0.4rem;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .btn:focus-visible { outline: 3px solid #c2410c; outline-offset: 2px; }
   .slim { padding: 0 1rem; }
   button:focus-visible, summary:focus-visible { outline: 3px solid #c2410c; outline-offset: 2px; }
   .history summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }

@@ -24,6 +24,8 @@ export interface RouteReportsView {
 	history: PublicReport[];
 	mineHeld: MyReport[];
 	minePending: ReportItem[];
+	/** Every report of the reader's on this route the server knows, held or public. */
+	mineIds: string[];
 }
 
 /** Reports carry a name, so filing or answering needs an account. */

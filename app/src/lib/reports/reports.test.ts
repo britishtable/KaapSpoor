@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { loadRouteReports } from './reports';
-import { mineIds } from './mine';
 import { hydrateOutbox } from './outbox';
 import { putOutboxItem, resetDbForTests } from '$lib/journal/db';
 
@@ -97,15 +96,31 @@ describe('loadRouteReports', () => {
 		expect(calls).toHaveLength(2);
 	});
 
-	it('remembers held reports as mine, so once public they still read as mine on this device', async () => {
-		localStorage.clear();
+	it('mineIds lists every own report on the route; mineHeld only the held ones not public', async () => {
+		const released = { ...mine('rel-1'), held: false };
 		const { f } = fakeFetch((_r, p) =>
-			p === '/api/v1/routes/r1/reports' ? json({ active: [], history: [] }) : json([mine('held-1')])
+			p === '/api/v1/routes/r1/reports'
+				? json({ active: [pub('rel-1')], history: [] })
+				: json([mine('held-1'), released])
 		);
 		configureSession({ storage: storageWith(signedIn()), fetch: f, baseUrl: BASE });
 		restoreSession();
-		await loadRouteReports('r1');
-		expect(mineIds('user-a').has('held-1')).toBe(true);
+		const view = await loadRouteReports('r1');
+		if (typeof view === 'string') throw new Error(view);
+		expect([...view.mineIds].sort()).toEqual(['held-1', 'rel-1']);
+		expect(view.mineHeld.map((r) => r.id)).toEqual(['held-1']);
+	});
+
+	it('a report /mine says is released but the public list lacks is not shown as held', async () => {
+		const { f } = fakeFetch((_r, p) =>
+			p === '/api/v1/routes/r1/reports' ? json({ active: [], history: [] }) : json([{ ...mine('rel-1'), held: false }])
+		);
+		configureSession({ storage: storageWith(signedIn()), fetch: f, baseUrl: BASE });
+		restoreSession();
+		const view = await loadRouteReports('r1');
+		if (typeof view === 'string') throw new Error(view);
+		expect(view.mineHeld).toEqual([]);
+		expect(view.mineIds).toEqual(['rel-1']);
 	});
 
 	it('a pending report already public shows once, in the public list', async () => {
@@ -128,7 +143,7 @@ describe('loadRouteReports', () => {
 		);
 		configureSession({ storage: storageWith(null), fetch: f, baseUrl: BASE });
 		const view = await loadRouteReports('r1');
-		expect(view).toEqual({ active: [], history: [], mineHeld: [], minePending: [] });
+		expect(view).toEqual({ active: [], history: [], mineHeld: [], minePending: [], mineIds: [] });
 		expect(calls.map((c) => new URL(c.url).pathname)).toEqual(['/api/v1/routes/r1/reports']);
 	});
 

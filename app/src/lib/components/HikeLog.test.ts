@@ -6,11 +6,9 @@ import type { PublicReport, RouteReportsView } from '../reports/types';
 
 const rep = vi.hoisted(() => ({
   load: vi.fn(async (_id: string): Promise<unknown> => 'unavailable'),
-  answer: vi.fn(async (_id: string, _a: string) => {}),
-  mine: new Set<string>()
+  answer: vi.fn(async (_id: string, _a: string) => {})
 }));
 vi.mock('../reports/reports', () => ({ loadRouteReports: (id: string) => rep.load(id) }));
-vi.mock('../reports/mine', () => ({ mineIds: () => rep.mine, rememberMine: () => {} }));
 vi.mock('../reports/outbox', async (original) => ({
   ...(await original<typeof import('../reports/outbox')>()),
   answerReport: (id: string, a: string) => rep.answer(id, a)
@@ -370,7 +368,7 @@ describe('HikeLog: Still there?', () => {
     lastConfirmedAt: null, expiresAt: null, clearedAt: null, position: null, displayName: 'Bongi', unverified: false, ...over
   });
   const view = (over: Partial<RouteReportsView> = {}): RouteReportsView =>
-    ({ active: [], history: [], mineHeld: [], minePending: [], ...over });
+    ({ active: [], history: [], mineHeld: [], minePending: [], mineIds: [], ...over });
   function signIn() {
     const s = { accessToken: 'a', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r', user };
     configureSession({ storage: { load: () => s, save: () => {}, clear: () => {} }, baseUrl: 'http://srv' });
@@ -379,7 +377,6 @@ describe('HikeLog: Still there?', () => {
   beforeEach(() => {
     rep.load.mockReset();
     rep.answer.mockClear();
-    rep.mine = new Set();
     signIn();
   });
   afterEach(() => { configureSession(); });
@@ -417,22 +414,62 @@ describe('HikeLog: Still there?', () => {
   });
 
   it('own reports are not asked about', async () => {
-    rep.mine = new Set(['own']);
-    rep.load.mockResolvedValue(view({ active: [pub('own', { displayName: 'Thandi' })], mineHeld: [] }));
+    rep.load.mockResolvedValue(view({
+      active: [pub('own', { displayName: 'Thandi', category: 'FIRE' }), pub('b', { category: 'WATER' })],
+      mineIds: ['own']
+    }));
     render(HikeLog, { routeId: 'r1' });
     await finishAHike();
-    await screen.findByText('Hike finished. Nice one.');
-    await waitFor(() => expect(rep.load).toHaveBeenCalled());
-    await Promise.resolve();
+    const card = (await screen.findByRole('heading', { name: 'Still there?' })).closest('section')!;
+    expect(within(card).getByText('Water source')).toBeTruthy();
+    expect(within(card).queryByText('Fire or fire damage')).toBeNull();
+    expect(within(card).getAllByRole('button', { name: 'Gone' })).toHaveLength(1);
+  });
+
+  const dayOffset = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const p = (x: number) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+  async function logPast(date: string | null) {
+    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
+    if (date) await fireEvent.input(screen.getByLabelText('Date'), { target: { value: date } });
+    else await fireEvent.click(screen.getByLabelText("I don't remember the date"));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save hike' }));
+    // The form closes only after save() has decided whether to ask: a settled point to assert on.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save hike' })).toBeNull());
+    expect(get(visibleHikes)).toHaveLength(1);
+  }
+
+  it('after logging a hike dated yesterday, Still there? asks', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await logPast(dayOffset(-1));
+    await screen.findByRole('heading', { name: 'Still there?' });
+  });
+
+  it('after logging a hike dated today, Still there? asks', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await logPast(dayOffset(0));
+    await screen.findByRole('heading', { name: 'Still there?' });
+  });
+
+  it('a back-dated log asks nothing: an answer would freshen a report nobody has seen lately', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await logPast(dayOffset(-2));
+    expect(rep.load).not.toHaveBeenCalled();
     expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
   });
 
-  it('after logging a past hike, Still there? asks too', async () => {
+  it('a log with no date asks nothing', async () => {
     rep.load.mockResolvedValue(view({ active: [pub('a')] }));
     render(HikeLog, { routeId: 'r1' });
-    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Save hike' }));
-    await screen.findByRole('heading', { name: 'Still there?' });
+    await logPast(null);
+    expect(rep.load).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
   });
 
   it('signed out, nothing is asked', async () => {
