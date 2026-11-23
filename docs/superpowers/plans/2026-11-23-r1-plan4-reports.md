@@ -171,7 +171,7 @@ create table report_confirmation (
   - `retryIsIdempotent()`; `otherUsersIdIs409()`.
   - `closureHasNoExpiry()`.
   - `reportDuringActiveHikeIsHeld()` (Review Focus 1): the hike is started and not finished, so `held` is true. After the hike is PUT with `finishedAt`, a re-PUT of the same report shows `held` false.
-  - `heldReleasesAfter12Hours()`: move the clock to `observedAt` + 12 h, and `held` becomes false.
+  - `heldReleasesAfter12Hours()`: move the clock to 12 h after the later of `observedAt` and receipt, and `held` becomes false.
   - Validation, one test per 400 above, including `observedAtTwoMinutesAheadAccepted()` and `positionOutsideBoxIs400()`.
   - `requiresAuth()`.
 - [ ] **Step 2: Run them and confirm they fail.** Run: `./mvnw -q test -Dtest=ReportFilingApiTest`. Expected: compile failure.
