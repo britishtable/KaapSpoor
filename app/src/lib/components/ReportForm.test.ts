@@ -38,11 +38,11 @@ function denied() {
 type Over = Partial<{ lineCoords: Point3[]; hasLocation: boolean; activeHikeId: string | null; onpickrequest: () => Promise<[number, number] | null>; oncancelpick: () => void }>;
 function setup(over: Over = {}) {
   const onclose = vi.fn();
-  render(ReportForm, {
+  const r = render(ReportForm, {
     routeId: 'r1', lineCoords: line, hasLocation: true, activeHikeId: null,
     onpickrequest: async () => null, onclose, ...over
   });
-  return { onclose };
+  return { onclose, rerender: r.rerender };
 }
 const send = () => screen.getByRole('button', { name: 'Send report' }) as HTMLButtonElement;
 const chip = (name: string | RegExp) => screen.getByRole('radio', { name }) as HTMLButtonElement;
@@ -164,6 +164,16 @@ describe('ReportForm', () => {
     await fireEvent.click(send());
     await screen.findByText('Saved. It will show once you finish your hike.');
     expect((fileReport.mock.calls[0][0] as { hikeId: string }).hikeId).toBe('h1');
+  });
+
+  it('the saved line follows the hike id that was sent, not the hike finishing afterwards', async () => {
+    const r = setup({ activeHikeId: 'h-elsewhere' });
+    await fireEvent.click(chip('Closure'));
+    await fireEvent.click(send());
+    await screen.findByText('Saved. It will show once you finish your hike.');
+    expect((fileReport.mock.calls[0][0] as { hikeId: string }).hikeId).toBe('h-elsewhere');
+    await r.rerender({ activeHikeId: null });
+    expect(screen.getByText('Saved. It will show once you finish your hike.')).toBeTruthy();
   });
 
   it('after a hike it just says Saved, and says it will send while queued', async () => {

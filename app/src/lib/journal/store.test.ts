@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import {
   hikes, visibleHikes, doneRouteIds, activeHike, hikesForRoute, viewer,
   logHike, updateHike, deleteHike, startHike, finishHike, setRouteNotes,
-  setReview, canReview, ReviewNotAllowedError, InvalidReviewError, hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
+  setReview, canReview, ReviewNotAllowedError, InvalidReviewError, hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError, localDate
 } from './store';
 import { getAllHikes } from './db';
 import type { Hike } from '../data/types';
@@ -240,5 +240,14 @@ describe('reviews', () => {
     expect(canReview(hike('h', { date: '2026-11-24' }), '2026-11-23')).toBe(false);
     expect(canReview(hike('h', { date: '2026-11-23' }), '2026-11-23')).toBe(true);
     expect(canReview(hike('h', { date: null }), '2026-11-23')).toBe(true);
+  });
+});
+
+describe('localDate', () => {
+  it('formats a given day in local time, padded; today by default', () => {
+    expect(localDate(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    expect(localDate()).toBe(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
   });
 });

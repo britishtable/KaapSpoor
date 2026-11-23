@@ -27,8 +27,11 @@
   // Deliberately not reactive: nothing here should re-run when a pick starts or ends.
   let pending: ((p: [number, number] | null) => void) | null = null;
 
-  /** The hike this report belongs to: only the one in progress on THIS route. */
-  let hikeId = $derived($activeHike && $activeHike.routeId === routeId ? $activeHike.id : null);
+  /**
+   * Any hike in progress holds the report, whatever route it is on: a named report must not
+   * reveal where someone is right now, and someone mid-hike is out there wherever they report.
+   */
+  let hikeId = $derived($activeHike?.id ?? null);
 
   function endPick(p: [number, number] | null): void {
     const done = pending;

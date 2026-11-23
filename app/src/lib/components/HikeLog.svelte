@@ -72,10 +72,12 @@
     error = '';
     try {
       const id = active.id;
+      // Asked only if the hike began today or yesterday, as for a logged hike.
+      const began = active.startedAt ? localDate(new Date(active.startedAt)) : null;
       await finishHike(id);
       finishedId = id;
       finished = true;
-      void askStillThere();
+      if (recent(began)) void askStillThere();
     } catch {
       error = "Couldn't save that on this device.";
     }
@@ -179,14 +181,13 @@
   // ---- "Still there?" ----
   // Asked once, right after a hike here ends or is logged: the reader has just been on the route,
   // so what others reported is worth checking. Nothing is sent unless an answer is tapped.
-  // A logged hike is asked about only if it was today or yesterday: "Still there" from someone who
-  // was here last month would mark a report as freshly confirmed when nobody has seen it lately.
+  // Only for a hike dated (logged) or started (finished) today or yesterday: "Still there" from
+  // someone who was here last month would mark a report as freshly confirmed when nobody has seen it lately.
   function recent(date: string | null): boolean {
     if (!date) return false;
     const y = new Date();
     y.setDate(y.getDate() - 1);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return date === localDate() || date === `${y.getFullYear()}-${p(y.getMonth() + 1)}-${p(y.getDate())}`;
+    return date === localDate() || date === localDate(y);
   }
   let stillThere = $state<PublicReport[]>([]);
   let stAnswers = $state<Record<string, Answer>>({});

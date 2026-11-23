@@ -1,3 +1,4 @@
+import { writable, type Readable } from 'svelte/store';
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction, type StoreNames } from 'idb';
 import type { Hike, RouteNotes } from '../data/types';
 import type { OutboxItem } from '../reports/types';
@@ -13,6 +14,13 @@ interface KaapSpoorDB extends DBSchema {
 }
 
 let dbPromise: Promise<IDBPDatabase<KaapSpoorDB>> | null = null;
+
+const blockedState = writable(false);
+/**
+ * True while an upgrade waits on another tab that still holds an older version open (a tab on
+ * the v3 build never lets go by itself). The layout shows it, so the wait is never silent.
+ */
+export const upgradeBlocked: Readable<boolean> = { subscribe: blockedState.subscribe };
 let converter: typeof convertJournal = convertJournal;
 
 function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
@@ -33,8 +41,9 @@ function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
         }
       },
       // Another tab holds an older version open. Its blocking handler (from v4 on) closes it,
-      // and then this open goes ahead; there is nothing to do here but wait.
-      blocked() {},
+      // and then this open goes ahead. A v3 tab has no such handler, so this waits until the
+      // person closes it: say so.
+      blocked() { blockedState.set(true); },
       // A newer version is opening in another tab: let go, or that tab's upgrade hangs.
       // The next call here reopens, and fails cleanly if this tab's build is now too old.
       blocking() {
@@ -47,6 +56,8 @@ function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
     opening.catch(() => {
       if (dbPromise === opening) dbPromise = null;
     });
+    // Either way the wait is over.
+    opening.then(() => blockedState.set(false), () => blockedState.set(false));
   }
   return dbPromise;
 }

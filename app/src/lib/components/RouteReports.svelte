@@ -6,6 +6,7 @@
   import { answerReport, discardOutboxItem, pendingOutbox, waitsOnHike } from '$lib/reports/outbox';
   import { ANSWERS, ANSWER_WORDS, CATEGORY_COLOURS, CATEGORY_LABELS } from '$lib/reports/labels';
   import { formatAge } from '$lib/reports/age';
+  import { hikes } from '$lib/journal/store';
   import { SignInRequiredError } from '$lib/reports/types';
   import type { Answer, Category, OutboxItem, PublicReport, ReportItem, RouteReportsView } from '$lib/reports/types';
 
@@ -191,8 +192,11 @@
                 {#if item.body.note}<p class="text">{item.body.note}</p>{/if}
                 {#if item.error}
                   {@render refused(item)}
-                {:else if waitsOnHike(item)}
-                  <p class="hint">Waiting for your hike to send</p>
+                {:else if waitsOnHike(item, $hikes)}
+                  <div class="refused">
+                    <p class="hint">Waiting for your hike to send</p>
+                    <button type="button" class="slim" onclick={() => discardOutboxItem(item.id)}>Discard</button>
+                  </div>
                 {:else}
                   <p class="hint">Will send when you have signal</p>
                 {/if}

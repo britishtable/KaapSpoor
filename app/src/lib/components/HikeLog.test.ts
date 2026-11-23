@@ -472,6 +472,28 @@ describe('HikeLog: Still there?', () => {
     expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
   });
 
+  it('finishing a hike started three days ago asks nothing', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    const started = new Date();
+    started.setDate(started.getDate() - 3);
+    await replaceAll({ hikes: [stored('old', { date: dayOffset(-3), startedAt: started.toISOString() })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+    await screen.findByText('Hike finished. Nice one.');
+    expect(rep.load).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
+  });
+
+  it('finishing a hike started earlier today asks', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    const started = new Date();
+    started.setHours(0, 30, 0, 0);
+    await replaceAll({ hikes: [stored('today', { date: dayOffset(0), startedAt: started.toISOString() })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+    await screen.findByRole('heading', { name: 'Still there?' });
+  });
+
   it('signed out, nothing is asked', async () => {
     configureSession();
     rep.load.mockResolvedValue(view({ active: [pub('a')] }));

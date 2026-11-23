@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   load: vi.fn(),
   answer: vi.fn(async (_id: string, _a: string) => {}),
   discard: vi.fn(async (_id: string) => {}),
-  waits: vi.fn((_i: unknown) => false),
+  waits: vi.fn((_i: unknown, _m?: unknown) => false),
   outbox: null as null | Writable<OutboxItem[]>,
   user: null as null | Writable<unknown>
 }));
@@ -19,7 +19,7 @@ vi.mock('$lib/reports/outbox', async () => {
   return {
     answerReport: (id: string, a: string) => h.answer(id, a),
     discardOutboxItem: (id: string) => h.discard(id),
-    waitsOnHike: (i: unknown) => h.waits(i),
+    waitsOnHike: (i: unknown, m?: unknown) => h.waits(i, m),
     pendingOutbox: { subscribe: (fn: (v: OutboxItem[]) => void) => h.outbox!.subscribe(fn) }
   };
 });
@@ -30,6 +30,8 @@ vi.mock('$lib/account/session', async () => {
 });
 
 import RouteReports from './RouteReports.svelte';
+import { hikes } from '$lib/journal/store';
+import type { Hike } from '$lib/data/types';
 
 const HOUR = 3600_000;
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
@@ -206,6 +208,35 @@ describe('RouteReports', () => {
     render(RouteReports, { routeId: 'r1' });
     await screen.findByText('Waiting for your hike to send');
     expect(screen.queryByText('Will send when you have signal')).toBeNull();
+  });
+
+  it('a report waiting on its hike can be discarded', async () => {
+    h.load.mockResolvedValue(view());
+    h.waits.mockReturnValue(true);
+    h.outbox!.set([queued('q1')]);
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('Waiting for your hike to send');
+    await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(h.discard).toHaveBeenCalledWith('q1');
+    await waitFor(() => expect(screen.queryByText('spring dry')).toBeNull());
+  });
+
+  it('the waiting line follows the hike: once the hike is sent, it says it will send', async () => {
+    const hike: Hike = {
+      id: 'h1', routeId: 'r1', date: '2026-11-23', notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+      startedAt: null, finishedAt: null, updatedAt: ago(0), deleted: false, owner: null, pending: true
+    };
+    hikes.set(new Map([[hike.id, hike]]));
+    // As the real one: waits while the hike it names is still pending in the given hikes.
+    h.waits.mockImplementation((_i, m) => (m as Map<string, Hike> | undefined)?.get('h1')?.pending === true);
+    h.load.mockResolvedValue(view());
+    h.outbox!.set([queued('q1', { body: { routeId: 'r1', category: 'WATER', note: 'spring dry', observedAt: ago(0), hikeId: 'h1' } })]);
+    render(RouteReports, { routeId: 'r1' });
+    await screen.findByText('Waiting for your hike to send');
+    hikes.set(new Map([[hike.id, { ...hike, pending: false }]]));
+    await screen.findByText('Will send when you have signal');
+    expect(screen.queryByText('Waiting for your hike to send')).toBeNull();
+    hikes.set(new Map());
   });
 
   it('a refused report shows the server reason and can be discarded', async () => {

@@ -7,6 +7,7 @@
   import { startSync } from '$lib/sync/sync';
   import { hydrateOutbox } from '$lib/reports/outbox';
   import ActiveHikeBanner from '$lib/components/ActiveHikeBanner.svelte';
+  import UpgradeBanner from '$lib/components/UpgradeBanner.svelte';
   import type { LayoutProps } from './$types';
   let { children }: LayoutProps = $props();
   onMount(() => {
@@ -20,6 +21,7 @@
 </script>
 
 <header><a href="{base}/">KaapSpoor</a> · <a href="{base}/settings">Settings</a> · <a href="{base}/account">Account</a></header>
+<UpgradeBanner />
 <ActiveHikeBanner />
 <main>{@render children()}</main>
 

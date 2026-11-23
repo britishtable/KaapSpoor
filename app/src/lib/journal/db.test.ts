@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { openDB } from 'idb';
 import {
   putHike, getAllHikes, putRouteNotes, getAllRouteNotes, replaceAllData,
-  getMeta, setMeta, resetDbForTests, putOutboxItem, getOutboxFor
+  getMeta, setMeta, resetDbForTests, putOutboxItem, getOutboxFor, upgradeBlocked
 } from './db';
+import { get } from 'svelte/store';
 import type { Hike } from '../data/types';
 
 const hike = (id: string, routeId = 'r1'): Hike => ({
@@ -136,6 +137,23 @@ describe('hikes db', () => {
     await putOutboxItem({ id: 'a1', owner: 'a', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' });
     await putOutboxItem({ id: 'b1', owner: 'b', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' });
     expect((await getOutboxFor('a')).map((i) => i.id)).toEqual(['a1']);
+  });
+
+  // A tab still on the v3 build has no versionchange handler, so it never lets go: the upgrade
+  // waits until it is closed. Meanwhile the app says so instead of waiting silently.
+  it('a v3 tab holding the database open blocks the upgrade, and that is published until it closes', async () => {
+    await seedV3();
+    const old = await openDB('kaapspoor', 3); // no blocking handler: the v3 build's behaviour
+    let reading: Promise<Hike[]> | null = null;
+    try {
+      expect(get(upgradeBlocked)).toBe(false);
+      reading = getAllHikes();
+      await vi.waitFor(() => expect(get(upgradeBlocked)).toBe(true));
+    } finally {
+      old.close();
+    }
+    expect(await reading).toEqual([hike('h1')]);
+    expect(get(upgradeBlocked)).toBe(false);
   });
 
   // This tab holds a v4 connection; v5 opening in another tab fires versionchange here, and the

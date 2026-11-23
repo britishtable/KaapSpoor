@@ -40,6 +40,8 @@
   let saving = $state(false);
   let error = $state('');
   let savedId = $state<string | null>(null);
+  /** The hike id this report was saved with: the saved line follows what was sent, not later changes. */
+  let sentHikeId = $state<string | null>(null);
   let wantId = 0;
 
   let heading = $state<HTMLElement>();
@@ -134,11 +136,13 @@
     error = '';
     try {
       const at = observedAt;
+      const hikeId = activeHikeId;
+      sentHikeId = hikeId;
       savedId = await fileReport({
         routeId,
         category,
         note: note.trim() === '' ? undefined : note,
-        hikeId: activeHikeId,
+        hikeId,
         position: where !== 'none' && fix ? { lon: fix.point[0], lat: fix.point[1] } : null,
         ...(at ? { observedAt: at } : {})
       });
@@ -177,7 +181,7 @@
 
 {#if savedId}
   <section class="report saved" aria-label="Report">
-    <p class="done" role="status">{activeHikeId ? 'Saved. It will show once you finish your hike.' : 'Saved.'}</p>
+    <p class="done" role="status">{sentHikeId ? 'Saved. It will show once you finish your hike.' : 'Saved.'}</p>
     {#if queued}<p class="hint">Will send when you have signal</p>{/if}
     <button type="button" class="wide" bind:this={doneButton} onclick={onclose}>Done</button>
   </section>

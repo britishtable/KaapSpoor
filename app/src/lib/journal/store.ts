@@ -65,8 +65,8 @@ function updateMap<T>(store: Writable<Map<string, T>>, fn: (m: Map<string, T>) =
   store.update((m) => { const next = new Map(m); fn(next); return next; });
 }
 
-export function localDate(): string {
-  const d = new Date();
+/** A day as YYYY-MM-DD in local time; today by default. The one date formatter. */
+export function localDate(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }

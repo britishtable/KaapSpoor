@@ -17,6 +17,8 @@ vi.mock('$lib/account/session', () => {
 });
 
 import RouteReporting from './RouteReporting.svelte';
+import { hikes } from '$lib/journal/store';
+import type { Hike } from '$lib/data/types';
 import type { Point3 } from '$lib/map/profile';
 
 const line: Point3[] = [[18.4, -34.0], [18.41, -34.0]];
@@ -35,7 +37,7 @@ function setup() {
 const chip = (n: string | RegExp) => screen.getByRole('radio', { name: n }) as HTMLButtonElement;
 const handler = (modes: Handler[]) => modes[modes.length - 1];
 
-beforeEach(() => { fileReport.mockClear(); user.current!.set({ id: 'u1', displayName: 'T', initials: 'T' }); });
+beforeEach(() => { fileReport.mockClear(); hikes.set(new Map()); user.current!.set({ id: 'u1', displayName: 'T', initials: 'T' }); });
 
 describe('RouteReporting', () => {
   it('signed out shows only the sign-in line', () => {
@@ -94,6 +96,30 @@ describe('RouteReporting', () => {
     expect(handler(modes)).toBeTypeOf('function');
     handler(modes)!([18.407, -34.0 + 0.0027]);
     await waitFor(() => expect(spots[spots.length - 1]).toEqual([18.407, -34.0 + 0.0027]));
+  });
+
+  it('a hike in progress on another route still holds the report: its id is sent and the finish line shows', async () => {
+    const elsewhere: Hike = {
+      id: 'h-other', routeId: 'r9', date: '2026-11-23', notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
+      startedAt: new Date().toISOString(), finishedAt: null, updatedAt: new Date().toISOString(), deleted: false,
+      owner: null, pending: false
+    };
+    hikes.set(new Map([[elsewhere.id, elsewhere]]));
+    setup();
+    await fireEvent.click(screen.getByRole('button', { name: 'Report something on this route' }));
+    await fireEvent.click(chip('Closure'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
+    await screen.findByText('Saved. It will show once you finish your hike.');
+    expect(fileReport.mock.calls[0][0]).toMatchObject({ routeId: 'r1', hikeId: 'h-other' });
+  });
+
+  it('with no hike in progress no hike id is sent', async () => {
+    setup();
+    await fireEvent.click(screen.getByRole('button', { name: 'Report something on this route' }));
+    await fireEvent.click(chip('Closure'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
+    await screen.findByText('Saved.');
+    expect((fileReport.mock.calls[0][0] as { hikeId: unknown }).hikeId).toBeNull();
   });
 
   it('closing the form ends the pick and clears the marked spot', async () => {

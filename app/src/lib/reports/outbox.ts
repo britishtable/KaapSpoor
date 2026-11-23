@@ -1,4 +1,5 @@
 import { derived, get, writable, type Readable } from 'svelte/store';
+import type { Hike } from '$lib/data/types';
 import { api, session } from '$lib/account/session';
 import { hikes, now } from '$lib/journal/store';
 import { deleteOutboxItem, getAllOutbox, getOutboxFor, getOutboxItem, putOutboxItem } from '$lib/journal/db';
@@ -80,11 +81,12 @@ export async function discardOutboxItem(id: string): Promise<void> {
 /**
  * A report naming a hike the server doesn't hold yet (still queued, or refused) must wait:
  * sent now it would be refused for good. It goes on a later run, once the hike is accepted.
- * Exported so the UI can say why such a report hasn't gone yet.
+ * Exported so the UI can say why such a report hasn't gone yet; the UI passes its `$hikes` so the
+ * line follows the hike as it syncs.
  */
-export function waitsOnHike(item: OutboxItem): boolean {
+export function waitsOnHike(item: OutboxItem, known: Map<string, Hike> = get(hikes)): boolean {
 	if (item.kind !== 'report' || !item.body.hikeId) return false;
-	const h = get(hikes).get(item.body.hikeId);
+	const h = known.get(item.body.hikeId);
 	return h !== undefined && (h.pending || h.syncError !== undefined);
 }
 
@@ -102,8 +104,10 @@ async function unchanged(sent: OutboxItem): Promise<boolean> {
 }
 
 /**
- * Sends `me`'s queued items, oldest first. A 2xx removes the item. A 4xx other than 401 keeps it
- * with the server's reason, never to be retried blindly, and the flush goes on. A network error
+ * Sends `me`'s queued items, oldest first. A 2xx removes the item. A 409 on an answer removes it
+ * too: the report is no longer active, so there is nothing left to answer and nothing is lost.
+ * Any other 4xx but 401 keeps the item with the server's reason, never to be retried blindly,
+ * and the flush goes on. A network error
  * throws OutboxOfflineError; a 401 or 5xx throws; either stops the flush with everything kept.
  * A sign-out or user switch stops it quietly: no item is ever sent under another account.
  */
@@ -123,7 +127,7 @@ export async function flushOutbox(client: Client, me: string): Promise<void> {
 			throw new OutboxOfflineError();
 		}
 		const status = res.response.status;
-		if (res.response.ok) {
+		if (res.response.ok || (status === 409 && sent.kind === 'confirmation')) {
 			// Write-once on the server: the stored report is the truth, so nothing here needs it.
 			if (await unchanged(sent)) {
 				await deleteOutboxItem(sent.id);

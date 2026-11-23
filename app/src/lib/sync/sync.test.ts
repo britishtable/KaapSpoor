@@ -80,6 +80,7 @@ function fakeServer() {
 			confirms.push({ user: user.id, reportId: c[1], answer });
 			log.push(`confirm:${c[1]}`);
 			if (c[1] === 'held') return json({ title: 'Not Found', status: 404, detail: 'No such report.' }, 404);
+			if (c[1] === 'inactive') return json({ title: 'Conflict', status: 409, detail: 'This report is no longer active.' }, 409);
 			return json({ id: c[1] });
 		}
 		const r = p.match(/^\/api\/v1\/reports\/([^/]+)$/);
@@ -88,6 +89,7 @@ function fakeServer() {
 			reportPuts.push({ user: user.id, id: r[1], body });
 			log.push(`report:${r[1]}`);
 			if (body.routeId === 'bad') return json({ title: 'Bad Request', status: 400, detail: 'That route does not exist.' }, 400);
+			if (body.routeId === 'taken') return json({ title: 'Conflict', status: 409, detail: 'This report id is already in use.' }, 409);
 			return json({ id: r[1], ...body, held: true });
 		}
 		const m = p.match(/^\/api\/v1\/hikes\/(.+)$/);
@@ -629,6 +631,22 @@ describe('report outbox', () => {
 		// Never retried blindly.
 		await syncNow();
 		expect(server.log).toHaveLength(3);
+	});
+
+	it('a 409 on an answer drops it (the report is no longer active); a 409 on a report keeps it with its reason', async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		await answerReport('inactive', 'STILL_THERE');
+		const taken = await fileReport({ routeId: 'taken', category: 'FIRE', note: 'keep me' });
+		online = true;
+		server.net.down = false;
+		await syncNow();
+		expect(server.log).toEqual(['confirm:inactive', `report:${taken}`]);
+		const left = await getOutboxFor('user-a');
+		expect(left.map((i) => i.id)).toEqual([taken]);
+		expect(left[0]).toMatchObject({ error: 'This report id is already in use.', body: { note: 'keep me' } });
+		expect(get(pendingOutbox).map((i) => i.id)).toEqual([taken]);
 	});
 
 	it('a network error stops the flush and keeps everything', async () => {
