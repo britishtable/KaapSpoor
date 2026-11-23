@@ -277,3 +277,69 @@ describe('formatDistance', () => {
     expect(formatDistance(12345)).toBe('12.3 km');
   });
 });
+
+describe('locateOnLine continuity on dense and sparse lines', () => {
+  const spaced = (lengthM: number, stepM: number, northM = 0, reverse = false): Point3[] => {
+    const out: Point3[] = [];
+    for (let m = 0; m <= lengthM; m += stepM) out.push(atM(reverse ? lengthM - m : m, northM));
+    return out;
+  };
+  const dense = spaced(1000, 5);
+
+  it('tracks a walker advancing 10 m per fix on a 5 m vertex line', () => {
+    let prev: number | null = null;
+    for (let m = 10; m <= 900; m += 10) {
+      const hit: { alongM: number } = locateOnLine(dense, atM(m, 3), prev)!;
+      expect(Math.abs(hit.alongM - m)).toBeLessThan(2);
+      prev = hit.alongM;
+    }
+  });
+
+  it('does not lag behind a walker standing still', () => {
+    let prev: number | null = 190;
+    for (let i = 0; i < 5; i++) {
+      const hit: { alongM: number } = locateOnLine(dense, atM(200, 3), prev)!;
+      expect(Math.abs(hit.alongM - 200)).toBeLessThan(2);
+      prev = hit.alongM;
+    }
+  });
+
+  it('does not snap back to a crossed vertex on a sparse line', () => {
+    const sparse = spaced(1000, 100);
+    const hit = locateOnLine(sparse, atM(115, 3), 95)!;
+    expect(Math.abs(hit.alongM - 115)).toBeLessThan(2);
+  });
+
+  it('stays on the return leg of a densely vertexed out-and-back', () => {
+    const out = spaced(500, 5);
+    const back = spaced(500, 5, 10, true);
+    const line: Point3[] = [...out, ...back];
+    const hit = locateOnLine(line, atM(200, 10), 800)!;
+    expect(hit.alongM).toBeGreaterThan(790);
+    expect(hit.alongM).toBeLessThan(810);
+  });
+
+  it('projects a walker outside a convex corner to the corner vertex', () => {
+    const corner: Point3[] = [atM(0), atM(500), atM(500, 500)];
+    const hit = locateOnLine(corner, atM(520, -20), 500)!;
+    expect(hit.alongM).toBeCloseTo(totalDistanceM([atM(0), atM(500)]), 3);
+    expect(hit.offM).toBeGreaterThan(27);
+    expect(hit.offM).toBeLessThan(30);
+  });
+
+  it('on a loop, a fix at the start reads as the start or the end by continuity (documented)', () => {
+    const loop: Point3[] = [atM(0), atM(300), atM(300, 300), atM(0, 300), atM(0)];
+    const total = totalDistanceM(loop);
+    expect(locateOnLine(loop, atM(0), total - 5)!.alongM).toBeCloseTo(total, 3);
+    expect(locateOnLine(loop, atM(0), 5)!.alongM).toBeCloseTo(0, 3);
+  });
+});
+
+describe('formatDistance edge cases', () => {
+  it('shows a dash for non-finite input and zero for negative', () => {
+    expect(formatDistance(NaN)).toBe('—');
+    expect(formatDistance(Infinity)).toBe('—');
+    expect(formatDistance(-5)).toBe('0 m');
+    expect(formatDistance(999.6)).toBe('1.0 km');
+  });
+});

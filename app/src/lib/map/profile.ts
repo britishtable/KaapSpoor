@@ -177,11 +177,17 @@ export function locateOnLine(
   let best = hits[0];
   for (const h of hits) if (h.offM < best.offM) best = h;
   if (prevAlongM == null) return best;
+  // One candidate per pass of the line: a projection whose offM is a local minimum against its
+  // neighbouring segments. Segments behind the walker clamp to a vertex and are never minima, so a
+  // densely vertexed line cannot drag the position back. `<=` on the previous side and `<` on the
+  // next counts a vertex shared by two segments once.
   let chosen = best;
-  for (const h of hits) {
-    if (h.offM > best.offM + CONTINUITY_SLACK_M) continue;
+  hits.forEach((h, i) => {
+    if (h.offM > best.offM + CONTINUITY_SLACK_M) return;
+    if (i > 0 && h.offM > hits[i - 1].offM) return;
+    if (i < hits.length - 1 && h.offM >= hits[i + 1].offM) return;
     if (Math.abs(h.alongM - prevAlongM) < Math.abs(chosen.alongM - prevAlongM)) chosen = h;
-  }
+  });
   return chosen;
 }
 
@@ -195,6 +201,8 @@ export function nearestOnLine(
 
 /** "640 m" under a kilometre, "1.2 km" from there up. The one distance formatter for the app. */
 export function formatDistance(m: number): string {
+  if (!Number.isFinite(m)) return '—';
+  m = Math.max(0, m);
   const rounded = Math.round(m);
-  return rounded < 1000 && m < 1000 ? `${rounded} m` : `${(m / 1000).toFixed(1)} km`;
+  return rounded < 1000 ? `${rounded} m` : `${(m / 1000).toFixed(1)} km`;
 }
