@@ -216,17 +216,57 @@ class ReportFilingApiTest {
     }
 
     @Test
-    void heldReleasesAfter12Hours() throws Exception {
+    void heldReleases12HoursAfterReceipt() throws Exception {
         String a = register("A");
         UUID hike = putHike(a, "r", false, false);
         Instant at = seen();
+        Instant received = clock.instant();
         UUID id = UUID.randomUUID();
         ObjectNode n = body("OBSTRUCTION", at).put("hikeId", hike.toString());
         assertTrue(ok(a, id, n).get("held").asBoolean());
-        clock.set(at.plus(Duration.ofHours(12)).minusSeconds(1));
+        clock.set(received.plus(Duration.ofHours(12)).minusSeconds(1));
         assertTrue(ok(a, id, n).get("held").asBoolean());
-        clock.set(at.plus(Duration.ofHours(12)));
+        clock.set(received.plus(Duration.ofHours(12)));
         assertFalse(ok(a, id, n).get("held").asBoolean());
+    }
+
+    @Test
+    void backDatedReportDuringUnfinishedHikeIsHeldOnArrival() throws Exception {
+        String a = register("A");
+        UUID hike = putHike(a, "r", false, false);
+        Instant at = clock.instant().minus(Duration.ofHours(13)).truncatedTo(ChronoUnit.MILLIS);
+        Instant received = clock.instant();
+        UUID id = UUID.randomUUID();
+        ObjectNode n = body("OBSTRUCTION", at).put("hikeId", hike.toString());
+        assertTrue(ok(a, id, n).get("held").asBoolean());
+        clock.set(received.plus(Duration.ofHours(12)).minusSeconds(1));
+        assertTrue(ok(a, id, n).get("held").asBoolean());
+        clock.set(received.plus(Duration.ofHours(12)));
+        assertFalse(ok(a, id, n).get("held").asBoolean());
+    }
+
+    @Test
+    void lateUploadIsHeldUntil12HoursAfterReceiptUnlessTheHikeFinishes() throws Exception {
+        String a = register("A");
+        UUID hike = UUID.randomUUID();
+        putHike(a, hike, "r", false, false);
+        Instant morning = clock.instant().truncatedTo(ChronoUnit.MILLIS); // "08:00"
+        Instant evening = morning.plus(Duration.ofHours(13)); // "21:00"
+        clock.set(evening);
+        UUID id = UUID.randomUUID();
+        ObjectNode n = body("WATER", morning).put("hikeId", hike.toString());
+        assertTrue(ok(a, id, n).get("held").asBoolean());
+        clock.set(evening.plus(Duration.ofHours(12)).minusSeconds(1)); // 08:59:59 next day
+        assertTrue(ok(a, id, n).get("held").asBoolean());
+        clock.set(evening.plus(Duration.ofHours(12))); // 09:00 next day
+        assertFalse(ok(a, id, n).get("held").asBoolean());
+
+        clock.set(evening);
+        UUID other = UUID.randomUUID();
+        ObjectNode m = body("FIRE", morning).put("hikeId", hike.toString());
+        assertTrue(ok(a, other, m).get("held").asBoolean());
+        putHike(a, hike, "r", true, false);
+        assertFalse(ok(a, other, m).get("held").asBoolean());
     }
 
     @Test
@@ -293,15 +333,36 @@ class ReportFilingApiTest {
         String a = register("A");
         String b = register("B");
         UUID hike = putHike(b, "r", false, false);
-        assertEquals("That hike isn't yours, or isn't on this route.",
+        assertEquals("That hike isn't yours.",
                 bad(a, body("FIRE", seen()).put("hikeId", hike.toString())));
     }
 
     @Test
-    void hikeOnOtherRouteIs400() throws Exception {
+    void reportOnAnotherRouteIsHeldBehindAnUnfinishedHike() throws Exception {
         String a = register("A");
-        UUID hike = putHike(a, "s", false, false);
-        bad(a, body("FIRE", seen()).put("hikeId", hike.toString()));
+        UUID hike = UUID.randomUUID();
+        putHike(a, hike, "s", false, false);
+        UUID id = UUID.randomUUID();
+        ObjectNode n = body("OBSTRUCTION", seen()).put("hikeId", hike.toString());
+        JsonNode r = ok(a, id, n);
+        assertEquals("r", r.get("routeId").asText());
+        assertTrue(r.get("held").asBoolean());
+        putHike(a, hike, "s", true, false);
+        assertFalse(ok(a, id, n).get("held").asBoolean());
+    }
+
+    @Test
+    void everyHikeRefusalReadsTheSame() throws Exception {
+        String a = register("A");
+        String b = register("B");
+        UUID foreign = putHike(b, "s", false, false);
+        UUID deleted = UUID.randomUUID();
+        putHike(a, deleted, "r", false, false);
+        putHike(a, deleted, "r", false, true);
+        String msg = "That hike isn't yours.";
+        assertEquals(msg, bad(a, body("FIRE", seen()).put("hikeId", foreign.toString())));
+        assertEquals(msg, bad(a, body("FIRE", seen()).put("hikeId", deleted.toString())));
+        assertEquals(msg, bad(a, body("FIRE", seen()).put("hikeId", UUID.randomUUID().toString())));
     }
 
     @Test

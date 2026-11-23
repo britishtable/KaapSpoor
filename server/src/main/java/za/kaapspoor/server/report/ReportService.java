@@ -24,7 +24,10 @@ public class ReportService {
     static final int MAX_NOTE = 500;
     static final Duration SKEW = Duration.ofMinutes(2);
     static final Duration MAX_AGE = Duration.ofDays(14);
-    /** A report filed during a hike is released after this long even if the hike is never finished. */
+    /**
+     * A report filed during a hike is released this long after the later of when it was observed and
+     * when the server received it, even if the hike is never finished.
+     */
     static final Duration HOLD_FALLBACK = Duration.ofHours(12);
     static final double MIN_LON = 17.0, MAX_LON = 24.5, MIN_LAT = -35.0, MAX_LAT = -30.0;
 
@@ -115,7 +118,8 @@ public class ReportService {
 
     /**
      * The one definition of hold/release and expiry. A report is held (author-only) until its hike is
-     * finished, or 12 hours after it was observed; a report with no hike is never held.
+     * finished, or 12 hours after the later of when it was observed and when it was received (so a
+     * back-dated or late-uploaded report is not public on arrival); a report with no hike is never held.
      */
     @Transactional(readOnly = true)
     public MyReport view(Report r, Instant now) {
@@ -134,7 +138,8 @@ public class ReportService {
         if (r.getHikeId() == null) {
             return false;
         }
-        if (!r.getObservedAt().plus(HOLD_FALLBACK).isAfter(now)) {
+        Instant from = r.getObservedAt().isAfter(r.getReceivedAt()) ? r.getObservedAt() : r.getReceivedAt();
+        if (!from.plus(HOLD_FALLBACK).isAfter(now)) {
             return false;
         }
         Integer finished = jdbc.queryForObject(
@@ -184,12 +189,14 @@ public class ReportService {
         if (p != null && !(p.lon() >= MIN_LON && p.lon() <= MAX_LON && p.lat() >= MIN_LAT && p.lat() <= MAX_LAT)) {
             throw new BadRequestException("That spot is outside the area KaapSpoor covers.");
         }
+        // Any of the caller's own hikes holds the report, whatever route it is on: someone mid-hike who
+        // reports on another route is still out there. One message for every refusal, so nothing can be probed.
         if (w.hikeId() != null) {
             Integer ok = jdbc.queryForObject(
-                    "select count(*) from hike where id = ? and user_id = ? and route_id = ? and deleted_at is null",
-                    Integer.class, w.hikeId(), userId, w.routeId());
+                    "select count(*) from hike where id = ? and user_id = ? and deleted_at is null",
+                    Integer.class, w.hikeId(), userId);
             if (ok == null || ok == 0) {
-                throw new BadRequestException("That hike isn't yours, or isn't on this route.");
+                throw new BadRequestException("That hike isn't yours.");
             }
         }
     }

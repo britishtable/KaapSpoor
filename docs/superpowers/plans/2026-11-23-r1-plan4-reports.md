@@ -6,7 +6,7 @@
 
 **Architecture:**
 - **Server.** A `report` table, written with an idempotent `PUT` keyed on the client's UUID.
-  - Release and expiry are computed when read from the server clock, with no scheduled jobs. A report is public once its linked hike is finished, 12 h after `observedAt`, or at once if it has no hike.
+  - Release and expiry are computed when read from the server clock, with no scheduled jobs. A report is public once its linked hike is finished, 12 h after the later of `observedAt` and when the server received it, or at once if it has no hike.
   - Confirmations are one row per person per report.
 - **Device.** Reports and confirmations are written to an IndexedDB **outbox** and sent by the existing sync engine on its existing triggers, so filing works with no signal.
 - **Route page.** It reads the public list from the server, plus the user's own held reports from an authenticated endpoint, plus anything still in the outbox.
@@ -52,7 +52,7 @@
 - **Hold and release.** A report is **released**, meaning publicly visible, when any of these is true:
   - `hikeId` is null (filed after the hike, from home);
   - the linked hike has `finished_at`;
-  - `observedAt` + 12 h ≤ now (the fallback when someone forgets to finish).
+  - the later of `observedAt` and when the server received it, + 12 h ≤ now (the fallback when someone forgets to finish).
 
   Before that, only its author sees it. The admin view is plan 8.
 - **Confirmations.**
@@ -163,7 +163,7 @@ create table report_confirmation (
   - `observedAt` in the future (beyond a 2-minute clock-skew allowance) → "That time is in the future.";
   - `observedAt` more than 14 days ago → "Reports are for things seen in the last two weeks.";
   - a position outside the bounding box → "That spot is outside the area KaapSpoor covers.";
-  - a `hikeId` that isn't the caller's own, not-deleted hike on the same route (the outbox sends hikes first, so the hike is already on the server) → "That hike isn't yours, or isn't on this route.";
+  - a `hikeId` that isn't the caller's own, not-deleted hike, on any route (the outbox sends hikes first, so the hike is already on the server) → "That hike isn't yours.";
   - a soft-deleted user → 401, as in `HikeService`.
 
 - [ ] **Step 1: Write the failing tests** in `ReportFilingApiTest`.
