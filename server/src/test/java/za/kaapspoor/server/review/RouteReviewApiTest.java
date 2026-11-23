@@ -11,6 +11,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -98,13 +102,37 @@ class RouteReviewApiTest {
         return json.createObjectNode().put("difficulty", d);
     }
 
-    private String raw(String route) throws Exception {
+    private static final ZoneId SA = ZoneId.of("Africa/Johannesburg");
+
+    /** Reads the reviews as they are right now, with the clock where the test left it. */
+    private String rawNow(String route) throws Exception {
         return mvc.perform(get("/api/v1/routes/" + route + "/reviews"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
 
+    private JsonNode readNow(String route) throws Exception {
+        return json.readTree(rawNow(route));
+    }
+
+    /** Reads as if it were the next South African day, then puts the clock back. */
+    private String raw(String route) throws Exception {
+        Instant saved = clock.instant();
+        clock.set(saved.atZone(SA).toLocalDate().plusDays(1).atStartOfDay(SA).toInstant().plusSeconds(1));
+        try {
+            return rawNow(route);
+        } finally {
+            clock.set(saved);
+        }
+    }
+
     private JsonNode read(String route) throws Exception {
         return json.readTree(raw(route));
+    }
+
+    private List<String> names(JsonNode r) {
+        List<String> out = new ArrayList<>();
+        for (JsonNode rv : r.get("reviews")) out.add(rv.get("displayName").asText());
+        return out;
     }
 
     @Test
@@ -291,13 +319,70 @@ class RouteReviewApiTest {
     }
 
     @Test
-    void reviewsNewestFirst() throws Exception {
-        hike(register("First"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
-        hike(register("Second"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
-        hike(register("Third"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
-        JsonNode rs = read("g").get("reviews");
-        assertEquals("Third", rs.get(0).get("displayName").asText());
-        assertEquals("Second", rs.get(1).get("displayName").asText());
-        assertEquals("First", rs.get(2).get("displayName").asText());
+    void reviewWrittenTodayIsHiddenUntilTheNextSaDay() throws Exception {
+        // 23:30 in Johannesburg is 21:30Z: still "today" in SA, though UTC midnight is hours away.
+        String a = register("A"); // tokens are issued at the real time, so register before moving the clock
+        clock.set(Instant.parse("2026-06-10T21:30:00Z"));
+        hike(a, "g", "2026-06-10", "PUBLIC", difficulty("EASIER"));
+        JsonNode now = readNow("g");
+        assertEquals(0, now.get("people").asInt());
+        assertEquals(0, now.get("reviews").size());
+        clock.set(Instant.parse("2026-06-10T21:59:59Z"));
+        assertEquals(0, readNow("g").get("people").asInt());
+        clock.set(Instant.parse("2026-06-10T22:00:00Z")); // SA midnight
+        JsonNode next = readNow("g");
+        assertEquals(1, next.get("people").asInt());
+        assertEquals(List.of("A"), names(next));
+    }
+
+    @Test
+    void hiddenReviewCountsNowhere() throws Exception {
+        String a = register("A"), b = register("B"), c = register("C");
+        clock.set(Instant.parse("2026-06-10T08:00:00Z"));
+        hike(a, "g", "2026-06-09", "PUBLIC", difficulty("EASIER"));
+        hike(b, "g", "2026-06-09", "PUBLIC", difficulty("EASIER"));
+        clock.set(Instant.parse("2026-06-11T08:00:00Z"));
+        hike(c, "g", "2026-06-11", "PUBLIC", difficulty("EASIER"));
+        JsonNode r = readNow("g");
+        assertEquals(2, r.get("people").asInt());
+        assertTrue(r.get("summary").get("difficulty").isNull());
+        assertEquals(List.of("A", "B"), names(r));
+    }
+
+    @Test
+    void editingTodayHidesThePersonUntilTomorrowRatherThanShowingTheOldReview() throws Exception {
+        String a = register("A");
+        clock.set(Instant.parse("2026-06-10T08:00:00Z"));
+        UUID id = hike(a, "g", "2026-06-09", "PUBLIC", difficulty("EASIER"));
+        clock.set(Instant.parse("2026-06-11T08:00:00Z"));
+        assertEquals(List.of("A"), names(readNow("g")));
+        hike(a, "g", "2026-06-09", "PUBLIC", difficulty("HARDER"), false, id);
+        JsonNode r = readNow("g");
+        assertEquals(0, r.get("people").asInt());
+        assertEquals(0, r.get("reviews").size());
+        clock.set(Instant.parse("2026-06-12T08:00:00Z"));
+        assertEquals(List.of("A"), names(readNow("g")));
+    }
+
+    @Test
+    void anOlderReviewDoesNotStandInForAHiddenNewerOne() throws Exception {
+        String a = register("A");
+        clock.set(Instant.parse("2026-06-10T08:00:00Z"));
+        hike(a, "g", "2026-05-01", "PUBLIC", difficulty("EASIER"));
+        clock.set(Instant.parse("2026-06-11T08:00:00Z"));
+        hike(a, "g", "2026-06-11", "PUBLIC", difficulty("HARDER"));
+        assertEquals(0, readNow("g").get("people").asInt());
+    }
+
+    @Test
+    void listIsOrderedByMonthThenNameNeverByWriteTime() throws Exception {
+        // Written in the order Zed, old, mid, Bea, anon, with Zed first so recency would put it last.
+        hike(register("Zed"), "g", "2026-05-02", "PUBLIC", difficulty("EASIER"));
+        hike(register("mid"), "g", "2026-03-02", "PUBLIC", difficulty("EASIER"));
+        hike(register("Old"), "g", "2026-01-02", "PUBLIC", difficulty("EASIER"));
+        hike(register("bea"), "g", "2026-05-20", "PUBLIC", difficulty("EASIER"));
+        hike(register("Priv"), "g", "2026-06-01", "PRIVATE", difficulty("EASIER"));
+        hike(register("anna"), "g", null, "PUBLIC", difficulty("EASIER"));
+        assertEquals(List.of("bea", "Zed", "mid", "Old", "anna", "Priv"), names(read("g")));
     }
 }

@@ -1,9 +1,12 @@
 package za.kaapspoor.server.review;
 
 import java.sql.Date;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.Comparator;
+import java.util.UUID;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,13 +46,17 @@ public class RouteReviewService {
             order by h.user_id, h.hiked_on desc nulls last, h.client_updated_at desc
             """;
 
-    private final JdbcTemplate jdbc;
+    private static final ZoneId SA = ZoneId.of("Africa/Johannesburg");
 
-    RouteReviewService(JdbcTemplate jdbc) {
+    private final JdbcTemplate jdbc;
+    private final Clock clock;
+
+    RouteReviewService(JdbcTemplate jdbc, Clock clock) {
         this.jdbc = jdbc;
+        this.clock = clock;
     }
 
-    private record Row(PublicReview review, Instant updatedAt) {}
+    private record Row(UUID hikeId, PublicReview review, Instant updatedAt) {}
 
     @Transactional(readOnly = true)
     public RouteReviews reviews(String routeId) {
@@ -58,6 +65,9 @@ public class RouteReviewService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such route");
         }
         boolean isGraded = graded.get(0);
+        // A review goes public the South African day after it was last written, so a poller
+        // cannot learn "X hiked this today" from a private hike.
+        Instant startOfToday = clock.instant().atZone(SA).toLocalDate().atStartOfDay(SA).toInstant();
 
         List<Row> rows = jdbc.query(LATEST_PER_PERSON, (rs, n) -> {
             Difficulty difficulty = rs.getString("review_difficulty") == null
@@ -82,8 +92,12 @@ public class RouteReviewService {
                     navigation == null ? null : Navigation.valueOf(navigation),
                     water == null ? null : Water.valueOf(water),
                     rs.getString("review_note"));
-            return new Row(review, rs.getTimestamp("client_updated_at").toInstant());
-        }, routeId).stream().filter(r -> hasContent(r.review())).toList();
+            return new Row(rs.getObject("id", UUID.class), review, rs.getTimestamp("client_updated_at").toInstant());
+        }, routeId).stream()
+                // Decided on each person's latest review: a fresh edit hides them until tomorrow
+                // rather than falling back to an older review.
+                .filter(r -> r.updatedAt().isBefore(startOfToday))
+                .filter(r -> hasContent(r.review())).toList();
 
         List<PublicReview> all = rows.stream().map(Row::review).toList();
         ReviewSummary summary = new ReviewSummary(
@@ -93,12 +107,19 @@ public class RouteReviewService {
                 counts(all, r -> r.navigation() == null ? null : r.navigation().name()),
                 counts(all, r -> r.water() == null ? null : r.water().name()));
 
-        List<PublicReview> newestFirst = rows.stream()
-                .sorted(Comparator.comparing(Row::updatedAt).reversed())
+        // No time-based order: it would reveal when each review was written.
+        Comparator<Row> order = Comparator
+                .comparing((Row r) -> r.review().month() == null)
+                .thenComparing(r -> r.review().month() == null ? "" : r.review().month(),
+                        Comparator.reverseOrder())
+                .thenComparing(r -> r.review().displayName(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(Row::hikeId);
+        List<PublicReview> listed = rows.stream()
+                .sorted(order)
                 .limit(MAX_REVIEWS)
                 .map(Row::review)
                 .toList();
-        return new RouteReviews(isGraded, rows.size(), summary, newestFirst);
+        return new RouteReviews(isGraded, rows.size(), summary, listed);
     }
 
     /** A review whose only answer was on the wrong scale has nothing left to show. */

@@ -17,7 +17,7 @@ bind; the table uses the underscore form.
 | `SPRING_DATASOURCE_PASSWORD` | `spring.datasource.password` | yes | |
 | `KAAPSPOOR_OIDC_GOOGLE_AUDIENCES` | `kaapspoor.oidc.google.audiences` | for Google sign-in | Comma-separated Google OAuth client ids (web, Android, iOS). Unset or empty rejects every Google token. |
 | `KAAPSPOOR_OIDC_APPLE_AUDIENCES` | `kaapspoor.oidc.apple.audiences` | for Apple sign-in | Comma-separated Apple Services ID / bundle ids. Unset or empty rejects every Apple token. |
-| `KAAPSPOOR_ROUTES_INDEX` | `kaapspoor.routes-index` | no | Path to the app's `build/data/routes-index.json`. When set, the `route` table is upserted from it at startup, and routes missing from it are retired. An empty index fails startup rather than retiring everything. |
+| `KAAPSPOOR_ROUTES_INDEX` | `kaapspoor.routes-index` | no | Path to the app's `build/data/routes-index.json`. When set, the `route` table is upserted from it at startup, and routes missing from it are retired. An empty index fails startup rather than retiring everything. The index must come from a build that includes `graded` (run `npm run build:data`); an older one logs a warning and every route reads as ungraded. |
 | `KAAPSPOOR_CORS_ALLOWED_ORIGINS` | `kaapspoor.cors.allowed-origins` | no | Comma-separated origins. Overrides the default in `application.yml`: the dev server, GitHub Pages and the Capacitor origins. |
 
 The issuer and JWKS URLs for Google and Apple have defaults in `application.yml` and do not normally

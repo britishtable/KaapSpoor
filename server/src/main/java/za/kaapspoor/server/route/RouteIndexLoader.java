@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Seeds the route table from the app's build/data/routes-index.json. */
 @Component
 public class RouteIndexLoader implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(RouteIndexLoader.class);
 
     public record LoadResult(int upserted, int retired) {}
 
@@ -70,6 +74,10 @@ public class RouteIndexLoader implements ApplicationRunner {
         if (entries.isEmpty()) {
             // An empty or truncated index would retire every route; refuse rather than wipe the table.
             throw new IllegalStateException("Route index " + indexJson + " has no entries; refusing to load it");
+        }
+        if (entries.stream().noneMatch(Entry::graded)) {
+            log.warn("Route index {} has no graded routes; it looks older than the reviews feature."
+                    + " Rebuild the app data with `npm run build:data`.", indexJson);
         }
         // run() calls this on `this`, bypassing any proxy, so the transaction is explicit.
         return tx.execute(status -> upsertAndRetire(entries));

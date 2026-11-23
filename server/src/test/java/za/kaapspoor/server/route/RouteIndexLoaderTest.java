@@ -9,7 +9,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.kaapspoor.server.TestcontainersConfig;
 
+@ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest
 @Import(TestcontainersConfig.class)
 @ActiveProfiles("test")
@@ -50,6 +54,15 @@ class RouteIndexLoaderTest {
                 "select count(*) from route where id in ('b','c') and location is null", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject(
                 "select location_source from route where id = 'b'", String.class)).isEqualTo("area-approx");
+    }
+
+    @Test
+    void warnsWhenNoEntryCarriesGraded(CapturedOutput output) throws Exception {
+        loader.load(fixture("routes-index-only-a.json"));
+        assertThat(output.getOut()).contains("npm run build:data");
+
+        loader.load(fixture("routes-index-fixture.json")); // has a graded entry
+        assertThat(output.getOut().split("npm run build:data", -1)).hasSize(2); // still one warning
     }
 
     @Test

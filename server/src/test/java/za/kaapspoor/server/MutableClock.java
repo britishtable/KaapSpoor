@@ -11,6 +11,7 @@ public class MutableClock extends Clock {
     private volatile Instant now = Instant.now();
 
     public void reset() { now = Instant.now().truncatedTo(ChronoUnit.MILLIS); }
+    public void set(Instant instant) { now = instant; }
     public void advance(long seconds) { now = now.plusSeconds(seconds); }
     @Override public ZoneId getZone() { return ZoneOffset.UTC; }
     @Override public Clock withZone(ZoneId zone) { return this; }
