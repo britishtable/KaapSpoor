@@ -2,12 +2,16 @@
   import { base } from '$app/paths';
   import {
     activeHike, hikesForRoute, routeNotes, setRouteNotes, startHike, finishHike,
-    logHike, updateHike, deleteHike, ActiveHikeError, viewer, isLocked
+    logHike, updateHike, deleteHike, ActiveHikeError, viewer, isLocked,
+    setReview, canReview, localDate, ReviewNotAllowedError, InvalidReviewError, LockedHikeError
   } from '../journal/store';
+  import ReviewForm from './ReviewForm.svelte';
   import { syncState } from '../sync/sync';
-  import type { Hike, JournalPlan, Visibility } from '../data/types';
+  import type { Hike, JournalPlan, Review, Visibility } from '../data/types';
 
-  let { routeId, plan }: { routeId: string; plan?: JournalPlan } = $props();
+  let { routeId, plan, graded = false, gradeLevel = null }: {
+    routeId: string; plan?: JournalPlan; graded?: boolean; gradeLevel?: string | null;
+  } = $props();
 
   let hikes = $derived(hikesForRoute(routeId));
   let active = $derived($activeHike);
@@ -15,6 +19,7 @@
   let activeElsewhere = $derived(active !== null && active.routeId !== routeId);
 
   let finished = $state(false);
+  let finishedId = $state<string | null>(null);
   let error = $state('');
 
   const dateFmt = new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -45,6 +50,7 @@
   async function start(): Promise<void> {
     error = '';
     finished = false;
+    finishedId = null;
     try {
       await startHike(routeId, plan);
     } catch (e) {
@@ -55,7 +61,9 @@
     if (!active) return;
     error = '';
     try {
-      await finishHike(active.id);
+      const id = active.id;
+      await finishHike(id);
+      finishedId = id;
       finished = true;
     } catch {
       error = "Couldn't save that on this device.";
@@ -63,7 +71,9 @@
   }
 
   // ---- form (shared by "Log a past hike" and Edit) ----
-  let formFor = $state<'new' | string | null>(null);
+  // 'new', a hike id (editing it), 'review:<hike id>' (reviewing it), or null.
+  let formFor = $state<string | null>(null);
+  let reviewError = $state('');
   let fDate = $state('');
   let fUnknown = $state(false);
   let fNotes = $state('');
@@ -87,7 +97,36 @@
   function closeForm(): void {
     formFor = null;
     error = '';
+    reviewError = '';
   }
+  function openReview(h: Hike): void {
+    reviewError = '';
+    formFor = `review:${h.id}`;
+  }
+  async function saveReview(id: string, review: Review | null): Promise<void> {
+    reviewError = '';
+    try {
+      await setReview(id, review);
+      closeForm();
+    } catch (e) {
+      reviewError = e instanceof InvalidReviewError ? e.message
+        : e instanceof ReviewNotAllowedError ? "This hike can't be reviewed yet. Finish it first, and check its date."
+        : e instanceof LockedHikeError ? e.message
+        : "Couldn't save that on this device. Your answers are still here.";
+    }
+  }
+  const DIFF_SUMMARY = {
+    EASIER: 'Easier than graded', AS_GRADED: 'As graded', HARDER: 'Harder than graded',
+    EASY: 'Easy', MODERATE: 'Moderate', HARD: 'Hard'
+  } as const;
+  function reviewSummary(r: Review): string {
+    const parts: string[] = [];
+    if (r.difficulty) parts.push(DIFF_SUMMARY[r.difficulty]);
+    if (r.enjoyment !== undefined) parts.push(`${r.enjoyment}/5`);
+    return parts.length ? parts.join(' · ') : 'Reviewed';
+  }
+  let today = $state(localDate());
+  let finishedHike = $derived(finishedId ? $hikes.find((h) => h.id === finishedId) : undefined);
   async function save(e: Event): Promise<void> {
     e.preventDefault();
     error = '';
@@ -172,6 +211,9 @@
     <a class="btn wide" href="{base}/route/{active.routeId}">Go to it</a>
   {:else}
     {#if finished}<p class="since" role="status">Hike finished. Nice one.</p>{/if}
+    {#if finishedHike && !finishedHike.review && formFor === null && canReview(finishedHike, today)}
+      <button type="button" class="wide" onclick={() => openReview(finishedHike)}>Review the route</button>
+    {/if}
     <button type="button" class="wide primary" onclick={start}>Start hike</button>
   {/if}
   {#if error}<p class="err" role="alert">{error}</p>{/if}
@@ -190,12 +232,18 @@
         <li>
           {#if formFor === h.id}
             {@render hikeForm()}
+          {:else if formFor === `review:${h.id}`}
+            <div class="head"><strong>{h.date ? formatDate(h.date) : 'Date not recorded'}</strong></div>
+            <ReviewForm review={h.review} {graded} {gradeLevel}
+              onsave={(r) => saveReview(h.id, r)} oncancel={closeForm} />
+            {#if reviewError}<p class="err" role="alert">{reviewError}</p>{/if}
           {:else}
             <div class="head">
               <strong>{h.date ? formatDate(h.date) : 'Date not recorded'}</strong>
               {#if active?.id === h.id}<span class="tag">In progress</span>{/if}
             </div>
             {#if h.notes}<p class="notes">{clip(h.notes)}</p>{/if}
+            {#if h.review}<p class="review-line">{reviewSummary(h.review)}</p>{/if}
             {#if h.syncError}<p class="err">Couldn't sync: {h.syncError}</p>
             {:else if h.pending && $syncState.status !== 'off'}
               <p class="hint">{$syncState.status === 'offline' ? 'Will send when you have signal' : 'Not synced yet'}</p>
@@ -211,6 +259,11 @@
             {:else}
               <div class="row">
                 <button type="button" disabled={formFor !== null} onclick={() => openEdit(h)}>Edit</button>
+                {#if canReview(h, today)}
+                  <button type="button" disabled={formFor !== null} onclick={() => openReview(h)}>
+                    {h.review ? 'Edit review' : 'Add review'}
+                  </button>
+                {/if}
                 <button type="button" onclick={() => (confirming = h.id)}>Delete</button>
               </div>
             {/if}
@@ -263,5 +316,6 @@
   .head { display: flex; gap: 0.6rem; align-items: baseline; }
   .tag { font-size: 0.8em; padding: 0 0.4rem; border: 1px solid var(--ks-accent-text); border-radius: 0.3rem; color: var(--ks-accent-text); }
   .notes { margin: 0; }
+  .review-line { margin: 0; font-weight: 600; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>

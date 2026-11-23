@@ -195,4 +195,74 @@ describe('HikeLog', () => {
     render(HikeLog, { routeId: 'r1' });
     expect(screen.getByText('21/07/2026')).toBeTruthy();
   });
+
+  it('after Finish, Review the route opens the form for that hike and saving stores it', async () => {
+    render(HikeLog, { routeId: 'r1', graded: true, gradeLevel: '3' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Review the route' }));
+    expect(screen.getByText('Compared with grade 3:')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Harder' }));
+    await fireEvent.click(screen.getByRole('radio', { name: '4' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save review' }));
+    await waitFor(() => expect(get(visibleHikes)[0].review).toEqual({ difficulty: 'HARDER', enjoyment: 4 }));
+    await screen.findByText('Harder than graded · 4/5');
+    expect(screen.queryByRole('button', { name: 'Save review' })).toBeNull();
+  });
+
+  it('an active hike offers no review', async () => {
+    await startHike('r1');
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.queryByRole('button', { name: /review/i })).toBeNull();
+  });
+
+  it('a reviewed hike shows its summary and Edit review; an unreviewed one shows Add review', async () => {
+    await replaceAll({
+      hikes: [
+        stored('a', { review: { difficulty: 'HARDER', enjoyment: 4 } }),
+        stored('b', { date: '2026-07-20' })
+      ],
+      routeNotes: []
+    });
+    render(HikeLog, { routeId: 'r1', graded: true, gradeLevel: '3' });
+    expect(screen.getByText('Harder than graded · 4/5')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Edit review' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Add review' })).toHaveLength(1);
+  });
+
+  it('only one form is open: opening a review disables the other entry points', async () => {
+    await replaceAll({ hikes: [stored('a'), stored('b', { date: '2026-07-20' })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Add review' })[0]);
+    expect((screen.getByRole('button', { name: 'Add review' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Log a past hike' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a pending review shares the hike pending line (signed in: Not synced yet)', async () => {
+    const user = { id: 'u1', displayName: 'Thandi', initials: 'T' };
+    const sess = { accessToken: 'a', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r', user };
+    configureSession({ storage: { load: () => sess, save: () => {}, clear: () => {} }, baseUrl: 'http://srv' });
+    restoreSession();
+    try {
+      await replaceAll({ hikes: [stored('a', { review: { enjoyment: 3 }, pending: true })], routeNotes: [] });
+      render(HikeLog, { routeId: 'r1' });
+      expect(screen.getByText('Not synced yet')).toBeTruthy();
+      expect(screen.getByText('3/5')).toBeTruthy();
+    } finally {
+      configureSession();
+    }
+  });
+
+  it('a locked hike (another owner) offers no review', async () => {
+    viewer.set(null);
+    await replaceAll({ hikes: [stored('a1', { owner: 'u1' })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.queryByRole('button', { name: /review/i })).toBeNull();
+  });
+
+  it('a hike dated in the future offers no review', async () => {
+    await replaceAll({ hikes: [stored('f', { date: '2999-01-01' })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.queryByRole('button', { name: /review/i })).toBeNull();
+  });
 });

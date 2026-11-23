@@ -12,6 +12,7 @@
   import { resolvePlan, assemble, type PlanChoice, type PlanSegment } from '$lib/data/plan';
   import { encodePlan, decodePlan } from '$lib/data/plan-params';
   import { setPlanSegments } from '$lib/map/selection';
+  import { summariseGrade } from '$lib/data/grade';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -141,7 +142,7 @@
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
 
-  <HikeLog routeId={r.id}
+  <HikeLog routeId={r.id} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
     plan={plan.choice.main
       ? {
           approach: plan.choice.approach ?? undefined,
