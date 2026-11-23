@@ -89,7 +89,7 @@
   - **`formatDistance(m: number): string`**, giving "640 m" or "1.2 km".
 - **Continuity (Review Focus 1).**
   - With no `prevAlongM`, take the globally nearest projection, as `nearestOnLine` does.
-  - With `prevAlongM` set, consider every segment projection whose `offM` is within `bestOffM + 25` m. Among those, choose the one whose `alongM` is closest to `prevAlongM`.
+  - With `prevAlongM` set, the candidates are one per pass of the line: a segment projection whose `offM` is a local minimum against its neighbouring segments (use ≤ on one side, so a vertex shared by two segments counts once). Among the candidates whose `offM` is within `bestOffM + 25` m, choose the one whose `alongM` is closest to `prevAlongM`. Letting every segment compete makes the position lag up to 25 m behind the walker on a densely vertexed line.
   - This keeps an out-and-back walker on their own leg. It still jumps when the other leg is clearly nearer, by more than 25 m.
 - `nearestOnLine` should be rebuilt on the same segment loop, so the projection maths exists once.
 
