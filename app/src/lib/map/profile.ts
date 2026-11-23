@@ -162,31 +162,36 @@ function projectOnSegments(coords: Point3[], p: [number, number]): Located[] {
   return out;
 }
 
+/** A walker going back on themselves costs this many times a walker going on by the same distance. */
+const BACKWARD_COST = 3;
+
 /**
  * Where `p` sits along the line: distance done and distance off, or null for fewer than two points.
  *
- * With `prevAlongM`, an out-and-back or looping line keeps the walker on their own leg: among the
- * projections no more than 25 m farther than the nearest, the one closest to where they were wins.
- * A leg that is clearly nearer (by more than 25 m) still takes over.
+ * The candidates are one per pass of the line: projections whose offM is a local minimum against
+ * the neighbouring segments, no more than 25 m farther than the nearest. Among them, with
+ * `prevAlongM` the cheapest wins, where going on from the last position costs the distance and
+ * going back costs three times it, so GPS jitter at a hairpin cannot lock onto the other leg. With
+ * no `prevAlongM` the smallest alongM wins, so a fix at the start of an out-and-back (whose end
+ * coincides with it) reads as the start. A leg more than 25 m nearer still takes over.
  */
 export function locateOnLine(
   coords: Point3[], p: [number, number], prevAlongM?: number | null
 ): Located | null {
   if (coords.length < 2) return null;
   const hits = projectOnSegments(coords, p);
-  let best = hits[0];
-  for (const h of hits) if (h.offM < best.offM) best = h;
-  if (prevAlongM == null) return best;
-  // One candidate per pass of the line: a projection whose offM is a local minimum against its
-  // neighbouring segments. Segments behind the walker clamp to a vertex and are never minima, so a
-  // densely vertexed line cannot drag the position back. `<=` on the previous side and `<` on the
-  // next counts a vertex shared by two segments once.
-  let chosen = best;
+  let bestOff = Infinity;
+  for (const h of hits) if (h.offM < bestOff) bestOff = h.offM;
+  const cost = (alongM: number) =>
+    prevAlongM == null
+      ? alongM
+      : alongM >= prevAlongM ? alongM - prevAlongM : BACKWARD_COST * (prevAlongM - alongM);
+  let chosen: Located | null = null;
   hits.forEach((h, i) => {
-    if (h.offM > best.offM + CONTINUITY_SLACK_M) return;
+    if (h.offM > bestOff + CONTINUITY_SLACK_M) return;
     if (i > 0 && h.offM > hits[i - 1].offM) return;
     if (i < hits.length - 1 && h.offM >= hits[i + 1].offM) return;
-    if (Math.abs(h.alongM - prevAlongM) < Math.abs(chosen.alongM - prevAlongM)) chosen = h;
+    if (!chosen || cost(h.alongM) < cost(chosen.alongM)) chosen = h;
   });
   return chosen;
 }
@@ -195,8 +200,10 @@ export function locateOnLine(
 export function nearestOnLine(
   coords: Point3[], p: [number, number]
 ): { point: [number, number]; distanceM: number } | null {
-  const hit = locateOnLine(coords, p);
-  return hit ? { point: hit.point, distanceM: hit.offM } : null;
+  if (coords.length < 2) return null;
+  let best: Located | null = null;
+  for (const h of projectOnSegments(coords, p)) if (!best || h.offM < best.offM) best = h;
+  return best ? { point: best.point, distanceM: best.offM } : null;
 }
 
 /** "640 m" under a kilometre, "1.2 km" from there up. The one distance formatter for the app. */

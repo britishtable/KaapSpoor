@@ -239,12 +239,17 @@ describe('locateOnLine', () => {
       expect(hit.alongM).toBeLessThan(810);
     });
 
-    it('takes the nearest leg with no previous position', () => {
+    it('takes the earliest leg within 25 m with no previous position', () => {
+      // The legs are 10 m apart, so the outbound leg (the smaller alongM) wins.
       const hit = locateOnLine(line, p)!;
-      expect(hit.alongM).toBeGreaterThan(790);
-      const out = locateOnLine(line, atM(200, 1))!;
-      expect(out.alongM).toBeGreaterThan(198);
-      expect(out.alongM).toBeLessThan(202);
+      expect(hit.alongM).toBeGreaterThan(198);
+      expect(hit.alongM).toBeLessThan(202);
+    });
+
+    it('takes a clearly nearer leg with no previous position', () => {
+      const wide: Point3[] = [atM(0), atM(500), atM(500, 100), atM(0, 100)];
+      const hit = locateOnLine(wide, atM(200, 99))!;
+      expect(hit.alongM).toBeGreaterThan(500 + 100 + 295);
     });
 
     it('still jumps when the other leg is clearly nearer', () => {
@@ -341,5 +346,91 @@ describe('formatDistance edge cases', () => {
     expect(formatDistance(Infinity)).toBe('—');
     expect(formatDistance(-5)).toBe('0 m');
     expect(formatDistance(999.6)).toBe('1.0 km');
+  });
+});
+
+describe('locateOnLine at a turnaround', () => {
+  const mulberry32 = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  // Straight runs and connectors in metres, 5 m between vertices.
+  const build = (legs: number, lenM: number, gapM: number): [number, number][] => {
+    const out: [number, number][] = [];
+    for (let k = 0; k < legs; k++) {
+      const east = k % 2 === 0;
+      for (let m = 0; m <= lenM; m += 5) out.push([east ? m : lenM - m, k * gapM]);
+      if (k < legs - 1) for (let n = 5; n < gapM; n += 5) out.push([east ? lenM : 0, k * gapM + n]);
+    }
+    return out;
+  };
+  const toLine = (m: [number, number][]): Point3[] => m.map(([e, n]) => atM(e, n));
+  const posAt = (m: [number, number][], s: number): [number, number] => {
+    let run = 0;
+    for (let i = 1; i < m.length; i++) {
+      const seg = Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]);
+      if (run + seg >= s) {
+        const t = (s - run) / seg;
+        return [m[i - 1][0] + t * (m[i][0] - m[i - 1][0]), m[i - 1][1] + t * (m[i][1] - m[i - 1][1])];
+      }
+      run += seg;
+    }
+    return m[m.length - 1];
+  };
+
+  function walks(legs: number, gapM: number, stepM = 6, jitterM = 8, n = 50) {
+    const m = build(legs, 300, gapM);
+    const line = toLine(m);
+    const total = totalDistanceM(line);
+    const turnAt = 300;
+    let after = 0, far = 0, worstEnd = 0;
+    for (let w = 0; w < n; w++) {
+      const rnd = mulberry32(1000 + w);
+      let prev: number | null = null;
+      let lastErr = 0;
+      for (let s = 0; s <= total - 1; s += stepM) {
+        const [e, nn] = posAt(m, s);
+        const hit: { alongM: number } = locateOnLine(line, atM(e, nn + (rnd() * 2 - 1) * jitterM), prev)!;
+        prev = hit.alongM;
+        lastErr = Math.abs(hit.alongM - s);
+        if (s > turnAt + 10) { after++; if (lastErr > 15) far++; }
+      }
+      worstEnd = Math.max(worstEnd, lastErr);
+    }
+    return { farRate: far / after, worstEnd };
+  }
+
+  it('keeps an out-and-back walker on the right leg despite GPS jitter', () => {
+    const r = walks(2, 10);
+    expect(r.worstEnd).toBeLessThan(15);
+    expect(r.farRate).toBeLessThan(0.05);
+  });
+
+  it('keeps a switchback walker on the right leg despite GPS jitter', () => {
+    const r = walks(4, 15);
+    expect(r.worstEnd).toBeLessThan(15);
+    expect(r.farRate).toBeLessThan(0.05);
+  });
+
+  it('reads the shared start/end of an out-and-back as the start with no previous position', () => {
+    // Back along the very same path, so the end coincides with the start.
+    const out = toLine([...build(1, 300, 10), ...build(1, 300, 10).reverse()]);
+    expect(locateOnLine(out, atM(0, 0))!.alongM).toBeLessThan(2);
+  });
+
+  it('follows a walker who genuinely turns back mid-route', () => {
+    const line = toLine(build(2, 300, 10));
+    let prev: number | null = null;
+    // Out to 160 m, then back 60 m: the walker turns round.
+    const path = [...Array.from({ length: 28 }, (_, i) => i * 6), ...Array.from({ length: 11 }, (_, i) => 162 - i * 6)];
+    let err = 0;
+    path.forEach((s, i) => {
+      const hit: { alongM: number } = locateOnLine(line, atM(s, 3), prev)!;
+      prev = hit.alongM;
+      if (i >= 28 + 5) err = Math.max(err, Math.abs(hit.alongM - s));
+    });
+    expect(err).toBeLessThan(15);
   });
 });
