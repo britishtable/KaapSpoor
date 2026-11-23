@@ -53,6 +53,7 @@
   let note = $state(start?.note ?? '');
   let noteOpen = $state(Boolean(start?.note));
   const existing = start !== undefined;
+  let confirmRemove = $state(false);
 
   let asksWhatHappened = $derived(safety === 'MOSTLY' || safety === 'NO');
 
@@ -75,7 +76,6 @@
   }
   function onSafety(v: Safety): void {
     safety = pick(safety, v);
-    if (safety !== 'MOSTLY' && safety !== 'NO') safetyNote = '';
   }
 
   function arrow(e: KeyboardEvent, count: number, index: number, choose: (i: number) => void): void {
@@ -111,7 +111,8 @@
   </div>
 {/snippet}
 
-<form class="review" onsubmit={submit}>
+<form class="review" onsubmit={submit} onclickcapture={(e) => { if (!(e.target as HTMLElement).closest('.remove')) confirmRemove = false; }}
+  oninput={() => (confirmRemove = false)}>
   {@render question('difficulty', graded ? `Compared with ${gradeLevel ? `grade ${gradeLevel}` : 'its grade'}:` : 'How hard was it?',
     difficultyOpts, difficulty, (v) => (difficulty = pick(difficulty, v)))}
   {@render question('enjoyment', 'How much did you enjoy it?', enjoymentOpts, enjoyment,
@@ -139,7 +140,12 @@
 
   <div class="row">
     <button type="button" class="plain" onclick={oncancel}>Cancel</button>
-    {#if existing}<button type="button" class="plain danger" onclick={() => onsave(null)}>Remove review</button>{/if}
+    {#if existing}
+      <button type="button" class="plain danger remove"
+        onclick={() => { if (confirmRemove) onsave(null); else confirmRemove = true; }}>
+        {confirmRemove ? 'Tap again to remove' : 'Remove review'}
+      </button>
+    {/if}
   </div>
   <button type="submit" class="primary wide" disabled={problem !== null}>Save review</button>
 </form>

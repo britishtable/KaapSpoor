@@ -64,20 +64,22 @@ describe('ReviewForm', () => {
     expect(chip('As graded').getAttribute('aria-checked')).toBe('true');
   });
 
-  it('what-happened shows for MOSTLY and NO only, and is dropped when safety is cleared', async () => {
+  it('what-happened shows for MOSTLY and NO only; its text survives clearing safety and is dropped on save', async () => {
     const { onsave } = setup();
     expect(screen.queryByLabelText('What happened?')).toBeNull();
     await fireEvent.click(chip('Yes'));
     expect(screen.queryByLabelText('What happened?')).toBeNull();
     await fireEvent.click(chip('Mostly'));
     await fireEvent.input(screen.getByLabelText('What happened?'), { target: { value: 'Loose scree' } });
-    await fireEvent.click(chip('No'));
-    expect((screen.getByLabelText('What happened?') as HTMLTextAreaElement).value).toBe('Loose scree');
-    await fireEvent.click(chip('No')); // clear
+    await fireEvent.click(chip('Mostly')); // accidental clear
     expect(screen.queryByLabelText('What happened?')).toBeNull();
+    await fireEvent.click(chip('Mostly'));
+    expect((screen.getByLabelText('What happened?') as HTMLTextAreaElement).value).toBe('Loose scree');
+    await fireEvent.click(chip('Mostly')); // clear again, then save
     await fireEvent.click(chip('4'));
     await fireEvent.click(save());
     expect(onsave).toHaveBeenCalledWith({ enjoyment: 4 });
+    expect(Object.keys(onsave.mock.calls[0][0])).toEqual(['enjoyment']);
   });
 
   it('keeps the what-happened text with the safety answer on save', async () => {
@@ -107,6 +109,20 @@ describe('ReviewForm', () => {
     render(ReviewForm, { review: { enjoyment: 5 }, graded: false, gradeLevel: null, onsave, oncancel: () => {} });
     expect(chip('5').getAttribute('aria-checked')).toBe('true');
     await fireEvent.click(screen.getByRole('button', { name: 'Remove review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Tap again to remove' }));
+    expect(onsave).toHaveBeenCalledWith(null);
+  });
+
+  it('Remove review needs a second tap, and other interaction resets it', async () => {
+    const onsave = vi.fn();
+    render(ReviewForm, { review: { enjoyment: 5 }, graded: false, gradeLevel: null, onsave, oncancel: () => {} });
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove review' }));
+    expect(onsave).not.toHaveBeenCalled();
+    await fireEvent.click(chip('3'));
+    expect(screen.getByRole('button', { name: 'Remove review' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Tap again to remove' }));
+    expect(onsave).toHaveBeenCalledTimes(1);
     expect(onsave).toHaveBeenCalledWith(null);
   });
 

@@ -7,6 +7,7 @@
   } from '../journal/store';
   import ReviewForm from './ReviewForm.svelte';
   import { syncState } from '../sync/sync';
+  import { DIFFICULTY_GRADED, DIFFICULTY_UNGRADED } from '../data/types';
   import type { Hike, JournalPlan, Review, Visibility } from '../data/types';
 
   let { routeId, plan, graded = false, gradeLevel = null }: {
@@ -121,9 +122,10 @@
   } as const;
   function reviewSummary(r: Review): string {
     const parts: string[] = [];
-    if (r.difficulty) parts.push(DIFF_SUMMARY[r.difficulty]);
+    const scale: readonly string[] = graded ? DIFFICULTY_GRADED : DIFFICULTY_UNGRADED;
+    if (r.difficulty && scale.includes(r.difficulty)) parts.push(DIFF_SUMMARY[r.difficulty]);
     if (r.enjoyment !== undefined) parts.push(`${r.enjoyment}/5`);
-    return parts.length ? parts.join(' · ') : 'Reviewed';
+    return parts.length ? parts.join(' Â· ') : 'Reviewed';
   }
   let today = $state(localDate());
   let finishedHike = $derived(finishedId ? $hikes.find((h) => h.id === finishedId) : undefined);
@@ -260,7 +262,8 @@
               <div class="row">
                 <button type="button" disabled={formFor !== null} onclick={() => openEdit(h)}>Edit</button>
                 {#if canReview(h, today)}
-                  <button type="button" disabled={formFor !== null} onclick={() => openReview(h)}>
+                  <button type="button" disabled={formFor !== null} onclick={() => openReview(h)}
+                    aria-label="{h.review ? 'Edit review' : 'Add review'}, hike on {h.date ? formatDate(h.date) : 'Date not recorded'}">
                     {h.review ? 'Edit review' : 'Add review'}
                   </button>
                 {/if}

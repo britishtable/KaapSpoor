@@ -206,7 +206,7 @@ describe('HikeLog', () => {
     await fireEvent.click(screen.getByRole('radio', { name: '4' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Save review' }));
     await waitFor(() => expect(get(visibleHikes)[0].review).toEqual({ difficulty: 'HARDER', enjoyment: 4 }));
-    await screen.findByText('Harder than graded · 4/5');
+    await screen.findByText('Harder than graded Â· 4/5');
     expect(screen.queryByRole('button', { name: 'Save review' })).toBeNull();
   });
 
@@ -225,16 +225,30 @@ describe('HikeLog', () => {
       routeNotes: []
     });
     render(HikeLog, { routeId: 'r1', graded: true, gradeLevel: '3' });
-    expect(screen.getByText('Harder than graded · 4/5')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Edit review' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Add review' })).toHaveLength(1);
+    expect(screen.getByText('Harder than graded Â· 4/5')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^Edit review/ })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Edit review, hike on 21 Jul 2026' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add review, hike on 20 Jul 2026' })).toBeTruthy();
+  });
+
+  it('an undated hike names its review button with the list wording', async () => {
+    await replaceAll({ hikes: [stored('u', { date: null })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.getByRole('button', { name: 'Add review, hike on Date not recorded' })).toBeTruthy();
+  });
+
+  it('the summary shows difficulty only when it is on the route\'s current scale', async () => {
+    await replaceAll({ hikes: [stored('a', { review: { difficulty: 'EASY', enjoyment: 4 } })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1', graded: true, gradeLevel: '3' });
+    expect(screen.getByText('4/5')).toBeTruthy();
+    expect(screen.queryByText(/Easy/)).toBeNull();
   });
 
   it('only one form is open: opening a review disables the other entry points', async () => {
     await replaceAll({ hikes: [stored('a'), stored('b', { date: '2026-07-20' })], routeNotes: [] });
     render(HikeLog, { routeId: 'r1' });
-    await fireEvent.click(screen.getAllByRole('button', { name: 'Add review' })[0]);
-    expect((screen.getByRole('button', { name: 'Add review' }) as HTMLButtonElement).disabled).toBe(true);
+    await fireEvent.click(screen.getByRole('button', { name: 'Add review, hike on 21 Jul 2026' }));
+    expect((screen.getByRole('button', { name: 'Add review, hike on 20 Jul 2026' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Log a past hike' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
