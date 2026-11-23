@@ -45,7 +45,7 @@ function fakeServer() {
 			id, routeId: w.routeId, date: w.date ?? null, notes: w.notes, visibility: w.visibility,
 			notesVisibility: w.notesVisibility, plan: jacksonPlan(w.plan), startedAt: w.startedAt ?? null,
 			finishedAt: w.finishedAt ?? null, updatedAt: instant(w.updatedAt), deleted: w.deleted,
-			revision: ++revision
+			revision: ++revision, review: null
 		};
 		rows.set(id, { owner, hike });
 		return hike;

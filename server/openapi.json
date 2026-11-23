@@ -45,6 +45,16 @@
               }
             ]
           },
+          "review" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Review"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
           "revision" : {
             "format" : "int64",
             "type" : "integer"
@@ -80,6 +90,7 @@
           "notes",
           "notesVisibility",
           "plan",
+          "review",
           "revision",
           "routeId",
           "startedAt",
@@ -165,6 +176,16 @@
             "oneOf" : [
               {
                 "$ref" : "#/components/schemas/HikePlan"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "review" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Review"
               },
               {
                 "type" : "null"
@@ -308,6 +329,56 @@
           "email",
           "password"
         ],
+        "type" : "object"
+      },
+      "Review" : {
+        "properties" : {
+          "difficulty" : {
+            "enum" : [
+              "EASIER",
+              "AS_GRADED",
+              "HARDER",
+              "EASY",
+              "MODERATE",
+              "HARD"
+            ],
+            "type" : "string"
+          },
+          "enjoyment" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "navigation" : {
+            "enum" : [
+              "OBVIOUS",
+              "TRICKY_JUNCTIONS",
+              "GOT_LOST"
+            ],
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "safety" : {
+            "enum" : [
+              "YES",
+              "MOSTLY",
+              "NO"
+            ],
+            "type" : "string"
+          },
+          "safetyNote" : {
+            "type" : "string"
+          },
+          "water" : {
+            "enum" : [
+              "NONE",
+              "SEASONAL",
+              "RELIABLE"
+            ],
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "TokenPair" : {

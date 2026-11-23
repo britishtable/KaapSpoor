@@ -25,6 +25,8 @@ import za.kaapspoor.server.web.BadRequestException;
 public class HikeService {
 
     static final int MAX_NOTES = 5000;
+    static final int MAX_REVIEW_NOTE = 2000;
+    static final int MAX_SAFETY_NOTE = 1000;
     static final int MAX_PLAN_ID = 200;
     static final int MAX_PAGE = 500;
     static final LocalDate EARLIEST_DATE = LocalDate.of(1950, 1, 1);
@@ -139,9 +141,37 @@ public class HikeService {
                 throw new BadRequestException("A hike cannot finish before it starts.");
             }
         }
+        if (w.review() != null && !w.deleted()) {
+            validateReview(w, now);
+        }
         HikePlan p = w.plan();
         if (p != null && (tooLong(p.approach()) || tooLong(p.main()) || tooLong(p.exit()))) {
             throw new BadRequestException("Plan route ids can be at most " + MAX_PLAN_ID + " characters.");
+        }
+    }
+
+    private void validateReview(HikeWrite w, Instant now) {
+        HikeDtos.Review r = w.review();
+        boolean blankNote = r.note() == null || r.note().isBlank();
+        if (r.difficulty() == null && r.enjoyment() == null && r.safety() == null && r.navigation() == null
+                && r.water() == null && blankNote) {
+            throw new BadRequestException("A review needs at least one answer.");
+        }
+        if (r.enjoyment() != null && (r.enjoyment() < 1 || r.enjoyment() > 5)) {
+            throw new BadRequestException("Enjoyment is a rating from 1 to 5.");
+        }
+        if ((r.note() != null && r.note().length() > MAX_REVIEW_NOTE)
+                || (r.safetyNote() != null && r.safetyNote().length() > MAX_SAFETY_NOTE)) {
+            throw new BadRequestException("That review is too long.");
+        }
+        if (r.safetyNote() != null && r.safety() == null) {
+            throw new BadRequestException("Say whether it felt safe before saying what happened.");
+        }
+        if (w.startedAt() != null && w.finishedAt() == null) {
+            throw new BadRequestException("Finish the hike before reviewing it.");
+        }
+        if (w.date() != null && w.date().isAfter(now.atZone(SA).toLocalDate())) {
+            throw new BadRequestException("You can review a hike once it's happened.");
         }
     }
 
@@ -153,9 +183,14 @@ public class HikeService {
         return a.isBefore(b) ? a : b;
     }
 
+    private static HikeDtos.Review toReviewDto(HikeReview r) {
+        return r == null ? null : new HikeDtos.Review(r.getDifficulty(), r.getEnjoyment(), r.getSafety(),
+                r.getSafetyNote(), r.getNavigation(), r.getWater(), r.getNote());
+    }
+
     private static HikeDtos.Hike toDto(Hike h) {
         return new HikeDtos.Hike(h.getId(), h.getRouteId(), h.getHikedOn(), h.getNotes(), h.getVisibility(),
                 h.getNotesVisibility(), h.getPlan(), h.getStartedAt(), h.getFinishedAt(), h.getClientUpdatedAt(),
-                h.isTombstone(), h.getRevision());
+                h.isTombstone(), h.getRevision(), toReviewDto(h.getReview()));
     }
 }

@@ -7,7 +7,7 @@ function e(id: string, title: string, located: boolean): RouteIndexEntry {
     coordsSource: located ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
     hasLine: false,
-    grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
+    grade: null, gradeSource: null, graded: false, time: null, heightGain: null, isFullEntry: true };
 }
 const entries = [e('a', 'Blind Gully', true), e('b', 'Kasteelspoort', false)];
 const base: FilterOptions = { query: '', status: 'all', located: 'all' };

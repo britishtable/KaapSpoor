@@ -148,6 +148,7 @@ export interface components {
             /** @enum {string} */
             notesVisibility: "PRIVATE" | "FRIENDS" | "PUBLIC";
             plan: components["schemas"]["HikePlan"] | null;
+            review: components["schemas"]["Review"] | null;
             /** Format: int64 */
             revision: number;
             routeId: string;
@@ -180,6 +181,7 @@ export interface components {
             /** @enum {string} */
             notesVisibility: "PRIVATE" | "FRIENDS" | "PUBLIC";
             plan?: components["schemas"]["HikePlan"] | null;
+            review?: components["schemas"]["Review"] | null;
             routeId: string;
             /** Format: date-time */
             startedAt?: string | null;
@@ -214,6 +216,20 @@ export interface components {
             displayName: string;
             email: string;
             password: string;
+        };
+        Review: {
+            /** @enum {string} */
+            difficulty?: "EASIER" | "AS_GRADED" | "HARDER" | "EASY" | "MODERATE" | "HARD";
+            /** Format: int32 */
+            enjoyment?: number;
+            /** @enum {string} */
+            navigation?: "OBVIOUS" | "TRICKY_JUNCTIONS" | "GOT_LOST";
+            note?: string;
+            /** @enum {string} */
+            safety?: "YES" | "MOSTLY" | "NO";
+            safetyNote?: string;
+            /** @enum {string} */
+            water?: "NONE" | "SEASONAL" | "RELIABLE";
         };
         TokenPair: {
             /** Format: date-time */

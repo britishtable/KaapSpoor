@@ -29,6 +29,9 @@ public class Route {
     @Column(name = "location_source")
     private String locationSource;
 
+    @Column(nullable = false)
+    private boolean graded;
+
     @Column(name = "retired_at")
     private OffsetDateTime retiredAt;
 
@@ -41,6 +44,7 @@ public class Route {
     public String getTitle() { return title; }
     public String[] getArea() { return area; }
     public String getLocationSource() { return locationSource; }
+    public boolean isGraded() { return graded; }
     public OffsetDateTime getRetiredAt() { return retiredAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

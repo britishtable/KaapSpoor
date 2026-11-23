@@ -69,6 +69,24 @@ function dataset(routes: Partial<RawDataset['routes'][number]>[]): RawDataset {
   } as RawDataset;
 }
 
+describe('transform graded', () => {
+  it('is true for a numbered grade, in the index and the per-route content', () => {
+    const { index, content } = transform(dataset([{ grade: '3 ***: long prose' }]), {});
+    expect(index[0].graded).toBe(true);
+    expect(content[0].graded).toBe(true);
+  });
+  it('is false for a null grade', () => {
+    const { index, content } = transform(dataset([{ grade: null }]), {});
+    expect(index[0].graded).toBe(false);
+    expect(content[0].graded).toBe(false);
+  });
+  it('is false for prose that merely starts with a grade-like word', () => {
+    const { index, content } = transform(dataset([{ grade: 'Moderate walk with some scrambling' }]), {});
+    expect(index[0].graded).toBe(false);
+    expect(content[0].graded).toBe(false);
+  });
+});
+
 describe('transform provenance', () => {
   it('labels a crawl coordinate as crawl when no location entry exists', () => {
     const raw = dataset([{ slug: 'kasteelspoort', coords: { lat: -33.97, lon: 18.39, zoom: 17 } }]);

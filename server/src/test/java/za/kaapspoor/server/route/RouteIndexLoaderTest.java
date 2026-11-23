@@ -94,4 +94,12 @@ class RouteIndexLoaderTest {
         assertThat(jdbc.queryForObject(
                 "select count(*) from route where retired_at is null", Integer.class)).isEqualTo(3);
     }
+
+    @Test
+    void storesGraded() throws Exception {
+        loader.load(fixture("routes-index-fixture.json"));
+
+        assertThat(jdbc.queryForObject("select graded from route where id = 'a'", Boolean.class)).isTrue();
+        assertThat(jdbc.queryForObject("select graded from route where id = 'b'", Boolean.class)).isFalse();
+    }
 }

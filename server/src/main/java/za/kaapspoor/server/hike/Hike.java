@@ -1,6 +1,7 @@
 package za.kaapspoor.server.hike;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -44,6 +45,9 @@ public class Hike {
     @Column(columnDefinition = "jsonb")
     private HikePlan plan;
 
+    @Embedded
+    private HikeReview review;
+
     @Column(name = "started_at")
     private Instant startedAt;
 
@@ -77,6 +81,7 @@ public class Hike {
     public Visibility getVisibility() { return visibility; }
     public Visibility getNotesVisibility() { return notesVisibility; }
     public HikePlan getPlan() { return plan; }
+    public HikeReview getReview() { return review; }
     public Instant getStartedAt() { return startedAt; }
     public Instant getFinishedAt() { return finishedAt; }
     public Instant getClientUpdatedAt() { return clientUpdatedAt; }
@@ -105,9 +110,13 @@ public class Hike {
             this.finishedAt = null;
             this.notes = "";
             this.plan = null;
+            this.review = null;
         } else {
             this.notes = w.notes();
             this.plan = w.plan();
+            HikeDtos.Review r = w.review();
+            this.review = r == null ? null : new HikeReview(r.difficulty(), r.enjoyment(), r.safety(),
+                    r.safetyNote(), r.navigation(), r.water(), r.note());
         }
     }
 }

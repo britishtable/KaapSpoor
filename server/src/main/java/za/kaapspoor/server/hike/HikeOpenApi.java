@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * OpenAPI 3.1 cannot say "a $ref or null" through annotations (a sibling type next to a $ref is
- * ignored by the client generator), so the nullable plan is spelled out as oneOf [HikePlan, null].
+ * ignored by the client generator), so the nullable plan and review are spelled out as oneOf [Ref, null].
  */
 @Configuration(proxyBeanMethods = false)
 class HikeOpenApi {
@@ -21,10 +21,15 @@ class HikeOpenApi {
                 if (schema == null || schema.getProperties() == null) {
                     continue;
                 }
-                schema.getProperties().put("plan", new Schema<>()
-                        .addOneOfItem(new Schema<>().$ref("#/components/schemas/HikePlan"))
-                        .addOneOfItem(new Schema<>().types(Set.of("null"))));
+                schema.getProperties().put("plan", nullableRef("HikePlan"));
+                schema.getProperties().put("review", nullableRef("Review"));
             }
         };
+    }
+
+    private static Schema<?> nullableRef(String component) {
+        return new Schema<>()
+                .addOneOfItem(new Schema<>().$ref("#/components/schemas/" + component))
+                .addOneOfItem(new Schema<>().types(Set.of("null")));
     }
 }

@@ -66,6 +66,8 @@ export interface RouteIndexEntry {
   hasLine: boolean;
   grade: string | null;
   gradeSource: 'label' | 'prose' | null;
+  /** True when `grade` yields a level (`summariseGrade`), so difficulty reviews are relative to it. */
+  graded: boolean;
   time: string | null;
   heightGain: string | null;
   isFullEntry: boolean;

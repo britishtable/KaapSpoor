@@ -11,7 +11,7 @@ const entries: RouteIndexEntry[] = [
     coords: { lat: -33.97, lon: 18.39, zoom: 15 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
     hasLine: false,
-    grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true }
+    grade: '3 ***', gradeSource: 'label', graded: true, time: null, heightGain: null, isFullEntry: true }
 ];
 
 describe('library page', () => {

@@ -7,7 +7,7 @@ const base: RouteIndexEntry = { id: 'a', title: 'Blind Gully', area: ['x'],
   coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
   mentionedPaths: [],
   hasLine: false,
-  grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true };
+  grade: null, gradeSource: null, graded: false, time: null, heightGain: null, isFullEntry: true };
 
 describe('ProvenanceNote', () => {
   it('states a crawl-sourced location', () => {

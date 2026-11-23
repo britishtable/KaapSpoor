@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeId } from '../src/lib/data/ids';
+import { summariseGrade } from '../src/lib/data/grade';
 import { mentionedPaths, type OsmPathName } from '../src/lib/data/path-mentions';
 import type {
   RouteIndexEntry,
@@ -183,6 +184,8 @@ export function transform(
       // — so 184 index entries do not each carry a few hundred coordinates.
       hasLine: statsByRoute.has(id),
       grade: r.grade, gradeSource: r.grade_source,
+      // Whether reviews rate difficulty against a grade (EASIER..HARDER) or on a plain scale.
+      graded: summariseGrade(r.grade).level !== null,
       time: statValue(r.stats, 'Time'),
       heightGain: statValue(r.stats, 'Height gain'),
       isFullEntry: Object.keys(r.stats).length > 0 || r.grade_source === 'label'

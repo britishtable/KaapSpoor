@@ -42,7 +42,7 @@ describe('entriesInRegion', () => {
     coordsSource: coords ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
     hasLine: false,
-    grade: null, gradeSource: null, time: null, heightGain: null, isFullEntry: true
+    grade: null, gradeSource: null, graded: false, time: null, heightGain: null, isFullEntry: true
   });
 
   const tableMountain = entry('kasteelspoort', ['Table-Mountain', 'atlantic-west'], {

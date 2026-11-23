@@ -23,18 +23,19 @@ public class RouteIndexLoader implements ApplicationRunner {
     record Coords(double lat, double lon) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Entry(String id, String title, List<String> area, Coords coords, String coordsSource) {}
+    record Entry(String id, String title, List<String> area, Coords coords, String coordsSource, boolean graded) {}
 
     private static final String UPSERT = """
-            insert into route (id, title, area, location, location_source, retired_at, updated_at)
+            insert into route (id, title, area, location, location_source, graded, retired_at, updated_at)
             values (?, ?, ?, case when ?::double precision is null then null
                                   else ST_SetSRID(ST_MakePoint(?::double precision, ?::double precision), 4326)::geography end,
-                    ?, null, now())
+                    ?, ?, null, now())
             on conflict (id) do update set
                 title = excluded.title,
                 area = excluded.area,
                 location = excluded.location,
                 location_source = excluded.location_source,
+                graded = excluded.graded,
                 retired_at = null,
                 updated_at = now()
             """;
@@ -90,6 +91,7 @@ public class RouteIndexLoader implements ApplicationRunner {
                 ps.setObject(5, lon);
                 ps.setObject(6, lat);
                 ps.setString(7, e.coordsSource());
+                ps.setBoolean(8, e.graded());
                 return ps;
             });
         }

@@ -7,7 +7,7 @@ const base: RouteContent = {
   id: 'a', title: 'Blind Gully', area: ['table-mountain', 'atlantic-west'],
   coords: { lat: -33.95, lon: 18.4, zoom: 14 },
   coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
-  grade: '3 ***', gradeSource: 'label', time: '5 hours', heightGain: '700 m',
+  grade: '3 ***', gradeSource: 'label', graded: true, time: '5 hours', heightGain: '700 m',
   isFullEntry: true,
   sections: { Overview: 'A long walk up a big hill.' },
   description: 'Overview:\nA long walk up a big hill.',

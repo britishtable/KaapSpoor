@@ -78,7 +78,7 @@ const route: RouteContent = {
   coords: null, coordsSource: null, coordsAccuracyM: null, coordsOsm: null,
   mentionedPaths: [],
   hasLine: false,
-  grade: 'B', gradeSource: 'prose', time: null, heightGain: null, isFullEntry: false,
+  grade: 'B', gradeSource: 'prose', graded: false, time: null, heightGain: null, isFullEntry: false,
   sections: { Overview: 'A scramble.' }, description: 'A scramble.',
   related: [], attachments: [], photoCount: 2, sourceUrl: 'https://example.invalid',
   segments: [],

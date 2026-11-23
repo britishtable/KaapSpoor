@@ -10,7 +10,7 @@ function entry(id: string, coords: { lat: number; lon: number } | null): RouteIn
     coordsSource: coords ? 'crawl' : null, coordsAccuracyM: null, coordsOsm: null,
     mentionedPaths: [],
     hasLine: false,
-    grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true
+    grade: '3 ***', gradeSource: 'label', graded: true, time: null, heightGain: null, isFullEntry: true
   };
 }
 

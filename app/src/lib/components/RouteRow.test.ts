@@ -9,7 +9,7 @@ const located: RouteIndexEntry = { id: 'a', title: 'Blind Gully', area: ['x'],
   coords: { lat: 0, lon: 0, zoom: 1 }, coordsSource: 'crawl', coordsAccuracyM: null, coordsOsm: null,
   mentionedPaths: [],
   hasLine: false,
-  grade: '3 ***', gradeSource: 'label', time: null, heightGain: null, isFullEntry: true };
+  grade: '3 ***', gradeSource: 'label', graded: true, time: null, heightGain: null, isFullEntry: true };
 
 describe('RouteRow', () => {
   it('links to the route page and shows the title', () => {
