@@ -2,6 +2,7 @@ import { derived, get, writable, type Readable } from 'svelte/store';
 import { api, session } from '$lib/account/session';
 import { hikes, now } from '$lib/journal/store';
 import { deleteOutboxItem, getAllOutbox, getOutboxFor, getOutboxItem, putOutboxItem } from '$lib/journal/db';
+import { rememberMine } from './mine';
 import { SignInRequiredError, type Answer, type OutboxItem, type ReportWrite } from './types';
 
 export { SignInRequiredError };
@@ -58,6 +59,7 @@ export async function fileReport(
 	const id = crypto.randomUUID();
 	const createdAt = now();
 	await enqueue({ id, owner, createdAt, kind: 'report', body: { ...input, observedAt: input.observedAt ?? createdAt } });
+	rememberMine(owner, id);
 	return id;
 }
 
@@ -80,8 +82,9 @@ export async function discardOutboxItem(id: string): Promise<void> {
 /**
  * A report naming a hike the server doesn't hold yet (still queued, or refused) must wait:
  * sent now it would be refused for good. It goes on a later run, once the hike is accepted.
+ * Exported so the UI can say why such a report hasn't gone yet.
  */
-function waitsOnHike(item: OutboxItem): boolean {
+export function waitsOnHike(item: OutboxItem): boolean {
 	if (item.kind !== 'report' || !item.body.hikeId) return false;
 	const h = get(hikes).get(item.body.hikeId);
 	return h !== undefined && (h.pending || h.syncError !== undefined);

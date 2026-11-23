@@ -18,3 +18,19 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 
 export const SAFETY_GUIDANCE = "Describe what happened and where. Please don't name or describe the people involved.";
 export const NOTE_MAX = 500;
+
+/**
+ * Pin and stripe colour per kind of report, so the map and the list agree at a glance: the way
+ * itself (blocked, damaged, closed, burnt), water and wet ground, animals, and people. Mid-tone
+ * and calm on purpose, safety included: nothing here is an alarm red.
+ */
+export const CATEGORY_COLOURS: Record<Category, string> = {
+	OBSTRUCTION: '#b45309',
+	TRAIL_DAMAGE: '#b45309',
+	CLOSURE: '#b45309',
+	FIRE: '#b45309',
+	WATER: '#0369a1',
+	CONDITIONS: '#0369a1',
+	WILDLIFE: '#4d7c0f',
+	SAFETY: '#6d28d9'
+};

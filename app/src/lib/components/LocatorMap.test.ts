@@ -9,6 +9,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const constructed: Array<{ zoom: number }> = [];
 /** Calls the component makes on the map after construction. */
 const calls: Array<{ name: string; args: unknown[] }> = [];
+/** What queryRenderedFeatures answers: the report pins under a tap. */
+const rendered: { features: Array<{ properties: Record<string, unknown> }> } = { features: [] };
 
 vi.mock('maplibre-gl', () => {
   class Map {
@@ -53,6 +55,10 @@ vi.mock('maplibre-gl', () => {
       calls.push({ name: 'fitBounds', args });
       return this;
     }
+    queryRenderedFeatures(...args: unknown[]) {
+      calls.push({ name: 'queryRenderedFeatures', args });
+      return rendered.features;
+    }
     unproject([x, y]: [number, number]) {
       return { lng: 18 + x / 1000, lat: -34 - y / 1000 };
     }
@@ -66,7 +72,9 @@ vi.mock('maplibre-gl', () => {
     addTo() {
       return this;
     }
-    remove() {}
+    remove() {
+      calls.push({ name: 'markerRemove', args: [] });
+    }
   }
   class AttributionControl {}
   return {
@@ -93,6 +101,7 @@ import { clearSelection, setPlanSegments } from '$lib/map/selection';
 beforeEach(() => {
   calls.length = 0;
   constructed.length = 0;
+  rendered.features = [];
   clearSelection();
 });
 
@@ -137,7 +146,7 @@ describe('LocatorMap for an approximate position', () => {
 
   it('draws the same uncertainty circle the main map does', () => {
     render(LocatorMap, {  coords, title: 'Test Route', accuracyM: 3911, routeId: 'a--b--c' });
-    const layer = calls.find((c) => c.name === 'addLayer');
+    const layer = calls.find((c) => c.name === 'addLayer' && (c.args[0] as { id: string }).id === 'uncertainty');
     expect(layer).toBeTruthy();
     expect(JSON.stringify(layer!.args)).toContain('coordsAccuracyM');
   });
@@ -154,7 +163,7 @@ describe('LocatorMap for an approximate position', () => {
   it('leaves a surveyed position at full precision and adds no circle', () => {
     const { container } = render(LocatorMap, {  coords: { ...coords, zoom: 15 }, title: 'Test Route', routeId: 'a--b--c' });
     expect(container.querySelector('figcaption')!.textContent).toContain('-33.9000');
-    expect(calls.find((c) => c.name === 'addLayer')).toBeUndefined();
+    expect(calls.find((c) => c.name === 'addLayer' && (c.args[0] as { id: string }).id === 'uncertainty')).toBeUndefined();
     expect(calls.find((c) => c.name === 'fitBounds')).toBeUndefined();
   });
 });
@@ -416,13 +425,31 @@ describe('LocatorMap scrub marker', () => {
 describe('LocatorMap pick mode', () => {
   const coords = { lat: -33.9, lon: 18.4, zoom: 13 };
 
-  it('a tap calls onpick with [lon, lat] and marks the spot', async () => {
+  it('a tap calls onpick with [lon, lat]; the spot prop alone marks it', async () => {
     const onpick = vi.fn();
-    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', onpick });
+    const { rerender } = render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', onpick });
     await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
     expect(onpick).toHaveBeenCalledTimes(1);
     expect(onpick.mock.calls[0][0]).toEqual([18.1, -34.05]);
-    expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(2); // the route pin, then the pick
+    // The tap itself leaves no marker: the caller may refuse it (outside the covered area).
+    expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(1);
+    await rerender({ coords, title: 'T', routeId: 'a--b--c', onpick, spot: [18.1, -34.05] });
+    expect(calls.filter((c) => c.name === 'markerAt').map((c) => c.args[0])).toEqual([[18.4, -33.9], [18.1, -34.05]]);
+  });
+
+  it('a refused tap (spot stays null) leaves no stray marker', async () => {
+    const onpick = vi.fn();
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', onpick, spot: null });
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 900, clientY: 900 });
+    expect(onpick).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(1); // the route pin only
+  });
+
+  it('clearing the spot removes its marker', async () => {
+    const { rerender } = render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', spot: [18.41, -33.95] });
+    const before = calls.filter((c) => c.name === 'markerRemove').length;
+    await rerender({ coords, title: 'T', routeId: 'a--b--c', spot: null });
+    expect(calls.filter((c) => c.name === 'markerRemove').length).toBeGreaterThan(before);
   });
 
   it('without onpick a tap does nothing', async () => {
@@ -444,5 +471,65 @@ describe('LocatorMap pick mode', () => {
     screen.getByTestId('locator-map').appendChild(ctrl);
     await fireEvent.click(ctrl);
     expect(onpick).not.toHaveBeenCalled();
+  });
+});
+
+describe('LocatorMap report pins', () => {
+  const coords = { lat: -33.9, lon: 18.4, zoom: 13 };
+  const report = (id: string, category: string, position: { lon: number; lat: number } | null) => ({
+    id, category, note: '', observedAt: '2026-11-23T07:00:00Z', lastConfirmedAt: null, expiresAt: null,
+    clearedAt: null, position, displayName: 'B', unverified: false
+  }) as import('$lib/reports/types').PublicReport;
+
+  it('reports prop adds a circle layer with one feature per active report', async () => {
+    const reports = [
+      report('a', 'OBSTRUCTION', { lon: 18.41, lat: -33.95 }),
+      report('b', 'WATER', { lon: 18.42, lat: -33.96 }),
+      report('c', 'FIRE', null) // describes the whole route: no pin
+    ];
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', reports });
+    await vi.waitFor(() => expect(calls.some((c) => c.name === 'setData' && c.args[0] === 'reports')).toBe(true));
+    const layer = calls.find((c) => c.name === 'addLayer' && (c.args[0] as { id: string }).id === 'reports');
+    expect(layer).toBeTruthy();
+    expect((layer!.args[0] as { type: string }).type).toBe('circle');
+    expect(calls.some((c) => c.name === 'addSource' && c.args[0] === 'reports')).toBe(true);
+    const data = calls.filter((c) => c.name === 'setData' && c.args[0] === 'reports').at(-1)!.args[1] as {
+      features: Array<{ geometry: { coordinates: number[] }; properties: { id: string; colour: string } }>;
+    };
+    expect(data.features.map((f) => f.properties.id)).toEqual(['a', 'b']);
+    expect(data.features[0].geometry.coordinates).toEqual([18.41, -33.95]);
+    // One colour per category group: a blockage and a water source are told apart.
+    expect(data.features[0].properties.colour).not.toBe(data.features[1].properties.colour);
+  });
+
+  it('the pins update when the reports change', async () => {
+    const { rerender } = render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', reports: [report('a', 'WATER', { lon: 18.41, lat: -33.95 })] });
+    await rerender({ coords, title: 'T', routeId: 'a--b--c', reports: [] });
+    const last = calls.filter((c) => c.name === 'setData' && c.args[0] === 'reports').at(-1)!.args[1] as { features: unknown[] };
+    expect(last.features).toEqual([]);
+  });
+
+  it('tapping a pin calls onreport with its id', async () => {
+    const onreport = vi.fn();
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', reports: [report('a', 'WATER', { lon: 18.41, lat: -33.95 })], onreport });
+    rendered.features = [{ properties: { id: 'a' } }];
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
+    expect(onreport).toHaveBeenCalledWith('a');
+    const q = calls.find((c) => c.name === 'queryRenderedFeatures')!;
+    expect(q.args[1]).toEqual({ layers: ['reports'] });
+  });
+
+  it('a tap off every pin does nothing; in pick mode a tap picks and never opens a report', async () => {
+    const onreport = vi.fn();
+    const onpick = vi.fn();
+    const props = { coords, title: 'T', routeId: 'a--b--c', reports: [report('a', 'WATER', { lon: 18.41, lat: -33.95 })], onreport };
+    const { rerender } = render(LocatorMap, props);
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
+    expect(onreport).not.toHaveBeenCalled();
+    rendered.features = [{ properties: { id: 'a' } }];
+    await rerender({ ...props, onpick });
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
+    expect(onpick).toHaveBeenCalledTimes(1);
+    expect(onreport).not.toHaveBeenCalled();
   });
 });

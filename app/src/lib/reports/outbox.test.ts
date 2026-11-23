@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
-import { fileReport, answerReport, discardOutboxItem, pendingOutbox, onOutboxWrite, hydrateOutbox, SignInRequiredError } from './outbox';
+import { fileReport, answerReport, discardOutboxItem, pendingOutbox, onOutboxWrite, hydrateOutbox, SignInRequiredError, waitsOnHike } from './outbox';
+import { mineIds } from './mine';
+import type { OutboxItem } from './types';
 import { getAllOutbox, getOutboxFor, resetDbForTests } from '$lib/journal/db';
 import { configureSession, signIn, signOut, type StoredSession, type TokenStorage } from '$lib/account/session';
-import { setClockForTests } from '$lib/journal/store';
+import { setClockForTests, replaceAll } from '$lib/journal/store';
 
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -133,5 +135,29 @@ describe('outbox', () => {
 		await signOut();
 		await signInOffline('a');
 		expect(get(pendingOutbox).map((i) => i.id)).toEqual([id]);
+	});
+	it('fileReport remembers the id as filed by this account', async () => {
+		localStorage.clear();
+		await signInOffline('a');
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		expect(mineIds('user-a').has(id)).toBe(true);
+		expect(mineIds('user-b').has(id)).toBe(false);
+	});
+
+	it('waitsOnHike: a report waits on a local hike that is pending or refused, not on a synced one', async () => {
+		const hike = (id: string, over: object) => ({
+			id, routeId: 'r1', date: null, notes: '', visibility: 'PRIVATE' as const, notesVisibility: 'PRIVATE' as const,
+			startedAt: null, finishedAt: null, updatedAt: 'x', deleted: false, owner: 'user-a', pending: false, ...over
+		});
+		await replaceAll({ hikes: [hike('queued', { pending: true }), hike('refused', { syncError: 'no' }), hike('synced', {})], routeNotes: [] });
+		const report = (hikeId: string | null): OutboxItem => ({
+			id: 'r', owner: 'user-a', createdAt: 't', kind: 'report', body: { routeId: 'r1', category: 'WATER', observedAt: 't', hikeId }
+		});
+		expect(waitsOnHike(report('queued'))).toBe(true);
+		expect(waitsOnHike(report('refused'))).toBe(true);
+		expect(waitsOnHike(report('synced'))).toBe(false);
+		expect(waitsOnHike(report(null))).toBe(false);
+		expect(waitsOnHike({ id: 'c', owner: 'user-a', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' })).toBe(false);
+		await replaceAll({ hikes: [], routeNotes: [] });
 	});
 });

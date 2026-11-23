@@ -3,6 +3,7 @@
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
   import RouteReviews from '$lib/components/RouteReviews.svelte';
+  import RouteReports from '$lib/components/RouteReports.svelte';
   import HikeLog from '$lib/components/HikeLog.svelte';
   import RouteReporting from '$lib/components/RouteReporting.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
@@ -15,6 +16,7 @@
   import { encodePlan, decodePlan } from '$lib/data/plan-params';
   import { setPlanSegments } from '$lib/map/selection';
   import { summariseGrade } from '$lib/data/grade';
+  import type { PublicReport } from '$lib/reports/types';
   import type { PageData } from './$types';
   let { data }: { data: PageData } = $props();
   let r = $derived(data.route);
@@ -100,6 +102,9 @@
   let spot = $state<[number, number] | null>(null);
   let mapEl = $state<HTMLElement>();
   let reporting: { open: () => Promise<void> } | undefined = $state();
+  // The public, active reports only, as RouteReports hands them over: a pin is public.
+  let pins = $state<PublicReport[]>([]);
+  let reportList: { show: (id: string) => Promise<void> } | undefined = $state();
 
   function choose(choice: PlanChoice): void {
     // State AND address bar, together, so the two can never disagree about
@@ -126,6 +131,9 @@
        map's preview panel uses, so the two can never word it differently. -->
   {#if r.coords}
     <div bind:this={mapEl}>
+    <!-- Keyed: the map is built once in onMount, so a route-to-route navigation must build a
+         new one, or route A's position, line, pins and markers stay on route B's page. -->
+    {#key r.id}
     <LocatorMap
       coords={r.coords}
       title={r.title}
@@ -136,7 +144,10 @@
       {lineCoords}
       onpick={pickHandler ?? undefined}
       {spot}
+      reports={pins}
+      onreport={(id) => reportList?.show(id)}
     />
+    {/key}
     </div>
   {/if}
   <RoutePlan {plan} onchange={choose} />
@@ -154,6 +165,8 @@
     <h2>Related</h2>
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
+
+  <RouteReports bind:this={reportList} routeId={r.id} onactive={(list) => (pins = list)} />
 
   <RouteReviews routeId={r.id} />
 

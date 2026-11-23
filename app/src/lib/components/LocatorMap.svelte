@@ -21,6 +21,8 @@
   import { pointAtDistance, type Point3 } from '$lib/map/profile';
   import type { Coords } from '$lib/data/types';
   import { selection } from '$lib/map/selection';
+  import { CATEGORY_COLOURS } from '$lib/reports/labels';
+  import type { PublicReport } from '$lib/reports/types';
 
   let {
     coords,
@@ -41,12 +43,16 @@
      */
     lineCoords = [],
     /**
-     * When set, the map is in pick mode: a tap calls this with [lon, lat] and leaves a temporary
-     * marker there. Unset, the map behaves exactly as before.
+     * When set, the map is in pick mode: a tap calls this with [lon, lat]. The tap marks nothing
+     * itself: the caller may refuse the point, and shows what it kept through `spot`.
      */
     onpick = undefined,
-    /** A spot to keep marked (the report's chosen point), or null. */
-    spot = null
+    /** A spot to keep marked (the report's chosen point), or null. The only owner of that marker. */
+    spot = null,
+    /** Public, active reports to pin. Never pass held or unsent ones: a pin is public. */
+    reports = [],
+    /** Called with a report's id when its pin is tapped (outside pick mode). */
+    onreport = undefined
   }: {
     coords: Coords;
     title: string;
@@ -57,12 +63,59 @@
     lineCoords?: Point3[];
     onpick?: (p: [number, number]) => void;
     spot?: [number, number] | null;
+    reports?: PublicReport[];
+    onreport?: (id: string) => void;
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
   let mapLoaded = $state(false);
   let pickMarker: Marker | undefined;
   let ready = $state(false);
+  /** The style has loaded and the report pins' source exists. */
+  let pinsReady = $state(false);
+
+  const REPORTS = 'reports';
+  /** How far from a pin's centre, in px, a tap still counts as on it: a fingertip, not a pixel. */
+  const PIN_SLOP = 14;
+
+  $effect(() => {
+    const list = reports;
+    if (!pinsReady || !map) return;
+    const source = map.getSource(REPORTS) as import('maplibre-gl').GeoJSONSource | undefined;
+    source?.setData({
+      type: 'FeatureCollection',
+      features: list.flatMap((r) => r.position
+        ? [{
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [r.position.lon, r.position.lat] },
+            properties: { id: r.id, colour: CATEGORY_COLOURS[r.category] }
+          }]
+        : [])
+    });
+  });
+
+  // Outside pick mode, a tap on a pin opens that report in the list. Same reason as pick mode
+  // for listening on the container: the map is non-interactive and raises no clicks itself.
+  $effect(() => {
+    const open = onreport;
+    if (!open || onpick || !container) return;
+    const el = container;
+    const tap = (e: MouseEvent) => {
+      if (!map || !pinsReady) return;
+      if ((e.target as Element | null)?.closest?.('.maplibregl-ctrl')) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const hit = map.queryRenderedFeatures(
+        [[x - PIN_SLOP, y - PIN_SLOP], [x + PIN_SLOP, y + PIN_SLOP]],
+        { layers: [REPORTS] }
+      );
+      const id = hit[0]?.properties?.id;
+      if (typeof id === 'string') open(id);
+    };
+    el.addEventListener('click', tap);
+    return () => el.removeEventListener('click', tap);
+  });
 
   function markSpot(p: [number, number] | null): void {
     try { pickMarker?.remove(); } catch { /* never painted */ }
@@ -93,7 +146,6 @@
       if ((e.target as Element | null)?.closest?.('.maplibregl-ctrl, .maplibregl-marker')) return;
       const rect = el.getBoundingClientRect();
       const { lng, lat } = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
-      markSpot([lng, lat]);
       pick([lng, lat]);
     };
     el.addEventListener('click', tap);
@@ -165,6 +217,7 @@
     });
     map.addControl(new AttributionControl({ compact: true }));
     ready = true;
+
     // Test-only hook, mirroring MapView's: WebGL pixels are not queryable from
     // Playwright, so an e2e asserting the line renders has no other way in.
     (container as HTMLDivElement & { __maplibreMap?: MapLibreMap }).__maplibreMap = map;
@@ -244,6 +297,30 @@
         });
       });
     }
+
+    // Report pins, on every locator map with a position: reports don't need a drawn line. Added
+    // on load after the style's layers and the uncertainty circle (registered above), so the
+    // pins sit on top of the route line and the circle.
+    map.on('load', () => {
+      if (!map) return;
+      try {
+        map.addSource(REPORTS, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({
+          id: REPORTS,
+          type: 'circle',
+          source: REPORTS,
+          paint: {
+            'circle-radius': 7,
+            'circle-color': ['get', 'colour'],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+          }
+        });
+        pinsReady = true;
+      } catch (err) {
+        console.warn('LocatorMap: could not add report pins', err);
+      }
+    });
 
     try {
       // Marker.addTo() projects the coordinate immediately. If WebGL2 never

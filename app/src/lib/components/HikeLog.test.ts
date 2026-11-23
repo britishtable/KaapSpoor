@@ -1,7 +1,21 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
+import type { PublicReport, RouteReportsView } from '../reports/types';
+
+const rep = vi.hoisted(() => ({
+  load: vi.fn(async (_id: string): Promise<unknown> => 'unavailable'),
+  answer: vi.fn(async (_id: string, _a: string) => {}),
+  mine: new Set<string>()
+}));
+vi.mock('../reports/reports', () => ({ loadRouteReports: (id: string) => rep.load(id) }));
+vi.mock('../reports/mine', () => ({ mineIds: () => rep.mine, rememberMine: () => {} }));
+vi.mock('../reports/outbox', async (original) => ({
+  ...(await original<typeof import('../reports/outbox')>()),
+  answerReport: (id: string, a: string) => rep.answer(id, a)
+}));
+
 import HikeLog from './HikeLog.svelte';
 import { configureSession, restoreSession } from '../account/session';
 import {
@@ -346,5 +360,87 @@ describe('HikeLog', () => {
       const link = screen.getByRole('link', { name: 'Sign in to report what you see.' });
       expect(link.getAttribute('href')).toMatch(/\/account$/);
     });
+  });
+});
+
+describe('HikeLog: Still there?', () => {
+  const user = { id: 'u1', displayName: 'Thandi', initials: 'T' };
+  const pub = (id: string, over: Partial<PublicReport> = {}): PublicReport => ({
+    id, category: 'OBSTRUCTION', note: 'tree across the path', observedAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    lastConfirmedAt: null, expiresAt: null, clearedAt: null, position: null, displayName: 'Bongi', unverified: false, ...over
+  });
+  const view = (over: Partial<RouteReportsView> = {}): RouteReportsView =>
+    ({ active: [], history: [], mineHeld: [], minePending: [], ...over });
+  function signIn() {
+    const s = { accessToken: 'a', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r', user };
+    configureSession({ storage: { load: () => s, save: () => {}, clear: () => {} }, baseUrl: 'http://srv' });
+    restoreSession();
+  }
+  beforeEach(() => {
+    rep.load.mockReset();
+    rep.answer.mockClear();
+    rep.mine = new Set();
+    signIn();
+  });
+  afterEach(() => { configureSession(); });
+
+  async function finishAHike() {
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+  }
+
+  it("after Finish, Still there? lists others' active reports and Skip sends nothing", async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a'), pub('b', { category: 'WATER', displayName: 'Sipho' })] }));
+    render(HikeLog, { routeId: 'r1' });
+    expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
+    await finishAHike();
+    const card = (await screen.findByRole('heading', { name: 'Still there?' })).closest('section')!;
+    expect(rep.load).toHaveBeenCalledWith('r1');
+    expect(within(card).getByText('Obstruction (fallen tree, rockfall)')).toBeTruthy();
+    expect(within(card).getByText('Water source')).toBeTruthy();
+    expect(within(card).getAllByText('Seen 2 hours ago')).toHaveLength(2);
+    expect(within(card).getAllByRole('button', { name: 'Still there' })).toHaveLength(2);
+    await fireEvent.click(within(card).getByRole('button', { name: 'Skip' }));
+    expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
+    expect(rep.answer).not.toHaveBeenCalled();
+  });
+
+  it('an answer from the card calls answerReport', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await finishAHike();
+    await screen.findByRole('heading', { name: 'Still there?' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Gone' }));
+    expect(rep.answer).toHaveBeenCalledWith('a', 'GONE');
+    expect(screen.getByRole('button', { name: 'Gone' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
+  it('own reports are not asked about', async () => {
+    rep.mine = new Set(['own']);
+    rep.load.mockResolvedValue(view({ active: [pub('own', { displayName: 'Thandi' })], mineHeld: [] }));
+    render(HikeLog, { routeId: 'r1' });
+    await finishAHike();
+    await screen.findByText('Hike finished. Nice one.');
+    await waitFor(() => expect(rep.load).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(screen.queryByRole('heading', { name: 'Still there?' })).toBeNull();
+  });
+
+  it('after logging a past hike, Still there? asks too', async () => {
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save hike' }));
+    await screen.findByRole('heading', { name: 'Still there?' });
+  });
+
+  it('signed out, nothing is asked', async () => {
+    configureSession();
+    rep.load.mockResolvedValue(view({ active: [pub('a')] }));
+    render(HikeLog, { routeId: 'r1' });
+    await finishAHike();
+    await screen.findByText('Hike finished. Nice one.');
+    expect(rep.load).not.toHaveBeenCalled();
   });
 });

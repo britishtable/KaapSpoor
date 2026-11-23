@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { loadRouteReports } from './reports';
+import { mineIds } from './mine';
 import { hydrateOutbox } from './outbox';
 import { putOutboxItem, resetDbForTests } from '$lib/journal/db';
 
@@ -94,6 +95,17 @@ describe('loadRouteReports', () => {
 		expect(view.mineHeld.map((r) => r.id)).toEqual(['sent-1']);
 		expect(view.minePending.map((r) => r.id)).toEqual(['queued-1']);
 		expect(calls).toHaveLength(2);
+	});
+
+	it('remembers held reports as mine, so once public they still read as mine on this device', async () => {
+		localStorage.clear();
+		const { f } = fakeFetch((_r, p) =>
+			p === '/api/v1/routes/r1/reports' ? json({ active: [], history: [] }) : json([mine('held-1')])
+		);
+		configureSession({ storage: storageWith(signedIn()), fetch: f, baseUrl: BASE });
+		restoreSession();
+		await loadRouteReports('r1');
+		expect(mineIds('user-a').has('held-1')).toBe(true);
 	});
 
 	it('a pending report already public shows once, in the public list', async () => {

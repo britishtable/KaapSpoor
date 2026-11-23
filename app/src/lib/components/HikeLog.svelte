@@ -11,6 +11,12 @@
   import { session } from '../account/session';
   import { DIFFICULTY_GRADED, DIFFICULTY_UNGRADED } from '../data/types';
   import type { Hike, JournalPlan, Review, Visibility } from '../data/types';
+  import { loadRouteReports } from '../reports/reports';
+  import { answerReport, pendingOutbox } from '../reports/outbox';
+  import { mineIds } from '../reports/mine';
+  import { CATEGORY_COLOURS, CATEGORY_LABELS } from '../reports/labels';
+  import { formatAge } from '../reports/age';
+  import type { Answer, PublicReport } from '../reports/types';
 
   let { routeId, plan, graded = false, gradeLevel = null, onreport }: {
     routeId: string; plan?: JournalPlan; graded?: boolean; gradeLevel?: string | null;
@@ -70,6 +76,7 @@
       await finishHike(id);
       finishedId = id;
       finished = true;
+      void askStillThere();
     } catch {
       error = "Couldn't save that on this device.";
     }
@@ -136,6 +143,7 @@
     try {
       if (formFor === 'new') {
         await logHike({ routeId, date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis, plan });
+        void askStillThere();
       } else if (formFor) {
         await updateHike(formFor, { date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis });
       }
@@ -168,6 +176,47 @@
 
   // Signed out, hikes saved to an account are shown but read-only: anyone may hold the phone.
   let anyLocked = $derived($hikes.some((h) => isLocked(h, $viewer)));
+
+  // ---- "Still there?" ----
+  // Asked once, right after a hike here ends or is logged: the reader has just been on the route,
+  // so what others reported is worth checking. Nothing is sent unless an answer is tapped.
+  const ANSWERS: { value: Answer; label: string }[] = [
+    { value: 'STILL_THERE', label: 'Still there' },
+    { value: 'GONE', label: 'Gone' },
+    { value: 'NOT_SURE', label: 'Not sure' }
+  ];
+  let stillThere = $state<PublicReport[]>([]);
+  let stAnswers = $state<Record<string, Answer>>({});
+  let stError = $state('');
+  let stNow = $state(new Date());
+  let askedFor = 0;
+  async function askStillThere(): Promise<void> {
+    const me = $session?.id;
+    if (!me) return; // answering needs an account
+    const ask = ++askedFor;
+    const r = await loadRouteReports(routeId);
+    if (ask !== askedFor || typeof r === 'string') return;
+    const own = mineIds(me);
+    for (const h of r.mineHeld) own.add(h.id);
+    stNow = new Date();
+    stAnswers = {};
+    stError = '';
+    stillThere = r.active.filter((x) => !own.has(x.id));
+  }
+  async function answerStillThere(id: string, a: Answer): Promise<void> {
+    stError = '';
+    try {
+      await answerReport(id, a);
+      stAnswers = { ...stAnswers, [id]: a };
+    } catch {
+      stError = "Couldn't save that answer on this device.";
+    }
+  }
+  function closeStillThere(): void {
+    askedFor++;
+    stillThere = [];
+  }
+  let stQueued = $derived(new Set($pendingOutbox.flatMap((i) => (i.kind === 'confirmation' && !i.error ? [i.reportId] : []))));
 
   const clip = (s: string) => (s.length > 140 ? `${s.slice(0, 140)}…` : s);
 </script>
@@ -224,6 +273,30 @@
       <button type="button" class="wide" onclick={() => openReview(finishedHike)}>Review the route</button>
     {/if}
     <button type="button" class="wide primary" onclick={start}>Start hike</button>
+  {/if}
+  {#if stillThere.length}
+    <section class="still" aria-labelledby="hl-still">
+      <h3 id="hl-still">Still there?</h3>
+      <p class="hint">You've just been here. Is what others reported still there?</p>
+      <ul class="still-list">
+        {#each stillThere as r (r.id)}
+          <li style="--pin: {CATEGORY_COLOURS[r.category]}">
+            <p class="still-cat">{CATEGORY_LABELS[r.category]}</p>
+            <p class="hint">Seen {formatAge(r.observedAt, stNow)}</p>
+            {#if r.note}<p class="notes">{clip(r.note)}</p>{/if}
+            <div class="answers" role="group" aria-label="Is it still there?">
+              {#each ANSWERS as a (a.value)}
+                <button type="button" aria-pressed={stAnswers[r.id] === a.value}
+                  onclick={() => answerStillThere(r.id, a.value)}>{a.label}</button>
+              {/each}
+            </div>
+            {#if stAnswers[r.id] && stQueued.has(r.id)}<p class="hint" role="status">Will send when you have signal</p>{/if}
+          </li>
+        {/each}
+      </ul>
+      {#if stError}<p class="err" role="alert">{stError}</p>{/if}
+      <button type="button" class="wide" onclick={closeStillThere}>{Object.keys(stAnswers).length ? 'Done' : 'Skip'}</button>
+    </section>
   {/if}
   {#if error}<p class="err" role="alert">{error}</p>{/if}
 
@@ -327,5 +400,15 @@
   .tag { font-size: 0.8em; padding: 0 0.4rem; border: 1px solid var(--ks-accent-text); border-radius: 0.3rem; color: var(--ks-accent-text); }
   .notes { margin: 0; }
   .review-line { margin: 0; font-weight: 600; }
+  .still { display: grid; gap: 0.6rem; padding: 0.75rem; border-radius: 0.4rem;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+  .still h3 { margin: 0; }
+  .still-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.9rem; }
+  .still-list li { padding: 0.25rem 0.6rem; border-left: 4px solid var(--pin); display: grid; gap: 0.25rem; }
+  .still-cat { margin: 0; font-weight: 600; }
+  .still .notes { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .answers { display: flex; gap: 0.4rem; }
+  .answers button { flex: 1 1 0; padding: 0 0.5rem; }
+  button[aria-pressed='true'] { background: #c2410c; border-color: #c2410c; color: #fff; font-weight: 600; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>

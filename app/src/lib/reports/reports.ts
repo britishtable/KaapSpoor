@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { api, publicApi, session } from '$lib/account/session';
 import { getOutboxFor } from '$lib/journal/db';
+import { rememberMine } from './mine';
 import type { MyReport, ReportItem, RouteReportsView } from './types';
 
 /**
@@ -25,7 +26,10 @@ export async function loadRouteReports(routeId: string): Promise<RouteReportsVie
 	let mineHeld: MyReport[] = [];
 	let minePending: ReportItem[] = [];
 	if (me !== null) {
-		mineHeld = (await heldReports(routeId)).filter((r) => !seen.has(r.id));
+		const held = await heldReports(routeId);
+		// Remembered as theirs, so once released it still reads as their own report here.
+		for (const r of held) rememberMine(me, r.id);
+		mineHeld = held.filter((r) => !seen.has(r.id));
 		for (const r of mineHeld) seen.add(r.id);
 		minePending = (await queuedFor(me))
 			.filter((i): i is ReportItem => i.kind === 'report' && i.body.routeId === routeId && !seen.has(i.id))
