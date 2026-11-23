@@ -1,5 +1,7 @@
 package za.kaapspoor.server.review;
 
+import java.sql.Date;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -47,7 +49,7 @@ public class RouteReviewService {
         this.jdbc = jdbc;
     }
 
-    private record Row(PublicReview review, java.time.Instant updatedAt) {}
+    private record Row(PublicReview review, Instant updatedAt) {}
 
     @Transactional(readOnly = true)
     public RouteReviews reviews(String routeId) {
@@ -64,7 +66,7 @@ public class RouteReviewService {
                 difficulty = null; // an answer on the route's old scale never shows under the new one
             }
             boolean pub = "PUBLIC".equals(rs.getString("visibility"));
-            java.sql.Date hikedOn = rs.getDate("hiked_on");
+            Date hikedOn = rs.getDate("hiked_on");
             // Only a public hike with a date ever reveals a date, and then only its month.
             String month = pub && hikedOn != null ? YearMonth.from(hikedOn.toLocalDate()).toString() : null;
             boolean dateRecorded = !(pub && hikedOn == null);
@@ -81,7 +83,7 @@ public class RouteReviewService {
                     water == null ? null : Water.valueOf(water),
                     rs.getString("review_note"));
             return new Row(review, rs.getTimestamp("client_updated_at").toInstant());
-        }, routeId);
+        }, routeId).stream().filter(r -> hasContent(r.review())).toList();
 
         List<PublicReview> all = rows.stream().map(Row::review).toList();
         ReviewSummary summary = new ReviewSummary(
@@ -97,6 +99,13 @@ public class RouteReviewService {
                 .map(Row::review)
                 .toList();
         return new RouteReviews(isGraded, rows.size(), summary, newestFirst);
+    }
+
+    /** A review whose only answer was on the wrong scale has nothing left to show. */
+    private static boolean hasContent(PublicReview r) {
+        return r.difficulty() != null || r.enjoyment() != null || r.safety() != null
+                || r.navigation() != null || r.water() != null
+                || (r.note() != null && !r.note().isBlank());
     }
 
     private static Counts counts(List<PublicReview> reviews, Function<PublicReview, String> answer) {

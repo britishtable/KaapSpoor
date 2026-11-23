@@ -23,19 +23,20 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import za.kaapspoor.server.MutableClock;
+import za.kaapspoor.server.TestClockConfig;
 import za.kaapspoor.server.TestcontainersConfig;
-import za.kaapspoor.server.hike.HikeApiTest;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfig.class, HikeApiTest.TestClockConfig.class})
+@Import({TestcontainersConfig.class, TestClockConfig.class})
 @ActiveProfiles("test")
 class RouteReviewApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
-    @Autowired HikeApiTest.MutableClock clock;
+    @Autowired MutableClock clock;
 
     private int users;
 
@@ -234,5 +235,69 @@ class RouteReviewApiTest {
         for (String q : new String[] {"difficulty", "enjoyment", "safety", "navigation", "water"}) {
             assertTrue(r.get("summary").get(q).isNull());
         }
+    }
+
+    @Test
+    void onlyWrongScaleAnswerIsExcludedEntirely() throws Exception {
+        hike(register("Only"), "g", "2026-01-01", "PUBLIC", difficulty("EASY"));
+        hike(register("Other"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
+        JsonNode r = read("g");
+        assertEquals(1, r.get("people").asInt());
+        assertEquals(1, r.get("reviews").size());
+        assertEquals("Other", r.get("reviews").get(0).get("displayName").asText());
+    }
+
+    @Test
+    void sameDateTieBrokenByUpdatedAt() throws Exception {
+        String a = register("A");
+        hike(a, "g", "2026-03-01", "PUBLIC", difficulty("EASIER"));
+        hike(a, "g", "2026-03-01", "PUBLIC", difficulty("HARDER"));
+        for (String n : new String[] {"B", "C"}) {
+            hike(register(n), "g", "2026-01-01", "PUBLIC", difficulty("HARDER"));
+        }
+        JsonNode counts = read("g").get("summary").get("difficulty").get("counts");
+        assertEquals(3, counts.get("HARDER").asInt());
+        assertFalse(counts.has("EASIER"));
+    }
+
+    @Test
+    void newerUnreviewedHikeKeepsOlderReview() throws Exception {
+        String a = register("A");
+        hike(a, "g", "2026-01-01", "PUBLIC", difficulty("HARDER"));
+        hike(a, "g", "2026-06-01", "PUBLIC", null);
+        for (String n : new String[] {"B", "C"}) {
+            hike(register(n), "g", "2026-01-01", "PUBLIC", difficulty("HARDER"));
+        }
+        JsonNode r = read("g");
+        assertEquals(3, r.get("people").asInt());
+        assertEquals(3, r.get("summary").get("difficulty").get("counts").get("HARDER").asInt());
+    }
+
+    @Test
+    void ungradedRouteCountsItsOwnScaleOnly() throws Exception {
+        hike(register("A"), "u", "2026-01-01", "PUBLIC", difficulty("EASY"));
+        hike(register("B"), "u", "2026-01-01", "PUBLIC", difficulty("MODERATE"));
+        hike(register("C"), "u", "2026-01-01", "PUBLIC", difficulty("HARD"));
+        hike(register("D"), "u", "2026-01-01", "PUBLIC", difficulty("EASIER"));
+        JsonNode r = read("u");
+        assertFalse(r.get("graded").asBoolean());
+        assertEquals(3, r.get("people").asInt());
+        JsonNode d = r.get("summary").get("difficulty");
+        assertEquals(3, d.get("answered").asInt());
+        assertEquals(1, d.get("counts").get("EASY").asInt());
+        assertEquals(1, d.get("counts").get("MODERATE").asInt());
+        assertEquals(1, d.get("counts").get("HARD").asInt());
+        assertFalse(d.get("counts").has("EASIER"));
+    }
+
+    @Test
+    void reviewsNewestFirst() throws Exception {
+        hike(register("First"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
+        hike(register("Second"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
+        hike(register("Third"), "g", "2026-01-01", "PUBLIC", difficulty("EASIER"));
+        JsonNode rs = read("g").get("reviews");
+        assertEquals("Third", rs.get(0).get("displayName").asText());
+        assertEquals("Second", rs.get(1).get("displayName").asText());
+        assertEquals("First", rs.get(2).get("displayName").asText());
     }
 }

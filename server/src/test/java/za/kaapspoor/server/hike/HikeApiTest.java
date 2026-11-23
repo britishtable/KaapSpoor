@@ -12,12 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,42 +22,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import za.kaapspoor.server.MutableClock;
+import za.kaapspoor.server.TestClockConfig;
 import za.kaapspoor.server.TestcontainersConfig;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfig.class, HikeApiTest.TestClockConfig.class})
+@Import({TestcontainersConfig.class, TestClockConfig.class})
 @ActiveProfiles("test")
-public class HikeApiTest {
-
-    /** A clock the tests can move. It starts at the real time so issued JWTs stay valid. */
-    public static class MutableClock extends Clock {
-        private volatile Instant now = Instant.now();
-
-        public void reset() { now = Instant.now().truncatedTo(ChronoUnit.MILLIS); }
-        public void advance(long seconds) { now = now.plusSeconds(seconds); }
-        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
-        @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return now; }
-    }
-
-    @TestConfiguration
-    public static class TestClockConfig {
-        @Bean
-        @Primary
-        public MutableClock testClock() {
-            return new MutableClock();
-        }
-    }
+class HikeApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;

@@ -29,18 +29,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import za.kaapspoor.server.MutableClock;
+import za.kaapspoor.server.TestClockConfig;
 import za.kaapspoor.server.TestcontainersConfig;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfig.class, HikeApiTest.TestClockConfig.class})
+@Import({TestcontainersConfig.class, TestClockConfig.class})
 @ActiveProfiles("test")
 class HikeReviewApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
-    @Autowired HikeApiTest.MutableClock clock;
+    @Autowired MutableClock clock;
 
     @BeforeEach
     void clean() {
