@@ -5,7 +5,8 @@ import 'fake-indexeddb/auto';
 import { syncNow, startSync as realStartSync, syncState } from './sync';
 import { configureSession, signIn, signOut, type TokenStorage, type StoredSession } from '$lib/account/session';
 import { hikes, visibleHikes, replaceAll, logHike, updateHike, setReview, setClockForTests } from '$lib/journal/store';
-import { getMeta, setMeta } from '$lib/journal/db';
+import { getMeta, setMeta, getOutboxFor, resetDbForTests } from '$lib/journal/db';
+import { fileReport, answerReport, pendingOutbox, hydrateOutbox } from '$lib/reports/outbox';
 import { serialize, parse, exportableHikes } from '$lib/journal/io';
 import type { Hike } from '$lib/data/types';
 import type { components } from '$lib/api/schema';
@@ -30,6 +31,10 @@ function fakeServer() {
 	const rows = new Map<string, { owner: string; hike: ServerHike }>();
 	let revision = 0;
 	const puts: { user: string; id: string; body: HikeWrite }[] = [];
+	/** Every write in arrival order: "hike:<id>", "report:<id>" or "confirm:<reportId>". */
+	const log: string[] = [];
+	const reportPuts: { user: string; id: string; body: unknown }[] = [];
+	const confirms: { user: string; reportId: string; answer: string }[] = [];
 	const gets: { user: string; since: number }[] = [];
 	const net = { down: false };
 	let gate: Promise<void> | null = null;
@@ -67,11 +72,28 @@ function fakeServer() {
 		if (!user) return json({ detail: 'Sign in again.' }, 401);
 		if (p === '/api/v1/me') return json({ ...user, role: 'USER' });
 		if (gate) { held.count++; await gate; }
+		const c = p.match(/^\/api\/v1\/reports\/([^/]+)\/confirmation$/);
+		if (c && req.method === 'PUT') {
+			const { answer } = await req.json();
+			confirms.push({ user: user.id, reportId: c[1], answer });
+			log.push(`confirm:${c[1]}`);
+			if (c[1] === 'held') return json({ title: 'Not Found', status: 404, detail: 'No such report.' }, 404);
+			return json({ id: c[1] });
+		}
+		const r = p.match(/^\/api\/v1\/reports\/([^/]+)$/);
+		if (r && req.method === 'PUT') {
+			const body = await req.json();
+			reportPuts.push({ user: user.id, id: r[1], body });
+			log.push(`report:${r[1]}`);
+			if (body.routeId === 'bad') return json({ title: 'Bad Request', status: 400, detail: 'That route does not exist.' }, 400);
+			return json({ id: r[1], ...body, held: true });
+		}
 		const m = p.match(/^\/api\/v1\/hikes\/(.+)$/);
 		if (m && req.method === 'PUT') {
 			const id = m[1];
 			const body = (await req.json()) as HikeWrite;
 			puts.push({ user: user.id, id, body });
+			log.push(`hike:${id}`);
 			if (body.routeId === 'bad') return json({ title: 'Bad Request', status: 400, detail: 'That route does not exist.' }, 400);
 			const existing = rows.get(id);
 			if (existing && existing.owner !== user.id) return json({ detail: 'Not yours.' }, 409);
@@ -96,7 +118,7 @@ function fakeServer() {
 	}) as typeof fetch;
 
 	return {
-		f, rows, puts, gets, net, store, held,
+		f, rows, puts, gets, net, store, held, log, reportPuts, confirms,
 		setPageSize(n: number) { pageSize = n; },
 		hold() { let open!: () => void; gate = new Promise((r) => { open = () => { gate = null; r(); }; }); return open; }
 	};
@@ -142,6 +164,14 @@ beforeEach(async () => {
 	tick = 0;
 	// Each call is a second later, so "edited since the request was built" is observable.
 	setClockForTests(() => new Date(Date.parse('2026-11-18T12:00:00.000Z') + 1000 * tick++).toISOString());
+	// A clean database (and outbox) for every test.
+	await resetDbForTests();
+	await new Promise<void>((resolve, reject) => {
+		const req = indexedDB.deleteDatabase('kaapspoor');
+		req.onsuccess = () => resolve();
+		req.onerror = () => reject(req.error);
+	});
+	await hydrateOutbox();
 	await replaceAll({ hikes: [], routeNotes: [] });
 	await setMeta('syncCursor:user-a', 0);
 	await setMeta('syncCursor:user-b', 0);
@@ -549,6 +579,119 @@ describe('sync engine', () => {
 		Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
 		document.dispatchEvent(new Event('visibilitychange'));
 		await vi.waitFor(() => expect(server.gets).toHaveLength(before + 1));
+		await syncNow();
+		stop();
+	});
+
+});
+
+describe('report outbox', () => {
+	it('outbox flushes after hikes, oldest first', async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		const hike = await logHike({ routeId: 'r1', date: '2026-07-21', notes: '' });
+		const first = await fileReport({ routeId: 'r1', category: 'OBSTRUCTION', hikeId: hike.id });
+		await answerReport('rep-9', 'STILL_THERE');
+		const second = await fileReport({ routeId: 'r1', category: 'WATER', hikeId: hike.id });
+		await syncNow();
+		expect(server.log).toEqual([]);
+		expect(get(pendingOutbox)).toHaveLength(3);
+		online = true;
+		server.net.down = false;
+		await syncNow();
+		expect(server.log).toEqual([`hike:${hike.id}`, `report:${first}`, 'confirm:rep-9', `report:${second}`]);
+		expect(server.reportPuts[0]).toMatchObject({ user: 'user-a', body: { routeId: 'r1', category: 'OBSTRUCTION', hikeId: hike.id } });
+		expect(server.confirms).toEqual([{ user: 'user-a', reportId: 'rep-9', answer: 'STILL_THERE' }]);
+		expect(await getOutboxFor('user-a')).toEqual([]);
+		expect(get(pendingOutbox)).toEqual([]);
+		expect(get(syncState).status).toBe('idle');
+	});
+
+	it('a 400 keeps the item with its error and the flush continues', async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		const bad = await fileReport({ routeId: 'bad', category: 'FIRE', note: 'keep me' });
+		await answerReport('held', 'GONE');
+		const good = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		online = true;
+		server.net.down = false;
+		await syncNow();
+		expect(server.log).toEqual([`report:${bad}`, 'confirm:held', `report:${good}`]);
+		const left = await getOutboxFor('user-a');
+		expect(left.map((i) => i.id).sort()).toEqual([bad, 'held:user-a'].sort());
+		expect(left.find((i) => i.id === bad)).toMatchObject({ error: 'That route does not exist.', body: { note: 'keep me' } });
+		expect(left.find((i) => i.id === 'held:user-a')).toMatchObject({ error: 'No such report.' });
+		expect(get(pendingOutbox).every((i) => i.error)).toBe(true);
+		// Never retried blindly.
+		await syncNow();
+		expect(server.log).toHaveLength(3);
+	});
+
+	it('a network error stops the flush and keeps everything', async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		const a = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		const b = await fileReport({ routeId: 'r1', category: 'WATER' });
+		online = true; // the phone thinks it has signal; the request still fails
+		await syncNow();
+		expect(get(syncState).status).toBe('offline');
+		expect((await getOutboxFor('user-a')).map((i) => i.id).sort()).toEqual([a, b].sort());
+		expect((await getOutboxFor('user-a')).every((i) => i.error === undefined)).toBe(true);
+		server.net.down = false;
+		await syncNow();
+		expect(server.reportPuts.map((p) => p.id)).toEqual([a, b]);
+	});
+
+	it("A's items are never sent after B signs in", async () => {
+		await signInAs('a');
+		online = false;
+		server.net.down = true;
+		await fileReport({ routeId: 'r1', category: 'OBSTRUCTION', note: 'by A' });
+		await answerReport('rep-1', 'GONE');
+		await signOut();
+		// Signed out: nothing is sent.
+		online = true;
+		server.net.down = false;
+		await syncNow();
+		expect(server.log).toEqual([]);
+		await signInAs('b');
+		expect(get(pendingOutbox)).toEqual([]);
+		await syncNow();
+		expect(server.reportPuts).toHaveLength(0);
+		expect(server.confirms).toHaveLength(0);
+		expect(await getOutboxFor('user-a')).toHaveLength(2);
+		// A signs back in on this phone: A's items go, as A.
+		await signOut();
+		await signInAs('a');
+		await syncNow();
+		expect(server.reportPuts.map((p) => p.user)).toEqual(['user-a']);
+		expect(server.confirms.map((p) => p.user)).toEqual(['user-a']);
+	});
+
+	it('an answer replaced while in flight stays queued with the new answer', async () => {
+		await signInAs('a');
+		await answerReport('rep-1', 'STILL_THERE');
+		const open = server.hold();
+		const run = syncNow();
+		await vi.waitFor(() => expect(server.held.count).toBe(1));
+		await answerReport('rep-1', 'GONE');
+		open();
+		await run;
+		expect(await getOutboxFor('user-a')).toMatchObject([{ id: 'rep-1:user-a', answer: 'GONE' }]);
+		await syncNow();
+		expect(server.confirms.map((c) => c.answer)).toEqual(['STILL_THERE', 'GONE']);
+		expect(await getOutboxFor('user-a')).toEqual([]);
+	});
+
+	it('filing a report triggers a sync at once', async () => {
+		await signInAs('a');
+		const stop = startSync();
+		await syncNow();
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		await vi.waitFor(() => expect(server.reportPuts.map((p) => p.id)).toEqual([id]));
 		await syncNow();
 		stop();
 	});

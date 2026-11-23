@@ -212,3 +212,12 @@ export function api(): ReturnType<typeof createApiClient> | null {
 	const url = baseUrl();
 	return url ? createApiClient(url, getAccessToken, retryingFetch()) : null;
 }
+
+/**
+ * Client for public reads that never sends Authorization. An expired token sent to a public
+ * endpoint is refused with a 401, so a read that needs no account must not carry one.
+ */
+export function publicApi(): ReturnType<typeof createApiClient> | null {
+	const url = baseUrl();
+	return url ? createApiClient(url, () => null, fetchImpl) : null;
+}

@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction, type StoreNames } from 'idb';
 import type { Hike, RouteNotes } from '../data/types';
+import type { OutboxItem } from '../reports/types';
 import { convertJournal } from './convert';
 
 const DB_NAME = 'kaapspoor';
@@ -8,6 +9,7 @@ interface KaapSpoorDB extends DBSchema {
   hikes: { key: string; value: Hike; indexes: { byRoute: string } };
   routeNotes: { key: string; value: RouteNotes };
   meta: { key: string; value: unknown };
+  outbox: { key: string; value: OutboxItem; indexes: { byOwner: string } };
 }
 
 let dbPromise: Promise<IDBPDatabase<KaapSpoorDB>> | null = null;
@@ -16,7 +18,7 @@ let converter: typeof convertJournal = convertJournal;
 function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
   if (!dbPromise) {
     const convert = converter;
-    const opening = openDB<KaapSpoorDB>(DB_NAME, 3, {
+    const opening = openDB<KaapSpoorDB>(DB_NAME, 4, {
       // Everything runs in the one versionchange transaction, so a throw
       // aborts it and leaves the old database untouched.
       async upgrade(database, oldVersion, _newVersion, tx) {
@@ -29,6 +31,15 @@ function db(): Promise<IDBPDatabase<KaapSpoorDB>> {
           tx.done.catch(() => {});
           try { tx.abort(); } catch { /* already finished */ }
         }
+      },
+      // Another tab holds an older version open. Its blocking handler (from v4 on) closes it,
+      // and then this open goes ahead; there is nothing to do here but wait.
+      blocked() {},
+      // A newer version is opening in another tab: let go, or that tab's upgrade hangs.
+      // The next call here reopens, and fails cleanly if this tab's build is now too old.
+      blocking() {
+        if (dbPromise === opening) dbPromise = null;
+        void opening.then((d) => d.close(), () => {});
       }
     });
     dbPromise = opening;
@@ -48,23 +59,29 @@ async function migrate(
   tx: UpgradeTx,
   convert: typeof convertJournal
 ): Promise<void> {
-  // `journal` is a legacy store absent from the schema, hence the casts.
-  const legacy = oldVersion < 3 && database.objectStoreNames.contains('journal' as never);
-  const rows = legacy
-    ? await (tx as unknown as { objectStore(n: string): { getAll(): Promise<unknown[]> } })
-        .objectStore('journal').getAll()
-    : [];
+  // Each step runs only for databases older than it, so every version upgrades additively.
+  if (oldVersion < 3) {
+    // `journal` is a legacy store absent from the schema, hence the casts.
+    const legacy = database.objectStoreNames.contains('journal' as never);
+    const rows = legacy
+      ? await (tx as unknown as { objectStore(n: string): { getAll(): Promise<unknown[]> } })
+          .objectStore('journal').getAll()
+      : [];
 
-  const hikes = database.createObjectStore('hikes', { keyPath: 'id' });
-  hikes.createIndex('byRoute', 'routeId');
-  const notes = database.createObjectStore('routeNotes', { keyPath: 'routeId' });
-  database.createObjectStore('meta');
+    const hikes = database.createObjectStore('hikes', { keyPath: 'id' });
+    hikes.createIndex('byRoute', 'routeId');
+    const notes = database.createObjectStore('routeNotes', { keyPath: 'routeId' });
+    database.createObjectStore('meta');
 
-  if (legacy) {
-    const out = convert(rows, new Date().toISOString(), () => crypto.randomUUID());
-    for (const h of out.hikes) await hikes.put(h);
-    for (const n of out.routeNotes) await notes.put(n);
-    (database as unknown as { deleteObjectStore(n: string): void }).deleteObjectStore('journal');
+    if (legacy) {
+      const out = convert(rows, new Date().toISOString(), () => crypto.randomUUID());
+      for (const h of out.hikes) await hikes.put(h);
+      for (const n of out.routeNotes) await notes.put(n);
+      (database as unknown as { deleteObjectStore(n: string): void }).deleteObjectStore('journal');
+    }
+  }
+  if (oldVersion < 4) {
+    database.createObjectStore('outbox', { keyPath: 'id' }).createIndex('byOwner', 'owner');
   }
 }
 
@@ -95,6 +112,27 @@ export async function replaceAllData(d: { hikes: Hike[]; routeNotes: RouteNotes[
     ...d.routeNotes.map((n) => notes.put(n)),
     tx.done
   ]);
+}
+
+export async function putOutboxItem(item: OutboxItem): Promise<void> {
+  await (await db()).put('outbox', item);
+}
+
+export async function getOutboxItem(id: string): Promise<OutboxItem | undefined> {
+  return (await db()).get('outbox', id);
+}
+
+export async function deleteOutboxItem(id: string): Promise<void> {
+  await (await db()).delete('outbox', id);
+}
+
+/** One account's queued items, in no particular order. */
+export async function getOutboxFor(owner: string): Promise<OutboxItem[]> {
+  return (await db()).getAllFromIndex('outbox', 'byOwner', owner);
+}
+
+export async function getAllOutbox(): Promise<OutboxItem[]> {
+  return (await db()).getAll('outbox');
 }
 
 export async function getMeta<T>(key: string): Promise<T | undefined> {

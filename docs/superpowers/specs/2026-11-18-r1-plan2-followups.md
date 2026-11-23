@@ -6,6 +6,11 @@ These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026
 
 - **Import while signed in leaked to the next account.** `merge` now stamps `owner = viewer` on incoming hikes with no owner (which also fixes the self re-import that dropped the owner). Sync already never pushes another account's hike.
 
+## Fixed in plan 4
+
+- **Store creation gated by version.** The upgrade runs `if (oldVersion < 3) {…}` then `if (oldVersion < 4) {…}`, so v4 (the report outbox) upgrades a v3 database additively. Tested by upgrading a seeded v3 and by a fresh install.
+- **`blocking` handler.** An open connection closes when another tab opens a newer version, so that upgrade no longer hangs. A tab still running a pre-v4 build has no handler, so the fix helps from v4 on.
+
 ## Checks
 
 - **Run 2026-11-23 at 93d6a12:** subpath e2e 27 passed, 1 skipped (a data-conditional skip); `./mvnw verify` 73/73. Docker Desktop must be running first, or 71 tests error on Testcontainers.
@@ -33,8 +38,6 @@ These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026
 
 **Device storage (`db.ts`)**
 - **Lost error.** The upgrade's catch discards the original error.
-- **Fix before the next schema version:** gate store creation on `oldVersion < 3`.
-- **No `blocking` handler.** An old tab still holding v2 hangs the v3 open.
 - **Secure context needed.** `crypto.randomUUID` requires a secure context, so a plain-http LAN dev server would abort the upgrade.
 - **Weak failure tests.** They assert `rejects.toBeDefined()` rather than `AbortError`.
 

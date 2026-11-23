@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { openDB } from 'idb';
 import {
   putHike, getAllHikes, putRouteNotes, getAllRouteNotes, replaceAllData,
-  getMeta, setMeta, resetDbForTests
+  getMeta, setMeta, resetDbForTests, putOutboxItem, getOutboxFor
 } from './db';
 import type { Hike } from '../data/types';
 
@@ -22,6 +22,22 @@ async function seedV2() {
   await raw.put('journal', { routeId: 'c', done: true, date: null, notes: '' });
   raw.close();
 }
+
+async function seedV3() {
+  const raw = await openDB('kaapspoor', 3, {
+    upgrade(d) {
+      d.createObjectStore('hikes', { keyPath: 'id' }).createIndex('byRoute', 'routeId');
+      d.createObjectStore('routeNotes', { keyPath: 'routeId' });
+      d.createObjectStore('meta');
+    }
+  });
+  await raw.put('hikes', hike('h1'));
+  await raw.put('routeNotes', { routeId: 'r1', notes: 'plan', updatedAt: 'x' });
+  await raw.put('meta', 7, 'syncCursor:u');
+  raw.close();
+}
+
+const STORES = ['hikes', 'meta', 'outbox', 'routeNotes'];
 
 beforeEach(async () => {
   await resetDbForTests();
@@ -45,7 +61,7 @@ describe('hikes db', () => {
     expect(notes.map((n) => n.routeId).sort()).toEqual(['a', 'b']);
     await resetDbForTests();
     const raw = await openDB('kaapspoor');
-    expect(raw.version).toBe(3);
+    expect(raw.version).toBe(4);
     expect([...raw.objectStoreNames]).not.toContain('journal');
     raw.close();
   });
@@ -88,5 +104,54 @@ describe('hikes db', () => {
     expect(await getMeta('k')).toBeUndefined();
     await setMeta('k', { a: 1 });
     expect(await getMeta('k')).toEqual({ a: 1 });
+  });
+
+  it('upgrading 3 → 4 adds outbox and keeps hikes and routeNotes', async () => {
+    await seedV3();
+    await resetDbForTests();
+    expect(await getAllHikes()).toEqual([hike('h1')]);
+    expect(await getAllRouteNotes()).toEqual([{ routeId: 'r1', notes: 'plan', updatedAt: 'x' }]);
+    expect(await getMeta('syncCursor:u')).toBe(7);
+    await putOutboxItem({ id: 'o1', owner: 'u', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' });
+    expect((await getOutboxFor('u')).map((i) => i.id)).toEqual(['o1']);
+    await resetDbForTests();
+    const raw = await openDB('kaapspoor');
+    expect(raw.version).toBe(4);
+    expect([...raw.objectStoreNames].sort()).toEqual(STORES);
+    expect([...raw.transaction('outbox').store.indexNames]).toEqual(['byOwner']);
+    raw.close();
+  });
+
+  it('a fresh install creates every store', async () => {
+    expect(await getAllHikes()).toEqual([]);
+    await resetDbForTests();
+    const raw = await openDB('kaapspoor');
+    expect(raw.version).toBe(4);
+    expect([...raw.objectStoreNames].sort()).toEqual(STORES);
+    expect([...raw.transaction('hikes').store.indexNames]).toEqual(['byRoute']);
+    raw.close();
+  });
+
+  it("getOutboxFor returns only that owner's items", async () => {
+    await putOutboxItem({ id: 'a1', owner: 'a', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' });
+    await putOutboxItem({ id: 'b1', owner: 'b', createdAt: 't', kind: 'confirmation', reportId: 'x', answer: 'GONE' });
+    expect((await getOutboxFor('a')).map((i) => i.id)).toEqual(['a1']);
+  });
+
+  // This tab holds the open connection; a newer version opening in another tab fires
+  // versionchange here, and the blocking handler closes it so that open is not left hanging.
+  // (A tab still running the v3 build has no such handler; this fix helps from v4 on.)
+  it('an open v3 connection in another tab is closed on blocking, so the upgrade completes', async () => {
+    await getAllHikes(); // this tab's connection is open
+    let blocked = false;
+    const newer = openDB('kaapspoor', 5, { blocked() { blocked = true; } });
+    const raw = await Promise.race([
+      newer,
+      new Promise<null>((r) => setTimeout(() => r(null), 1000))
+    ]);
+    expect(raw).not.toBeNull();
+    expect(raw!.version).toBe(5);
+    expect(blocked).toBe(false);
+    raw!.close();
   });
 });

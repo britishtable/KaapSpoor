@@ -5,6 +5,7 @@ import { api, session } from '$lib/account/session';
 import { hikes, visibleHikes, applyServerHike, onLocalWrite, now } from '$lib/journal/store';
 import { getMeta, setMeta } from '$lib/journal/db';
 import { cleanPlan, cleanReview } from '$lib/journal/convert';
+import { flushOutbox, onOutboxWrite, OutboxOfflineError } from '$lib/reports/outbox';
 
 type ServerHike = components['schemas']['Hike'];
 type HikeWrite = components['schemas']['HikeWrite'];
@@ -146,10 +147,13 @@ async function runOnce(): Promise<void> {
 	setStatus(me, 'syncing');
 	try {
 		await push(client, me);
+		// After the hikes: a report may name a hike the server must already hold.
+		await flushOutbox(client, me);
+		stillSignedInAs(me);
 		await pull(client, me);
 		engine.set({ user: me, status: 'idle', lastSyncedAt: now() });
 	} catch (e) {
-		if (e instanceof Offline) setStatus(me, 'offline');
+		if (e instanceof Offline || e instanceof OutboxOfflineError) setStatus(me, 'offline');
 		else if (e instanceof Stop) setStatus(me, 'idle'); // signed out or switched user; that change triggers its own run
 		else setStatus(me, 'error');
 	}
@@ -202,6 +206,8 @@ export function startSync(): () => void {
 		if (timer) clearTimeout(timer);
 		timer = setTimeout(() => { timer = null; trigger(); }, DEBOUNCE_MS);
 	});
+	// A report or answer is one deliberate act, not typing: send it at once.
+	const offOutbox = onOutboxWrite(trigger);
 	const onVisible = () => { if (document.visibilityState === 'visible') trigger(); };
 	window.addEventListener('online', trigger);
 	document.addEventListener('visibilitychange', onVisible);
@@ -209,6 +215,7 @@ export function startSync(): () => void {
 	return () => {
 		offSession();
 		offWrite();
+		offOutbox();
 		if (timer) clearTimeout(timer);
 		window.removeEventListener('online', trigger);
 		document.removeEventListener('visibilitychange', onVisible);

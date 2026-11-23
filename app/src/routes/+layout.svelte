@@ -5,15 +5,16 @@
   import { hydrate } from '$lib/journal/store';
   import { restoreSession } from '$lib/account/session';
   import { startSync } from '$lib/sync/sync';
+  import { hydrateOutbox } from '$lib/reports/outbox';
   import ActiveHikeBanner from '$lib/components/ActiveHikeBanner.svelte';
   import type { LayoutProps } from './$types';
   let { children }: LayoutProps = $props();
   onMount(() => {
     restoreSession();
-    // Sync only once the local hikes are loaded, so the first push sees them.
+    // Sync only once the local hikes and queued reports are loaded, so the first run sees them.
     let stop: (() => void) | null = null;
     let gone = false;
-    hydrate().finally(() => { if (!gone) stop = startSync(); });
+    Promise.allSettled([hydrate(), hydrateOutbox()]).then(() => { if (!gone) stop = startSync(); });
     return () => { gone = true; stop?.(); };
   });
 </script>
