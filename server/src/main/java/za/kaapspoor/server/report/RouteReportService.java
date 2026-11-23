@@ -105,13 +105,15 @@ public class RouteReportService {
         return reports.findAllById(ids);
     }
 
-    /** The caller's own reports on a route that are still held back from the public. */
+    /**
+     * Every report the caller filed on a route, held or released, newest first. `held` says which
+     * the public can't see yet; the app uses the rest to know its own reports in the public list.
+     */
     @Transactional(readOnly = true)
-    public List<MyReport> myHeld(UUID userId, String routeId) {
+    public List<MyReport> mine(UUID userId, String routeId) {
         Instant now = clock.instant();
         return reports.findByRouteIdAndUserId(routeId, userId).stream()
                 .map(r -> reportService.view(r, now))
-                .filter(MyReport::held)
                 .sorted(Comparator.comparing(MyReport::observedAt).reversed())
                 .toList();
     }

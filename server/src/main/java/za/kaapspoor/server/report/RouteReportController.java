@@ -29,9 +29,9 @@ public class RouteReportController {
         return service.forRoute(routeId);
     }
 
-    /** The caller's own reports on a route that are still held; kept apart so the public path reads no token. */
+    /** All the caller's own reports on a route, each saying whether it is still held; kept apart so the public path reads no token. */
     @GetMapping("/reports/mine")
     public List<MyReport> mine(@AuthenticationPrincipal Jwt jwt, @RequestParam String routeId) {
-        return service.myHeld(UUID.fromString(jwt.getSubject()), routeId);
+        return service.mine(UUID.fromString(jwt.getSubject()), routeId);
     }
 }

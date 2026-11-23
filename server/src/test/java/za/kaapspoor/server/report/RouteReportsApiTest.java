@@ -198,20 +198,28 @@ class RouteReportsApiTest {
     }
 
     @Test
-    void mineShowsOwnHeldOnly() throws Exception {
+    void mineListsAllOwnReportsOnTheRouteWithHeldFlag() throws Exception {
         String a = register("A");
         String b = register("B");
         UUID hike = startHike(a);
-        UUID id = file(a, "OBSTRUCTION", "x", hike);
-        file(a, "WATER"); // released: not held, so not in mine
+        UUID heldId = file(a, "OBSTRUCTION", "x", hike);
+        clock.advance(60);
+        UUID releasedId = file(a, "WATER"); // released at once: no hike
+        file(b, "FIRE"); // another user's: never in A's mine
         JsonNode mineA = mine(a, "r");
-        assertEquals(1, mineA.size());
-        assertEquals(id.toString(), mineA.get(0).get("id").asText());
-        assertTrue(mineA.get(0).get("held").asBoolean());
-        assertEquals(0, mine(b, "r").size());
+        assertEquals(2, mineA.size());
+        assertEquals(releasedId.toString(), mineA.get(0).get("id").asText()); // newest first
+        assertFalse(mineA.get(0).get("held").asBoolean());
+        assertEquals(heldId.toString(), mineA.get(1).get("id").asText());
+        assertTrue(mineA.get(1).get("held").asBoolean());
+        JsonNode mineB = mine(b, "r");
+        assertEquals(1, mineB.size());
         assertEquals(0, mine(a, "s").size());
         putHike(a, hike, true);
-        assertEquals(0, mine(a, "r").size());
+        JsonNode after = mine(a, "r");
+        assertEquals(2, after.size());
+        assertFalse(after.get(0).get("held").asBoolean());
+        assertFalse(after.get(1).get("held").asBoolean());
     }
 
     @Test
@@ -270,7 +278,15 @@ class RouteReportsApiTest {
             assertFalse(r.get("id").asText().equals(held.toString()));
         }
         assertFalse(rawList("r").contains("Alice"));
-        assertEquals(1, mine(a, "r").size());
+        // The author still sees all 51 as theirs; only the cleared candidate is held.
+        JsonNode mineA = mine(a, "r");
+        assertEquals(51, mineA.size());
+        int heldCount = 0;
+        for (JsonNode r : mineA) if (r.get("held").asBoolean()) {
+            heldCount++;
+            assertEquals(held.toString(), r.get("id").asText());
+        }
+        assertEquals(1, heldCount);
     }
 
     @Test
