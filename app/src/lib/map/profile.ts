@@ -126,3 +126,36 @@ export function pointAtDistance(coords: Point3[], distanceM: number): Point {
   }
   return ground(coords[coords.length - 1]);
 }
+
+/**
+ * The nearest point on any segment of the line to `p`, with its distance in metres, or null for
+ * fewer than two points. Each segment is projected in a local flat plane around `p` (metres east
+ * and north), which is exact enough over the hundreds of metres a snap cares about; the distance
+ * reported is then a true haversine to the snapped point.
+ */
+export function nearestOnLine(
+  coords: Point3[], p: [number, number]
+): { point: [number, number]; distanceM: number } | null {
+  if (coords.length < 2) return null;
+  const mPerLat = 111_320;
+  const mPerLon = 111_320 * Math.cos((p[1] * Math.PI) / 180);
+  let best: [number, number] | null = null;
+  let bestSq = Infinity;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const ax = (coords[i][0] - p[0]) * mPerLon, ay = (coords[i][1] - p[1]) * mPerLat;
+    const bx = (coords[i + 1][0] - p[0]) * mPerLon, by = (coords[i + 1][1] - p[1]) * mPerLat;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+    const qx = ax + t * dx, qy = ay + t * dy;
+    const d2 = qx * qx + qy * qy;
+    if (d2 < bestSq) {
+      bestSq = d2;
+      best = [
+        coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
+        coords[i][1] + t * (coords[i + 1][1] - coords[i][1])
+      ];
+    }
+  }
+  return best ? { point: best, distanceM: haversineM(p, best) } : null;
+}

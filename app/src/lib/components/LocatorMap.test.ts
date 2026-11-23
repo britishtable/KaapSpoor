@@ -1,4 +1,4 @@
-import { render } from '@testing-library/svelte';
+import { render, fireEvent, screen } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // LocatorMap constructs a real maplibre-gl Map in onMount. Rather than rely on
@@ -53,15 +53,20 @@ vi.mock('maplibre-gl', () => {
       calls.push({ name: 'fitBounds', args });
       return this;
     }
+    unproject([x, y]: [number, number]) {
+      return { lng: 18 + x / 1000, lat: -34 - y / 1000 };
+    }
     remove() {}
   }
   class Marker {
-    setLngLat() {
+    setLngLat(p: unknown) {
+      calls.push({ name: 'markerAt', args: [p] });
       return this;
     }
     addTo() {
       return this;
     }
+    remove() {}
   }
   class AttributionControl {}
   return {
@@ -405,5 +410,24 @@ describe('LocatorMap scrub marker', () => {
     expect(() =>
       render(LocatorMap, { coords, title: 'X', routeId: 'a--b--c', scrubDistanceM: 500 })
     ).not.toThrow();
+  });
+});
+
+describe('LocatorMap pick mode', () => {
+  const coords = { lat: -33.9, lon: 18.4, zoom: 13 };
+
+  it('a tap calls onpick with [lon, lat] and marks the spot', async () => {
+    const onpick = vi.fn();
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', onpick });
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
+    expect(onpick).toHaveBeenCalledTimes(1);
+    expect(onpick.mock.calls[0][0]).toEqual([18.1, -34.05]);
+    expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(2); // the route pin, then the pick
+  });
+
+  it('without onpick a tap does nothing', async () => {
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c' });
+    await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
+    expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(1);
   });
 });

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
 import HikeLog from './HikeLog.svelte';
@@ -312,5 +312,39 @@ describe('HikeLog', () => {
     await replaceAll({ hikes: [stored('f', { date: '2999-01-01' })], routeNotes: [] });
     render(HikeLog, { routeId: 'r1' });
     expect(screen.queryByRole('button', { name: /review/i })).toBeNull();
+  });
+
+  describe('reporting', () => {
+    const signIn = () => {
+      const user = { id: 'u1', displayName: 'Thandi', initials: 'T' };
+      const sess = { accessToken: 'a', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r', user };
+      configureSession({ storage: { load: () => sess, save: () => {}, clear: () => {} }, baseUrl: 'http://srv' });
+      restoreSession();
+    };
+
+    it('an active hike shows Report something under Finish', async () => {
+      signIn();
+      try {
+        await startHike('r1');
+        const onreport = vi.fn();
+        render(HikeLog, { routeId: 'r1', onreport });
+        const finish = await screen.findByRole('button', { name: 'Finish hike' });
+        const report = screen.getByRole('button', { name: 'Report something' });
+        expect(finish.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        await fireEvent.click(report);
+        expect(onreport).toHaveBeenCalled();
+      } finally {
+        configureSession();
+      }
+    });
+
+    it('signed out shows the sign-in line instead', async () => {
+      await startHike('r1');
+      render(HikeLog, { routeId: 'r1' });
+      await screen.findByRole('button', { name: 'Finish hike' });
+      expect(screen.queryByRole('button', { name: 'Report something' })).toBeNull();
+      const link = screen.getByRole('link', { name: 'Sign in to report what you see.' });
+      expect(link.getAttribute('href')).toMatch(/\/account$/);
+    });
   });
 });

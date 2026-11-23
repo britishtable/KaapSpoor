@@ -4,6 +4,10 @@
   import StatsStrip from '$lib/components/StatsStrip.svelte';
   import RouteReviews from '$lib/components/RouteReviews.svelte';
   import HikeLog from '$lib/components/HikeLog.svelte';
+  import ReportForm from '$lib/components/ReportForm.svelte';
+  import { session } from '$lib/account/session';
+  import { activeHike } from '$lib/journal/store';
+  import { tick } from 'svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
@@ -93,6 +97,42 @@
     };
   });
 
+  // ---- reporting ----
+  let reporting = $state(false);
+  let reportEl = $state<HTMLElement>();
+  let mapEl = $state<HTMLElement>();
+  // The form asks the page to put the locator map in pick mode; the next tap resolves it.
+  let pickResolve = $state<((p: [number, number] | null) => void) | null>(null);
+  // The hike this report belongs to: only the one in progress on THIS route.
+  let reportHikeId = $derived($activeHike && $activeHike.routeId === r.id ? $activeHike.id : null);
+
+  function endPick(p: [number, number] | null): void {
+    const done = pickResolve;
+    pickResolve = null;
+    done?.(p);
+  }
+  function requestPick(): Promise<[number, number] | null> {
+    endPick(null);
+    return new Promise((resolve) => {
+      pickResolve = resolve;
+      mapEl?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    });
+  }
+  async function openReport(): Promise<void> {
+    reporting = true;
+    await tick();
+    reportEl?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }
+  function closeReport(): void {
+    endPick(null);
+    reporting = false;
+  }
+  // A different route is a different report.
+  $effect(() => {
+    r.id;
+    closeReport();
+  });
+
   function choose(choice: PlanChoice): void {
     // State AND address bar, together, so the two can never disagree about
     // what is on screen. replaceState rather than pushState: a dropdown is an
@@ -117,6 +157,7 @@
   <!-- Every route states how its position is known, in the same component the
        map's preview panel uses, so the two can never word it differently. -->
   {#if r.coords}
+    <div bind:this={mapEl}>
     <LocatorMap
       coords={r.coords}
       title={r.title}
@@ -125,7 +166,9 @@
       hasLine={r.hasLine}
       {scrubDistanceM}
       {lineCoords}
+      onpick={pickResolve ? (p) => endPick(p) : undefined}
     />
+    </div>
   {/if}
   <RoutePlan {plan} onchange={choose} />
   {#if r.hasLine}
@@ -145,7 +188,18 @@
 
   <RouteReviews routeId={r.id} />
 
-  <HikeLog routeId={r.id} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
+  <div class="report" bind:this={reportEl}>
+    {#if !$session}
+      <a class="btn wide" href="{base}/account">Sign in to report what you see.</a>
+    {:else if reporting}
+      <ReportForm routeId={r.id} {lineCoords} hasLocation={r.coords !== null} activeHikeId={reportHikeId}
+        onpickrequest={requestPick} onclose={closeReport} />
+    {:else}
+      <button type="button" class="wide" onclick={openReport}>Report something on this route</button>
+    {/if}
+  </div>
+
+  <HikeLog routeId={r.id} onreport={openReport} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
     plan={plan.choice.main
       ? {
           approach: plan.choice.approach ?? undefined,
@@ -165,5 +219,12 @@
   .page { padding: 1rem; max-width: 60rem; margin: 0 auto; }
   .crumb { opacity: 0.7; font-size: 0.9em; }
   .crumb a { color: inherit; }
+  .report { margin-top: 1.5rem; }
+  .report :global(.btn), .report > button {
+    min-height: 48px; padding: 0 1rem; font: inherit; cursor: pointer; box-sizing: border-box; width: 100%;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 0.4rem;
+    background: transparent; color: inherit; display: inline-flex; align-items: center; justify-content: center;
+    text-decoration: none;
+  }
   .src { margin-top: 2rem; font-size: 0.85em; opacity: 0.7; }
 </style>

@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   cumulativeDistanceM, totalDistanceM, totalAscentM, profilePoints, pointAtDistance,
   totalDescentM, reverseCoords,
-  ASCENT_THRESHOLD_M, type Point3
+  nearestOnLine, ASCENT_THRESHOLD_M, type Point3
 } from './profile';
+import { haversineM } from './snap';
 
 // A line running due east at a constant latitude: each step is ~92 m here.
 const flat: Point3[] = [
@@ -171,5 +172,33 @@ describe('totalDescentM', () => {
     // that round trip never actually walks the line backwards.
     const coords = at([44, 22, 17, 22, 55, 52, 25]);
     expect(totalDescentM(reverseCoords(coords))).toBe(totalAscentM(coords));
+  });
+});
+
+describe('nearestOnLine', () => {
+  it('projects onto a segment interior', () => {
+    // Due-east line; a point 0.0005 deg north of the middle of the first segment.
+    const hit = nearestOnLine(flat, [18.4005, -33.9995]);
+    expect(hit).not.toBeNull();
+    expect(hit!.point[0]).toBeCloseTo(18.4005, 5);
+    expect(hit!.point[1]).toBeCloseTo(-34.0, 5);
+    expect(hit!.distanceM).toBeGreaterThan(50);
+    expect(hit!.distanceM).toBeLessThan(60);
+  });
+
+  it('returns null for one point', () => {
+    expect(nearestOnLine([[18.4, -34.0]], [18.4, -34.0])).toBeNull();
+    expect(nearestOnLine([], [18.4, -34.0])).toBeNull();
+  });
+
+  it('distanceM is metres', () => {
+    const p: [number, number] = [18.4012, -33.9991];
+    const hit = nearestOnLine(flat, p)!;
+    expect(Math.abs(hit.distanceM - haversineM(p, hit.point))).toBeLessThan(1);
+  });
+
+  it('clamps to the end of the line', () => {
+    const hit = nearestOnLine(flat, [18.41, -34.0])!;
+    expect(hit.point).toEqual([18.402, -34.0]);
   });
 });

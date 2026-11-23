@@ -8,11 +8,14 @@
   import { DIFFICULTY_WORDS } from '../reviews/reviews';
   import ReviewForm from './ReviewForm.svelte';
   import { syncState } from '../sync/sync';
+  import { session } from '../account/session';
   import { DIFFICULTY_GRADED, DIFFICULTY_UNGRADED } from '../data/types';
   import type { Hike, JournalPlan, Review, Visibility } from '../data/types';
 
-  let { routeId, plan, graded = false, gradeLevel = null }: {
+  let { routeId, plan, graded = false, gradeLevel = null, onreport }: {
     routeId: string; plan?: JournalPlan; graded?: boolean; gradeLevel?: string | null;
+    /** Opens the page's report form; the form itself lives on the page, beside the map it can pick from. */
+    onreport?: () => void;
   } = $props();
 
   let hikes = $derived(hikesForRoute(routeId));
@@ -207,6 +210,11 @@
   {#if activeHere && active}
     <p class="since">Hike in progress since {formatTime(active.startedAt ?? active.updatedAt)}</p>
     <button type="button" class="wide primary" onclick={finish}>Finish hike</button>
+    {#if $session}
+      <button type="button" class="wide" onclick={() => onreport?.()}>Report something</button>
+    {:else}
+      <a class="btn wide" href="{base}/account">Sign in to report what you see.</a>
+    {/if}
   {:else if activeElsewhere && active}
     <p class="since">You're on a hike on another route.</p>
     <a class="btn wide" href="{base}/route/{active.routeId}">Go to it</a>

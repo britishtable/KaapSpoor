@@ -39,7 +39,12 @@
      * to the page's would only need to be re-aligned with it, not made
      * impossible to disagree with. Defaults to empty for callers with no line.
      */
-    lineCoords = []
+    lineCoords = [],
+    /**
+     * When set, the map is in pick mode: a tap calls this with [lon, lat] and leaves a temporary
+     * marker there. Unset, the map behaves exactly as before.
+     */
+    onpick = undefined
   }: {
     coords: Coords;
     title: string;
@@ -48,10 +53,40 @@
     hasLine?: boolean;
     scrubDistanceM?: number | null;
     lineCoords?: Point3[];
+    onpick?: (p: [number, number]) => void;
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
   let mapLoaded = $state(false);
+  let pickMarker: Marker | undefined;
+
+  // Pick mode. The map is non-interactive (so it cannot hijack page scroll), which also means it
+  // raises no click events of its own; a plain DOM click on the container is unprojected instead.
+  $effect(() => {
+    const pick = onpick;
+    if (!pick || !container) return;
+    const el = container;
+    const tap = (e: MouseEvent) => {
+      if (!map) return;
+      const rect = el.getBoundingClientRect();
+      const { lng, lat } = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      try {
+        pickMarker?.remove();
+        pickMarker = new Marker({ color: '#3f2d1d' }).setLngLat([lng, lat]).addTo(map);
+      } catch (err) {
+        console.warn('LocatorMap: could not add pick marker', err);
+      }
+      pick([lng, lat]);
+    };
+    el.addEventListener('click', tap);
+    el.classList.add('picking');
+    return () => {
+      el.removeEventListener('click', tap);
+      el.classList.remove('picking');
+      try { pickMarker?.remove(); } catch { /* never painted */ }
+      pickMarker = undefined;
+    };
+  });
 
   $effect(() => {
     const at = scrubDistanceM;
@@ -241,6 +276,7 @@
 
 <style>
   .locator-figure { margin: 1rem 0; }
+  .locator:global(.picking) { cursor: crosshair; outline: 3px solid #c2410c; outline-offset: 2px; }
   .locator {
     height: 14rem;
     border-radius: 8px;
