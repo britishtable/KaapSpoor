@@ -253,7 +253,9 @@ These describe **the day**: something true now that may not be true next week.
   reveals where someone is right now.
   - A held report is visible only to its author and to admins.
   - It is released when the reporter taps **Finish hike** (§7.5).
-  - **Fallback if they forget** (my call): release 12 hours after `observedAt`.
+  - **Fallback if they forget** (my call): release 12 hours after the later of `observedAt` and when
+    the server received the report, so a back-dated or late-uploaded report is never public mid-hike
+    (amended in plan 4).
   - Released reports still display `observedAt` ("seen 3 hours ago"), so the delay never
     misrepresents freshness.
   - A report filed after the hike, from home, is released immediately.
