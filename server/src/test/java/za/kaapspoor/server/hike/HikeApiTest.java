@@ -40,24 +40,24 @@ import za.kaapspoor.server.TestcontainersConfig;
 @AutoConfigureMockMvc
 @Import({TestcontainersConfig.class, HikeApiTest.TestClockConfig.class})
 @ActiveProfiles("test")
-class HikeApiTest {
+public class HikeApiTest {
 
     /** A clock the tests can move. It starts at the real time so issued JWTs stay valid. */
-    static class MutableClock extends Clock {
+    public static class MutableClock extends Clock {
         private volatile Instant now = Instant.now();
 
-        void reset() { now = Instant.now().truncatedTo(ChronoUnit.MILLIS); }
-        void advance(long seconds) { now = now.plusSeconds(seconds); }
+        public void reset() { now = Instant.now().truncatedTo(ChronoUnit.MILLIS); }
+        public void advance(long seconds) { now = now.plusSeconds(seconds); }
         @Override public ZoneId getZone() { return ZoneOffset.UTC; }
         @Override public Clock withZone(ZoneId zone) { return this; }
         @Override public Instant instant() { return now; }
     }
 
     @TestConfiguration
-    static class TestClockConfig {
+    public static class TestClockConfig {
         @Bean
         @Primary
-        MutableClock testClock() {
+        public MutableClock testClock() {
             return new MutableClock();
         }
     }

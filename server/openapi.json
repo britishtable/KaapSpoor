@@ -1,6 +1,26 @@
 {
   "components" : {
     "schemas" : {
+      "Counts" : {
+        "properties" : {
+          "answered" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "counts" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [
+          "answered",
+          "counts"
+        ],
+        "type" : "object"
+      },
       "Hike" : {
         "properties" : {
           "date" : {
@@ -297,6 +317,74 @@
         ],
         "type" : "object"
       },
+      "PublicReview" : {
+        "properties" : {
+          "dateRecorded" : {
+            "type" : "boolean"
+          },
+          "difficulty" : {
+            "enum" : [
+              "EASIER",
+              "AS_GRADED",
+              "HARDER",
+              "EASY",
+              "MODERATE",
+              "HARD"
+            ],
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "enjoyment" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "month" : {
+            "description" : "yyyy-MM",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "navigation" : {
+            "enum" : [
+              "OBVIOUS",
+              "TRICKY_JUNCTIONS",
+              "GOT_LOST"
+            ],
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "safety" : {
+            "enum" : [
+              "YES",
+              "MOSTLY",
+              "NO"
+            ],
+            "type" : "string"
+          },
+          "safetyNote" : {
+            "type" : "string"
+          },
+          "water" : {
+            "enum" : [
+              "NONE",
+              "SEASONAL",
+              "RELIABLE"
+            ],
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "dateRecorded",
+          "displayName",
+          "month"
+        ],
+        "type" : "object"
+      },
       "RefreshToken" : {
         "properties" : {
           "refreshToken" : {
@@ -379,6 +467,95 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "ReviewSummary" : {
+        "properties" : {
+          "difficulty" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Counts"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "enjoyment" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Counts"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "navigation" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Counts"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "safety" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Counts"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "water" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Counts"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          }
+        },
+        "required" : [
+          "difficulty",
+          "enjoyment",
+          "navigation",
+          "safety",
+          "water"
+        ],
+        "type" : "object"
+      },
+      "RouteReviews" : {
+        "properties" : {
+          "graded" : {
+            "type" : "boolean"
+          },
+          "people" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "reviews" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PublicReview"
+            },
+            "type" : "array"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/ReviewSummary"
+          }
+        },
+        "required" : [
+          "graded",
+          "people",
+          "reviews",
+          "summary"
+        ],
         "type" : "object"
       },
       "TokenPair" : {
@@ -697,6 +874,36 @@
         },
         "tags" : [
           "me-controller"
+        ]
+      }
+    },
+    "/api/v1/routes/{routeId}/reviews" : {
+      "get" : {
+        "operationId" : "reviews",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "routeId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RouteReviews"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "route-review-controller"
         ]
       }
     }

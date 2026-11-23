@@ -132,10 +132,33 @@ export interface paths {
         patch: operations["update"];
         trace?: never;
     };
+    "/api/v1/routes/{routeId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Counts: {
+            /** Format: int32 */
+            answered: number;
+            counts: {
+                [key: string]: number;
+            };
+        };
         Hike: {
             /** Format: date */
             date: string | null;
@@ -209,6 +232,24 @@ export interface components {
             /** @enum {string} */
             provider: "GOOGLE" | "APPLE";
         };
+        PublicReview: {
+            dateRecorded: boolean;
+            /** @enum {string} */
+            difficulty?: "EASIER" | "AS_GRADED" | "HARDER" | "EASY" | "MODERATE" | "HARD";
+            displayName: string;
+            /** Format: int32 */
+            enjoyment?: number;
+            /** @description yyyy-MM */
+            month: string | null;
+            /** @enum {string} */
+            navigation?: "OBVIOUS" | "TRICKY_JUNCTIONS" | "GOT_LOST";
+            note?: string;
+            /** @enum {string} */
+            safety?: "YES" | "MOSTLY" | "NO";
+            safetyNote?: string;
+            /** @enum {string} */
+            water?: "NONE" | "SEASONAL" | "RELIABLE";
+        };
         RefreshToken: {
             refreshToken: string;
         };
@@ -230,6 +271,20 @@ export interface components {
             safetyNote?: string;
             /** @enum {string} */
             water?: "NONE" | "SEASONAL" | "RELIABLE";
+        };
+        ReviewSummary: {
+            difficulty: components["schemas"]["Counts"] | null;
+            enjoyment: components["schemas"]["Counts"] | null;
+            navigation: components["schemas"]["Counts"] | null;
+            safety: components["schemas"]["Counts"] | null;
+            water: components["schemas"]["Counts"] | null;
+        };
+        RouteReviews: {
+            graded: boolean;
+            /** Format: int32 */
+            people: number;
+            reviews: components["schemas"]["PublicReview"][];
+            summary: components["schemas"]["ReviewSummary"];
         };
         TokenPair: {
             /** Format: date-time */
@@ -465,6 +520,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteReviews"];
                 };
             };
         };

@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                         .requestMatchers("/api/v1/auth/**", "/actuator/health", "/v3/api-docs/**", "/swagger-ui/**")
                         .permitAll()
+                        // Route reviews are public reading; the response itself carries no private data.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/routes/*/reviews").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
                 .oauth2ResourceServer(rs -> rs
