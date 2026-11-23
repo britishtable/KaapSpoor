@@ -210,6 +210,40 @@ describe('HikeLog', () => {
     expect(screen.queryByRole('button', { name: 'Save review' })).toBeNull();
   });
 
+  it('the hike form says reviews are public and a Public hike shows its month', async () => {
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Log a past hike' }));
+    expect(screen.getByText("Only you can see your hikes. Reviews are public; a Public hike's month shows on its review.")).toBeTruthy();
+    expect(screen.queryByText(/For now only you/)).toBeNull();
+  });
+
+  it('a finished hike that is locked to another account offers no review', async () => {
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+    const id = get(visibleHikes)[0].id;
+    await screen.findByRole('button', { name: 'Review the route' });
+    viewer.set(null);
+    await replaceAll({ hikes: [{ ...get(visibleHikes)[0], id, owner: 'u1' }], routeNotes: [] });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Review the route' })).toBeNull());
+  });
+
+  it('moving a reviewed hike into the future says why and keeps the form', async () => {
+    await replaceAll({ hikes: [stored('a', { review: { enjoyment: 4 } })], routeNotes: [] });
+    render(HikeLog, { routeId: 'r1' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const t = new Date();
+    t.setDate(t.getDate() + 1); // the date field allows tomorrow, which a review does not
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const tomorrow = `${t.getFullYear()}-${p2(t.getMonth() + 1)}-${p2(t.getDate())}`;
+    await fireEvent.input(screen.getByLabelText('Date'), { target: { value: tomorrow } });
+    await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'my typing' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save hike' }));
+    await screen.findByText("This hike has a review, so its date can't be in the future. Pick another date or remove the review.");
+    expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('my typing');
+    expect(screen.queryByText(/Couldn't save that on this device/)).toBeNull();
+  });
+
   it('an active hike offers no review', async () => {
     await startHike('r1');
     render(HikeLog, { routeId: 'r1' });

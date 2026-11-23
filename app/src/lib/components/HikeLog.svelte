@@ -137,8 +137,10 @@
         await updateHike(formFor, { date, notes: fNotes, visibility: fVis, notesVisibility: fNotesVis });
       }
       closeForm();
-    } catch {
-      error = "Couldn't save that on this device. Your entry is still here.";
+    } catch (e) {
+      error = e instanceof ReviewNotAllowedError
+        ? "This hike has a review, so its date can't be in the future. Pick another date or remove the review."
+        : "Couldn't save that on this device. Your entry is still here.";
     }
   }
 
@@ -193,7 +195,7 @@
         <option value="PRIVATE">Private</option><option value="FRIENDS">Friends</option><option value="PUBLIC">Public</option>
       </select>
     </div>
-    <p class="hint">For now only you can see your hikes. This choice applies once sharing arrives.</p>
+    <p class="hint">Only you can see your hikes. Reviews are public; a Public hike's month shows on its review.</p>
     <div class="row">
       <button type="submit" class="primary">Save hike</button>
       <button type="button" onclick={closeForm}>Cancel</button>
@@ -210,7 +212,7 @@
     <a class="btn wide" href="{base}/route/{active.routeId}">Go to it</a>
   {:else}
     {#if finished}<p class="since" role="status">Hike finished. Nice one.</p>{/if}
-    {#if finishedHike && !finishedHike.review && formFor === null && canReview(finishedHike, today)}
+    {#if finishedHike && !finishedHike.review && !isLocked(finishedHike, $viewer) && formFor === null && canReview(finishedHike, today)}
       <button type="button" class="wide" onclick={() => openReview(finishedHike)}>Review the route</button>
     {/if}
     <button type="button" class="wide primary" onclick={start}>Start hike</button>

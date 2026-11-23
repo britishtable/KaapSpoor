@@ -139,6 +139,7 @@
       </button>
     {/if}
   </div>
+  <p class="public">Reviews are public, under your display name. A private hike's date is never shown.</p>
   <button type="submit" class="primary wide" disabled={problem !== null}>Save review</button>
 </form>
 
@@ -163,6 +164,7 @@
   .primary { background: #c2410c; border-color: #c2410c; color: #fff; font-weight: 600; }
   .primary:disabled { opacity: 0.45; cursor: default; }
   .danger { border-color: var(--ks-error); color: var(--ks-error); }
+  .public { margin: 0; opacity: 0.8; font-size: 0.9rem; }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .field { display: grid; gap: 0.3rem; }
   .field label { font-weight: 600; }

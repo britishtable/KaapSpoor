@@ -126,6 +126,13 @@ describe('ReviewForm', () => {
     expect(onsave).toHaveBeenCalledWith(null);
   });
 
+  it('says reviews are public before Save', () => {
+    setup();
+    const line = screen.getByText("Reviews are public, under your display name. A private hike's date is never shown.");
+    const save = screen.getByRole('button', { name: 'Save review' });
+    expect(line.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('Cancel calls oncancel', async () => {
     const { oncancel } = setup();
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

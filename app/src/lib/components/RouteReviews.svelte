@@ -65,7 +65,7 @@
         {/each}
       </ul>
       {#if !all && loaded.reviews.length > SHOWN}
-        <button type="button" onclick={() => (all = true)}>Show all {loaded.reviews.length}</button>
+        <button type="button" onclick={() => (all = true)}>Show {loaded.reviews.length - SHOWN} more</button>
       {/if}
     {/if}
   </section>
@@ -82,6 +82,7 @@
   dd { margin: 0; }
   .list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.9rem; }
   .list li { display: grid; gap: 0.2rem; }
+  .who { overflow-wrap: anywhere; }
   .ans { font-weight: 600; }
   .text { overflow-wrap: anywhere; white-space: pre-wrap; max-width: 65ch; }
   button {

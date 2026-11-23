@@ -49,13 +49,14 @@ describe('RouteReviews', () => {
     await screen.findByText('March 2026');
     expect(screen.getByText('Date not recorded')).toBeTruthy();
   });
-  it('Show all reveals the rest', async () => {
-    ok({ graded: false, people: 7, summary: empty, reviews: Array.from({ length: 7 }, (_, i) => rev(i + 1)) });
+  it('Show more reveals the rest and counts only what is listed', async () => {
+    ok({ graded: false, people: 9, summary: empty, reviews: Array.from({ length: 7 }, (_, i) => rev(i + 1)) });
     render(RouteReviews, { routeId: 'r1' });
     await screen.findByText('Walker 1');
     expect(screen.queryByText('Walker 6')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Show all 7' }));
-    expect(screen.getByText('Walker 7')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Show all/ })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Show 2 more' }));
+    expect(screen.getByText('Walker 7')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull();
   });
 });
