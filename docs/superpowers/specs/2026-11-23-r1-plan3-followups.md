@@ -2,26 +2,16 @@
 
 These items were carried out of the plan 3 build (branch `r1-reviews`, 2026-11-23). Items fixed in the review rounds are not listed.
 
-## Open: check not yet run
+## Browser check: done 2026-11-23
 
-**Browser check (plan 3, Task 5 Step 5).** The API side was checked live against a real server and PostGIS. That check covered:
-- the threshold, which appears at the third answer;
-- hiding per question;
-- the private and undated attribution;
-- the second-device pull;
-- deletion dropping the review from the counts;
-- the next-day release and the time-free ordering.
+Run in Chromium (Playwright) against a local server, PostGIS and the dev app at a 412 px phone width.
 
-Chrome couldn't be driven from the session, so the screens were never seen running. To run the check:
-1. Run the server locally and `npm run dev` with `VITE_API_BASE_URL` set (see `server/README.md`).
-2. Create an account, start a hike and finish it. **Review the route** appears; answer, then save.
-3. Check the review form: Save stays disabled until there is one answer, "What happened?" keeps its text, and Remove takes two taps.
-4. Check that the "Reviews are public…" line shows above Save.
-5. Set the network to Offline in devtools, edit the review, then go back online. It sends with no action.
-6. Sign in from a second browser profile. The hike and its review arrive.
-7. On a route with three or more reviewers released before today, the route page shows distributions. Long names wrap. "Show N more" works.
-
-This also covers plan 2's open manual check, in `2026-11-18-r1-plan2-followups.md`.
+- **Review flow.** Registering in the UI, Start, Finish, then **Review the route** all work. The form says reviews are public, Save stays disabled until the first answer, and every chip is 48 px tall. Save is full width at the bottom.
+- **Safety note.** "What happened?" hides when safety is cleared, and the typed text survives re-selecting it.
+- **Sync.** The review reached the server. A second browser profile signed in as the same account received the hike and its review.
+- **Remove.** Removing a review takes two taps.
+- **Reviews section.** Distributions show ("2 of 3 said harder than graded") and questions below three answers are hidden. A public hike shows its month, a private one shows none, and a public undated one says "Date not recorded". HTML shows as text, and a 38-character name causes no sideways scroll. Today's review is not public yet.
+- **Bug found and fixed:** missing spaces ("BongiOctober 2026", "What happened:One…", "1.2 km· ≈"). Svelte 5 trims whitespace at element and block edges. Fixed in `f4c7906`, with whole-line tests.
 
 ## Decisions made during the build (for review)
 

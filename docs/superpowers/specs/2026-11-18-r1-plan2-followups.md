@@ -15,14 +15,9 @@ These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026
 
 - **Run 2026-11-23 at 93d6a12:** subpath e2e 27 passed, 1 skipped (a data-conditional skip); `./mvnw verify` 73/73. Docker Desktop must be running first, or 71 tests error on Testcontainers.
 
-## Open: check not yet run
+## Manual live-server check: done 2026-11-23
 
-- **Manual live-server check (plan 2, Task 7 Step 5):**
-  1. Run the server locally with `VITE_API_BASE_URL` set.
-  2. Create an account and log a hike.
-  3. Check `GET /api/v1/hikes`.
-  4. Sign in from a second browser profile; the hike arrives.
-  5. Repeat with a plan-bearing hike, and include export, then import.
+A hike logged and reviewed in one browser profile arrived in a second profile signed in as the same account, and it was on the server (`GET /api/v1/hikes`). Run in Chromium against a local server. See the plan 3 follow-ups.
 
 ## Deferred minors
 

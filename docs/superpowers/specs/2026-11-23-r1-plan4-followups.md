@@ -2,26 +2,19 @@
 
 These items were carried out of the plan 4 build (branch `r1-reports`, 2026-11-23). Items fixed in the review rounds are not listed.
 
-## Open: check not yet run
+## Browser check: done 2026-11-23
 
-**Browser check (plan 4, Task 6 Step 5).** The API was checked live against a real server and PostGIS:
-- A report filed mid-hike was held: invisible to the public and to another user's `/mine`, and a 404 to confirmation.
-- It was released with the reporter's name on Finish.
-- One "gone" didn't clear it, even twice from the same person. Two different people did, and so did the reporter alone.
-- A cleared report refused further answers (409).
-- A report filed from home was public at once.
-- A safety report stayed unverified until someone else answered "still there".
+Run in Chromium (Playwright) against a local server, PostGIS and the dev app at a 412 px phone width.
 
-That run used the build before the final fix wave. The final wave's server changes are covered by tests: any active hike holds a report, and the fallback counts from receipt.
-
-The screens have never been seen running, because Chrome couldn't be driven from the session. Run this together with plan 3's owed browser check (`2026-11-23-r1-plan3-followups.md`):
-1. **Report and pin.** Account A starts a hike and reports a fallen tree, using "Use my location" or picking the spot on the map. The form stays open while picking, and the spot stays marked.
-2. **Held, then released.** Account B, in a second browser profile, doesn't see the report. A finishes, and B sees it with "Seen … ago" and a pin. Tapping the pin scrolls to the report.
-3. **Cleared.** B answers Gone, then account C answers Gone. The report moves to "Earlier reports" as Cleared.
-4. **Offline.** Set the network to Offline in devtools, file a report, then go back online. It sends with no action.
-5. **Another route.** During a hike on route X, report on route Y. The form says it will show once you finish, and the report isn't public until X finishes.
-6. **Upgrade banner.** With an old tab open, load the new build. The banner says "Close other KaapSpoor tabs to finish updating."
-7. **Contrast.** Measure AA contrast for `.hint` and `.age` (stacked opacity) in light and dark themes.
+- **Filing mid-hike.** A map pick keeps the form and its input and snaps to the route. The saved line promises release on finish, and the server holds the report. Another account sees nothing, and the reporter sees it under the held line.
+- **Release.** Finish releases the report. Another account then sees "Seen just now" and "Reported by …", and the pin sits on the route line.
+- **Clearing.** Two different accounts answering Gone clear the report, and it moves to "Earlier reports (1)".
+- **Offline.** Filed offline, the report says "Will send when you have signal" and isn't on the server. Back online, it sent with no action.
+- **Another route.** During a hike on X, a report on Y shows the finish line and isn't public. Finishing X releases it.
+- **Use my location.** A fix about 33 m from the line is snapped. One about 450 m away is "Marked where you are". With permission denied, a calm message shows and the note is kept.
+- **Contrast.** Light theme: the worst muted text is 7.9:1. Dark theme: white at 75–80 % opacity on the browser's dark canvas, about 10:1.
+- **Not run live:** the upgrade banner (it needs a real old-build tab; covered by fake-indexeddb tests) and tapping a pin to scroll.
+- **Noticed, outside these plans:** the OpenStreetMap attribution box covers much of the small route map on a phone.
 
 ## Decisions made during the build (for review)
 
