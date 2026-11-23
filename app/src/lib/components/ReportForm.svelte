@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { fileReport, pendingOutbox, SignInRequiredError } from '$lib/reports/outbox';
   import { CATEGORIES, CATEGORY_LABELS, SAFETY_GUIDANCE, NOTE_MAX } from '$lib/reports/labels';
   import type { Category } from '$lib/reports/types';
   import { nearestOnLine, type Point3 } from '$lib/map/profile';
 
-  let { routeId, lineCoords, hasLocation, activeHikeId, onpickrequest, onclose }: {
+  let { routeId, lineCoords, hasLocation, activeHikeId, onpickrequest, oncancelpick, onspot, onclose }: {
     routeId: string;
     /** The plan the page already resolved; empty when the route has no drawn line. */
     lineCoords: Point3[];
@@ -12,6 +13,10 @@
     activeHikeId: string | null;
     /** Puts the page's map in pick mode; resolves with [lon, lat] once tapped, or null if abandoned. */
     onpickrequest: () => Promise<[number, number] | null>;
+    /** Called when a pick in progress is abandoned (another Where choice, or closing). */
+    oncancelpick?: () => void;
+    /** The spot the form currently holds (snapped if snapped), or null; for the page to mark on the map. */
+    onspot?: (p: [number, number] | null) => void;
     onclose: () => void;
   } = $props();
 
@@ -28,7 +33,7 @@
   let note = $state('');
   let when = $state<'now' | 'earlier'>('now');
   let earlier = $state('');
-  let where = $state<Where | null>(untrackedDefault());
+  let where = $state<Where | null>('none');
   let fix = $state<Fix | null>(null);
   let busy = $state(false);
   let whereError = $state('');
@@ -37,9 +42,13 @@
   let savedId = $state<string | null>(null);
   let wantId = 0;
 
-  function untrackedDefault(): Where | null {
-    return hasLocation ? null : 'none';
-  }
+  let heading = $state<HTMLElement>();
+  let doneButton = $state<HTMLElement>();
+  onMount(() => heading?.focus());
+  $effect(() => { onspot?.(fix ? fix.point : null); });
+  $effect(() => {
+    if (savedId && doneButton) doneButton.focus();
+  });
 
   const pad = (n: number) => String(n).padStart(2, '0');
   const local = (d: Date) =>
@@ -60,13 +69,13 @@
   });
   let ready = $derived(category !== undefined && observedAt !== null && !busy && !saving);
 
-  function arrow(e: KeyboardEvent, count: number, index: number, choose: (i: number) => void): void {
+  function arrow(e: KeyboardEvent, count: number, index: number, choose: ((i: number) => void) | null): void {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
       : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (step === 0) return;
     e.preventDefault();
     const next = (index + step + count) % count;
-    choose(next);
+    choose?.(next);
     const group = (e.currentTarget as HTMLElement).parentElement;
     queueMicrotask(() => (group?.children[next] as HTMLElement | undefined)?.focus());
   }
@@ -75,6 +84,7 @@
   function place(p: [number, number], from: 'gps' | 'map'): void {
     if (!inArea(p)) {
       fix = null;
+      where = null;
       whereError = "That spot is outside the area KaapSpoor covers, so it wasn't marked.";
       return;
     }
@@ -83,7 +93,8 @@
   }
 
   function chooseWhere(w: Where): void {
-    if (where === w && w !== 'gps') return;
+    if (where === w && w === 'none') return;
+    if (where === 'map' && w !== 'map') oncancelpick?.();
     const mine = ++wantId;
     where = w;
     fix = null;
@@ -148,7 +159,7 @@
   );
 </script>
 
-{#snippet chips<T extends string>(id: string, title: string, options: { value: T; label: string }[], current: T | null | undefined, set: (v: T) => void)}
+{#snippet chips<T extends string>(id: string, title: string, options: { value: T; label: string }[], current: T | null | undefined, set: (v: T) => void, activateOnArrow = true)}
   <div class="q">
     <p class="qh" id="rp-{id}">{title}</p>
     <div class="chips" role="radiogroup" aria-labelledby="rp-{id}">
@@ -156,7 +167,7 @@
         <button type="button" role="radio" class="chip" aria-checked={current === o.value}
           tabindex={current === o.value || ((current === undefined || current === null) && i === 0) ? 0 : -1}
           onclick={() => set(o.value)}
-          onkeydown={(e) => arrow(e, options.length, i, (n) => set(options[n].value))}>
+          onkeydown={(e) => arrow(e, options.length, i, activateOnArrow ? (n) => set(options[n].value) : null)}>
           {o.label}
         </button>
       {/each}
@@ -168,10 +179,11 @@
   <section class="report saved" aria-label="Report">
     <p class="done" role="status">{activeHikeId ? 'Saved. It will show once you finish your hike.' : 'Saved.'}</p>
     {#if queued}<p class="hint">Will send when you have signal</p>{/if}
-    <button type="button" class="wide" onclick={onclose}>Done</button>
+    <button type="button" class="wide" bind:this={doneButton} onclick={onclose}>Done</button>
   </section>
 {:else}
-  <form class="report" onsubmit={submit} aria-label="Report something on this route">
+  <form class="report" onsubmit={submit} aria-labelledby="rp-title">
+    <h3 id="rp-title" class="title" tabindex="-1" bind:this={heading}>Report something on this route</h3>
     {@render chips<Category>('category', 'What did you see?',
       CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] })), category, (v) => (category = v))}
     {#if category === 'SAFETY'}<p class="guide">{SAFETY_GUIDANCE}</p>{/if}
@@ -195,9 +207,9 @@
     {#if hasLocation}
       {@render chips<Where>('where', 'Where?',
         [{ value: 'gps', label: 'Use my location' }, { value: 'map', label: 'Pick on the map' }, { value: 'none', label: 'No exact spot' }],
-        where, chooseWhere)}
+        where, chooseWhere, false)}
     {:else}
-      {@render chips<Where>('where', 'Where?', [{ value: 'none', label: 'No exact spot' }], where, chooseWhere)}
+      {@render chips<Where>('where', 'Where?', [{ value: 'none', label: 'No exact spot' }], where, chooseWhere, false)}
       <p class="hint">This route has no map position, so the report describes the whole route.</p>
     {/if}
     <p class="status" role="status">
@@ -215,6 +227,8 @@
 
 <style>
   .report { display: grid; gap: 1rem; }
+  .title { margin: 0; font-size: 1.1rem; }
+  .title:focus { outline: none; }
   .q { display: grid; gap: 0.4rem; }
   .qh { margin: 0; font-weight: 600; }
   .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }

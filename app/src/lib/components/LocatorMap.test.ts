@@ -430,4 +430,19 @@ describe('LocatorMap pick mode', () => {
     await fireEvent.click(screen.getByTestId('locator-map'), { clientX: 100, clientY: 50 });
     expect(calls.filter((c) => c.name === 'markerAt')).toHaveLength(1);
   });
+
+  it('keeps the chosen spot marked via the spot prop', () => {
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', spot: [18.41, -33.95] });
+    expect(calls.filter((c) => c.name === 'markerAt').map((c) => c.args[0])).toContainEqual([18.41, -33.95]);
+  });
+
+  it('ignores a tap that lands on a map control', async () => {
+    const onpick = vi.fn();
+    render(LocatorMap, { coords, title: 'T', routeId: 'a--b--c', onpick });
+    const ctrl = document.createElement('button');
+    ctrl.className = 'maplibregl-ctrl';
+    screen.getByTestId('locator-map').appendChild(ctrl);
+    await fireEvent.click(ctrl);
+    expect(onpick).not.toHaveBeenCalled();
+  });
 });

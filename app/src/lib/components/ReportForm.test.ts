@@ -35,7 +35,7 @@ function denied() {
   Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition }, configurable: true });
 }
 
-type Over = Partial<{ lineCoords: Point3[]; hasLocation: boolean; activeHikeId: string | null; onpickrequest: () => Promise<[number, number] | null> }>;
+type Over = Partial<{ lineCoords: Point3[]; hasLocation: boolean; activeHikeId: string | null; onpickrequest: () => Promise<[number, number] | null>; oncancelpick: () => void }>;
 function setup(over: Over = {}) {
   const onclose = vi.fn();
   render(ReportForm, {
@@ -194,5 +194,48 @@ describe('ReportForm', () => {
     await fireEvent.click(send());
     await screen.findByText("Couldn't save that on this device. Your report is still here.");
     expect((screen.getByLabelText('Note') as HTMLTextAreaElement).value).toBe('gate locked');
+  });
+
+  it('preselects No exact spot so the outcome is visible', () => {
+    setup();
+    expect(chip('No exact spot').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('arrow keys in Where move focus without starting a fix or a pick', async () => {
+    const g = fix(...NEAR);
+    const onpickrequest = vi.fn(async () => null);
+    setup({ onpickrequest });
+    chip('No exact spot').focus();
+    await fireEvent.keyDown(chip('No exact spot'), { key: 'ArrowLeft' });
+    await fireEvent.keyDown(chip('Pick on the map'), { key: 'ArrowLeft' });
+    expect(g).not.toHaveBeenCalled();
+    expect(onpickrequest).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(chip('Use my location'));
+    expect(chip('No exact spot').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('an out-of-area spot is not left selected and says so', async () => {
+    fix(10, 10);
+    setup();
+    await fireEvent.click(chip('Use my location'));
+    await screen.findByRole('alert');
+    expect(chip('Use my location').getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('abandoning a pick tells the page', async () => {
+    const oncancelpick = vi.fn();
+    setup({ onpickrequest: () => new Promise(() => {}), oncancelpick } as never);
+    await fireEvent.click(chip('Pick on the map'));
+    await fireEvent.click(chip('No exact spot'));
+    expect(oncancelpick).toHaveBeenCalled();
+  });
+
+  it('focus moves into the form on open and to Done after saving', async () => {
+    setup();
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Report something on this route' }));
+    await fireEvent.click(chip('Closure'));
+    await fireEvent.click(send());
+    const done = await screen.findByRole('button', { name: 'Done' });
+    await waitFor(() => expect(document.activeElement).toBe(done));
   });
 });

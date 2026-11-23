@@ -44,7 +44,9 @@
      * When set, the map is in pick mode: a tap calls this with [lon, lat] and leaves a temporary
      * marker there. Unset, the map behaves exactly as before.
      */
-    onpick = undefined
+    onpick = undefined,
+    /** A spot to keep marked (the report's chosen point), or null. */
+    spot = null
   }: {
     coords: Coords;
     title: string;
@@ -54,11 +56,30 @@
     scrubDistanceM?: number | null;
     lineCoords?: Point3[];
     onpick?: (p: [number, number]) => void;
+    spot?: [number, number] | null;
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
   let mapLoaded = $state(false);
   let pickMarker: Marker | undefined;
+  let ready = $state(false);
+
+  function markSpot(p: [number, number] | null): void {
+    try { pickMarker?.remove(); } catch { /* never painted */ }
+    pickMarker = undefined;
+    if (!p || !map) return;
+    try {
+      pickMarker = new Marker({ color: '#3f2d1d' }).setLngLat(p).addTo(map);
+    } catch (err) {
+      console.warn('LocatorMap: could not add spot marker', err);
+    }
+  }
+  // The chosen spot stays marked after the pick ends, until the caller clears it.
+  $effect(() => {
+    const p = spot;
+    if (!ready) return;
+    markSpot(p);
+  });
 
   // Pick mode. The map is non-interactive (so it cannot hijack page scroll), which also means it
   // raises no click events of its own; a plain DOM click on the container is unprojected instead.
@@ -68,14 +89,11 @@
     const el = container;
     const tap = (e: MouseEvent) => {
       if (!map) return;
+      // Map controls and markers are not the spot being picked.
+      if ((e.target as Element | null)?.closest?.('.maplibregl-ctrl, .maplibregl-marker')) return;
       const rect = el.getBoundingClientRect();
       const { lng, lat } = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
-      try {
-        pickMarker?.remove();
-        pickMarker = new Marker({ color: '#3f2d1d' }).setLngLat([lng, lat]).addTo(map);
-      } catch (err) {
-        console.warn('LocatorMap: could not add pick marker', err);
-      }
+      markSpot([lng, lat]);
       pick([lng, lat]);
     };
     el.addEventListener('click', tap);
@@ -83,8 +101,6 @@
     return () => {
       el.removeEventListener('click', tap);
       el.classList.remove('picking');
-      try { pickMarker?.remove(); } catch { /* never painted */ }
-      pickMarker = undefined;
     };
   });
 
@@ -148,6 +164,7 @@
       attributionControl: false
     });
     map.addControl(new AttributionControl({ compact: true }));
+    ready = true;
     // Test-only hook, mirroring MapView's: WebGL pixels are not queryable from
     // Playwright, so an e2e asserting the line renders has no other way in.
     (container as HTMLDivElement & { __maplibreMap?: MapLibreMap }).__maplibreMap = map;
