@@ -13,7 +13,7 @@ class ReportOpenApi {
     @Bean
     OpenApiCustomizer nullableReportPosition() {
         return openApi -> {
-            for (String name : new String[] {"MyReport", "ReportWrite"}) {
+            for (String name : new String[] {"MyReport", "ReportWrite", "PublicReport"}) {
                 Schema<?> schema = openApi.getComponents().getSchemas().get(name);
                 if (schema == null || schema.getProperties() == null) {
                     continue;

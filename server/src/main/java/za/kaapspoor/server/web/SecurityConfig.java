@@ -54,6 +54,8 @@ public class SecurityConfig {
                         .permitAll()
                         // Route reviews are public reading; the response itself carries no private data.
                         .requestMatchers(HttpMethod.GET, "/api/v1/routes/*/reviews").permitAll()
+                        // A route's released reports are public; held ones go through /reports/mine.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/routes/*/reports").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
                 .oauth2ResourceServer(rs -> rs

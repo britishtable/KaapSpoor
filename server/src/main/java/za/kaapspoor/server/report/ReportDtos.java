@@ -37,4 +37,21 @@ public final class ReportDtos {
             @Schema(requiredMode = REQUIRED, types = {"string", "null"}, format = "date-time") Instant expiresAt,
             @Schema(requiredMode = REQUIRED, types = {"string", "null"}, format = "date-time") Instant clearedAt,
             @Schema(requiredMode = REQUIRED) boolean unverified) {}
+
+    /** A released report as the public sees it: a name and a time, never an account or a hike. */
+    public record PublicReport(
+            @Schema(requiredMode = REQUIRED) UUID id,
+            @Schema(requiredMode = REQUIRED) ReportCategory category,
+            @Schema(requiredMode = REQUIRED) String note,
+            @Schema(requiredMode = REQUIRED) String displayName,
+            @Schema(requiredMode = REQUIRED) Instant observedAt,
+            @Schema(requiredMode = REQUIRED, types = {"string", "null"}, format = "date-time") Instant lastConfirmedAt,
+            @Schema(requiredMode = REQUIRED, types = {"string", "null"}, format = "date-time") Instant expiresAt,
+            @Schema(requiredMode = REQUIRED, types = {"string", "null"}, format = "date-time") Instant clearedAt,
+            @Schema(requiredMode = REQUIRED) boolean unverified,
+            @Schema(requiredMode = REQUIRED) Position position) {}
+
+    public record RouteReports(
+            @Schema(requiredMode = REQUIRED) java.util.List<PublicReport> active,
+            @Schema(requiredMode = REQUIRED) java.util.List<PublicReport> history) {}
 }

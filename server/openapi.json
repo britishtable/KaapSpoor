@@ -424,6 +424,84 @@
         ],
         "type" : "object"
       },
+      "PublicReport" : {
+        "properties" : {
+          "category" : {
+            "enum" : [
+              "OBSTRUCTION",
+              "TRAIL_DAMAGE",
+              "CLOSURE",
+              "FIRE",
+              "WATER",
+              "WILDLIFE",
+              "SAFETY",
+              "CONDITIONS"
+            ],
+            "type" : "string"
+          },
+          "clearedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lastConfirmedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "observedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "position" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Position"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "unverified" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "category",
+          "clearedAt",
+          "displayName",
+          "expiresAt",
+          "id",
+          "lastConfirmedAt",
+          "note",
+          "observedAt",
+          "position",
+          "unverified"
+        ],
+        "type" : "object"
+      },
       "PublicReview" : {
         "properties" : {
           "dateRecorded" : {
@@ -685,6 +763,27 @@
           "navigation",
           "safety",
           "water"
+        ],
+        "type" : "object"
+      },
+      "RouteReports" : {
+        "properties" : {
+          "active" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PublicReport"
+            },
+            "type" : "array"
+          },
+          "history" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PublicReport"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "active",
+          "history"
         ],
         "type" : "object"
       },
@@ -1034,6 +1133,39 @@
         ]
       }
     },
+    "/api/v1/reports/mine" : {
+      "get" : {
+        "operationId" : "mine",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "routeId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MyReport"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "route-report-controller"
+        ]
+      }
+    },
     "/api/v1/reports/{id}" : {
       "put" : {
         "operationId" : "put",
@@ -1072,6 +1204,36 @@
         },
         "tags" : [
           "report-controller"
+        ]
+      }
+    },
+    "/api/v1/routes/{routeId}/reports" : {
+      "get" : {
+        "operationId" : "reports",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "routeId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RouteReports"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "route-report-controller"
         ]
       }
     },

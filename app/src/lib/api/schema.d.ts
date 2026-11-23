@@ -132,6 +132,22 @@ export interface paths {
         patch: operations["update"];
         trace?: never;
     };
+    "/api/v1/reports/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["mine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{id}": {
         parameters: {
             query?: never;
@@ -141,6 +157,22 @@ export interface paths {
         };
         get?: never;
         put: operations["put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routes/{routeId}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["reports"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -275,6 +307,24 @@ export interface components {
             /** Format: double */
             lon: number;
         };
+        PublicReport: {
+            /** @enum {string} */
+            category: "OBSTRUCTION" | "TRAIL_DAMAGE" | "CLOSURE" | "FIRE" | "WATER" | "WILDLIFE" | "SAFETY" | "CONDITIONS";
+            /** Format: date-time */
+            clearedAt: string | null;
+            displayName: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            lastConfirmedAt: string | null;
+            note: string;
+            /** Format: date-time */
+            observedAt: string;
+            position: components["schemas"]["Position"] | null;
+            unverified: boolean;
+        };
         PublicReview: {
             dateRecorded: boolean;
             /** @enum {string} */
@@ -332,6 +382,10 @@ export interface components {
             navigation: components["schemas"]["Counts"] | null;
             safety: components["schemas"]["Counts"] | null;
             water: components["schemas"]["Counts"] | null;
+        };
+        RouteReports: {
+            active: components["schemas"]["PublicReport"][];
+            history: components["schemas"]["PublicReport"][];
         };
         RouteReviews: {
             graded: boolean;
@@ -578,6 +632,28 @@ export interface operations {
             };
         };
     };
+    mine: {
+        parameters: {
+            query: {
+                routeId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReport"][];
+                };
+            };
+        };
+    };
     put: {
         parameters: {
             query?: never;
@@ -600,6 +676,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyReport"];
+                };
+            };
+        };
+    };
+    reports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteReports"];
                 };
             };
         };
