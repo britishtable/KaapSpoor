@@ -108,7 +108,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["put"];
+        put: operations["put_1"];
         post?: never;
         delete?: never;
         options?: never;
@@ -130,6 +130,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/routes/{routeId}/reviews": {
@@ -226,11 +242,38 @@ export interface components {
             /** @enum {string} */
             role: "USER" | "ADMIN";
         };
+        MyReport: {
+            /** @enum {string} */
+            category: "OBSTRUCTION" | "TRAIL_DAMAGE" | "CLOSURE" | "FIRE" | "WATER" | "WILDLIFE" | "SAFETY" | "CONDITIONS";
+            /** Format: date-time */
+            clearedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            held: boolean;
+            /** Format: uuid */
+            hikeId: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            lastConfirmedAt: string | null;
+            note: string;
+            /** Format: date-time */
+            observedAt: string;
+            position: components["schemas"]["Position"] | null;
+            routeId: string;
+            unverified: boolean;
+        };
         Oidc: {
             displayName?: string;
             idToken: string;
             /** @enum {string} */
             provider: "GOOGLE" | "APPLE";
+        };
+        Position: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
         };
         PublicReview: {
             dateRecorded: boolean;
@@ -257,6 +300,17 @@ export interface components {
             displayName: string;
             email: string;
             password: string;
+        };
+        ReportWrite: {
+            /** @enum {string} */
+            category: "OBSTRUCTION" | "TRAIL_DAMAGE" | "CLOSURE" | "FIRE" | "WATER" | "WILDLIFE" | "SAFETY" | "CONDITIONS";
+            /** Format: uuid */
+            hikeId?: string | null;
+            note?: string;
+            /** Format: date-time */
+            observedAt: string;
+            position?: components["schemas"]["Position"] | null;
+            routeId: string;
         };
         Review: {
             /** @enum {string} */
@@ -454,7 +508,7 @@ export interface operations {
             };
         };
     };
-    put: {
+    put_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -520,6 +574,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportWrite"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReport"];
                 };
             };
         };

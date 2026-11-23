@@ -294,6 +294,96 @@
         ],
         "type" : "object"
       },
+      "MyReport" : {
+        "properties" : {
+          "category" : {
+            "enum" : [
+              "OBSTRUCTION",
+              "TRAIL_DAMAGE",
+              "CLOSURE",
+              "FIRE",
+              "WATER",
+              "WILDLIFE",
+              "SAFETY",
+              "CONDITIONS"
+            ],
+            "type" : "string"
+          },
+          "clearedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "held" : {
+            "type" : "boolean"
+          },
+          "hikeId" : {
+            "format" : "uuid",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lastConfirmedAt" : {
+            "format" : "date-time",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "observedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "position" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Position"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "routeId" : {
+            "type" : "string"
+          },
+          "unverified" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "category",
+          "clearedAt",
+          "expiresAt",
+          "held",
+          "hikeId",
+          "id",
+          "lastConfirmedAt",
+          "note",
+          "observedAt",
+          "position",
+          "routeId",
+          "unverified"
+        ],
+        "type" : "object"
+      },
       "Oidc" : {
         "properties" : {
           "displayName" : {
@@ -314,6 +404,23 @@
         "required" : [
           "idToken",
           "provider"
+        ],
+        "type" : "object"
+      },
+      "Position" : {
+        "properties" : {
+          "lat" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "lon" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "lat",
+          "lon"
         ],
         "type" : "object"
       },
@@ -416,6 +523,56 @@
           "displayName",
           "email",
           "password"
+        ],
+        "type" : "object"
+      },
+      "ReportWrite" : {
+        "properties" : {
+          "category" : {
+            "enum" : [
+              "OBSTRUCTION",
+              "TRAIL_DAMAGE",
+              "CLOSURE",
+              "FIRE",
+              "WATER",
+              "WILDLIFE",
+              "SAFETY",
+              "CONDITIONS"
+            ],
+            "type" : "string"
+          },
+          "hikeId" : {
+            "format" : "uuid",
+            "type" : [
+              "string",
+              "null"
+            ]
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "observedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "position" : {
+            "oneOf" : [
+              {
+                "$ref" : "#/components/schemas/Position"
+              },
+              {
+                "type" : "null"
+              }
+            ]
+          },
+          "routeId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "category",
+          "observedAt",
+          "routeId"
         ],
         "type" : "object"
       },
@@ -790,7 +947,7 @@
     },
     "/api/v1/hikes/{id}" : {
       "put" : {
-        "operationId" : "put",
+        "operationId" : "put_1",
         "parameters" : [
           {
             "in" : "path",
@@ -874,6 +1031,47 @@
         },
         "tags" : [
           "me-controller"
+        ]
+      }
+    },
+    "/api/v1/reports/{id}" : {
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "id",
+            "required" : true,
+            "schema" : {
+              "format" : "uuid",
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReportWrite"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MyReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "report-controller"
         ]
       }
     },

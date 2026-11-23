@@ -46,6 +46,8 @@ class HikeApiTest {
     @BeforeEach
     void clean() {
         clock.reset();
+        jdbc.update("delete from report_confirmation");
+        jdbc.update("delete from report");
         jdbc.update("delete from hike");
         jdbc.update("delete from identity");
         jdbc.update("delete from refresh_token");
