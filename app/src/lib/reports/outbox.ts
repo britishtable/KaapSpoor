@@ -1,6 +1,6 @@
 import { derived, get, writable, type Readable } from 'svelte/store';
 import { api, session } from '$lib/account/session';
-import { now } from '$lib/journal/store';
+import { hikes, now } from '$lib/journal/store';
 import { deleteOutboxItem, getAllOutbox, getOutboxFor, getOutboxItem, putOutboxItem } from '$lib/journal/db';
 import { SignInRequiredError, type Answer, type OutboxItem, type ReportWrite } from './types';
 
@@ -67,6 +67,26 @@ export async function answerReport(reportId: string, answer: Answer): Promise<vo
 	await enqueue({ id: `${reportId}:${owner}`, owner, createdAt: now(), kind: 'confirmation', reportId, answer });
 }
 
+/** Removes one of the signed-in user's queued items, such as one the server refused. Otherwise a no-op. */
+export async function discardOutboxItem(id: string): Promise<void> {
+	const me = get(session)?.id;
+	if (!me) return;
+	const item = await getOutboxItem(id);
+	if (item?.owner !== me) return;
+	await deleteOutboxItem(id);
+	forget(id);
+}
+
+/**
+ * A report naming a hike the server doesn't hold yet (still queued, or refused) must wait:
+ * sent now it would be refused for good. It goes on a later run, once the hike is accepted.
+ */
+function waitsOnHike(item: OutboxItem): boolean {
+	if (item.kind !== 'report' || !item.body.hikeId) return false;
+	const h = get(hikes).get(item.body.hikeId);
+	return h !== undefined && (h.pending || h.syncError !== undefined);
+}
+
 /** The fetch itself failed: no signal. The flush stops and everything stays queued. */
 export class OutboxOfflineError extends Error {}
 
@@ -90,6 +110,7 @@ export async function flushOutbox(client: Client, me: string): Promise<void> {
 	const queue = (await getOutboxFor(me)).filter((i) => i.error === undefined).sort(byAge);
 	for (const sent of queue) {
 		if (get(session)?.id !== me) return;
+		if (waitsOnHike(sent)) continue;
 		let res: { error?: unknown; response: Response };
 		try {
 			res = sent.kind === 'report'

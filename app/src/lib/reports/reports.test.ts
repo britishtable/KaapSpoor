@@ -1,8 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { loadRouteReports } from './reports';
 import { hydrateOutbox } from './outbox';
 import { putOutboxItem, resetDbForTests } from '$lib/journal/db';
+
+/** Lets a test make the outbox read fail, as a broken IndexedDB would. */
+const idb = vi.hoisted(() => ({ fail: false }));
+vi.mock('$lib/journal/db', async (original) => {
+	const actual = await original<typeof import('$lib/journal/db')>();
+	return {
+		...actual,
+		getOutboxFor: (owner: string) => (idb.fail ? Promise.reject(new Error('idb broke')) : actual.getOutboxFor(owner))
+	};
+});
 import { configureSession, restoreSession, type StoredSession, type TokenStorage } from '$lib/account/session';
 import type { MyReport, PublicReport } from './types';
 
@@ -52,7 +62,10 @@ beforeEach(async () => {
 	});
 	await hydrateOutbox();
 });
-afterEach(() => configureSession());
+afterEach(() => {
+	idb.fail = false;
+	configureSession();
+});
 
 describe('loadRouteReports', () => {
 	it('merges public, mine-held and pending without duplicates', async () => {
@@ -140,5 +153,19 @@ describe('loadRouteReports', () => {
 			configureSession({ baseUrl: BASE, fetch: (async () => new Response('{}', { status })) as typeof fetch });
 			expect(await loadRouteReports('r1')).toBe('unavailable');
 		}
+	});
+
+	it('a failing outbox read still returns the public view and held reports', async () => {
+		const { f } = fakeFetch((_r, p) =>
+			p === '/api/v1/routes/r1/reports' ? json({ active: [pub('p1')], history: [] }) : json([mine('h1')])
+		);
+		configureSession({ storage: storageWith(signedIn()), fetch: f, baseUrl: BASE });
+		restoreSession();
+		idb.fail = true;
+		const view = await loadRouteReports('r1');
+		if (typeof view === 'string') throw new Error(view);
+		expect(view.active.map((r) => r.id)).toEqual(['p1']);
+		expect(view.mineHeld.map((r) => r.id)).toEqual(['h1']);
+		expect(view.minePending).toEqual([]);
 	});
 });

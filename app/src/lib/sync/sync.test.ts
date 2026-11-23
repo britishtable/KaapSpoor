@@ -35,6 +35,8 @@ function fakeServer() {
 	const log: string[] = [];
 	const reportPuts: { user: string; id: string; body: unknown }[] = [];
 	const confirms: { user: string; reportId: string; answer: string }[] = [];
+	/** Hike ids the server refuses with a 400, as if their content were invalid. */
+	const refuse = new Set<string>();
 	const gets: { user: string; since: number }[] = [];
 	const net = { down: false };
 	let gate: Promise<void> | null = null;
@@ -94,7 +96,7 @@ function fakeServer() {
 			const body = (await req.json()) as HikeWrite;
 			puts.push({ user: user.id, id, body });
 			log.push(`hike:${id}`);
-			if (body.routeId === 'bad') return json({ title: 'Bad Request', status: 400, detail: 'That route does not exist.' }, 400);
+			if (body.routeId === 'bad' || refuse.has(id)) return json({ title: 'Bad Request', status: 400, detail: 'That route does not exist.' }, 400);
 			const existing = rows.get(id);
 			if (existing && existing.owner !== user.id) return json({ detail: 'Not yours.' }, 409);
 			if (existing?.hike.deleted) return json(existing.hike);
@@ -118,7 +120,7 @@ function fakeServer() {
 	}) as typeof fetch;
 
 	return {
-		f, rows, puts, gets, net, store, held, log, reportPuts, confirms,
+		f, rows, puts, gets, net, store, held, log, reportPuts, confirms, refuse,
 		setPageSize(n: number) { pageSize = n; },
 		hold() { let open!: () => void; gate = new Promise((r) => { open = () => { gate = null; r(); }; }); return open; }
 	};
@@ -694,5 +696,40 @@ describe('report outbox', () => {
 		await vi.waitFor(() => expect(server.reportPuts.map((p) => p.id)).toEqual([id]));
 		await syncNow();
 		stop();
+	});
+
+	it('a report waits behind its refused hike, then sends once the hike is accepted', async () => {
+		await signInAs('a');
+		const hike = await logHike({ routeId: 'r1', date: '2026-07-21', notes: '' });
+		server.refuse.add(hike.id);
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE', hikeId: hike.id });
+		await syncNow();
+		expect(get(hikes).get(hike.id)!.syncError).toBe('That route does not exist.');
+		expect(server.reportPuts).toHaveLength(0);
+		expect(await getOutboxFor('user-a')).toMatchObject([{ id }]);
+		expect((await getOutboxFor('user-a'))[0].error).toBeUndefined();
+		expect(get(syncState).status).toBe('idle');
+
+		server.refuse.delete(hike.id);
+		await updateHike(hike.id, { notes: 'fixed' }); // re-queues the hike
+		await syncNow();
+		expect(server.log.slice(-2)).toEqual([`hike:${hike.id}`, `report:${id}`]);
+		expect(await getOutboxFor('user-a')).toEqual([]);
+	});
+
+	it('a report waits behind its hike still pending (edited while in flight)', async () => {
+		await signInAs('a');
+		const hike = await logHike({ routeId: 'r1', date: '2026-07-21', notes: 'first' });
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE', hikeId: hike.id });
+		const open = server.hold();
+		const run = syncNow();
+		await vi.waitFor(() => expect(server.held.count).toBe(1));
+		await updateHike(hike.id, { notes: 'second' });
+		open();
+		await run;
+		expect(get(hikes).get(hike.id)!.pending).toBe(true);
+		expect(server.reportPuts).toHaveLength(0);
+		await syncNow();
+		expect(server.reportPuts.map((p) => p.id)).toEqual([id]);
 	});
 });

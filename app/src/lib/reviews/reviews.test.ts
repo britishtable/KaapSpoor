@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { phrase, formatMonth, fetchRouteReviews } from './reviews';
-import { configureSession } from '../account/session';
+import { configureSession, restoreSession } from '../account/session';
 
 afterEach(() => configureSession());
 
@@ -43,5 +43,30 @@ describe('fetchRouteReviews', () => {
       configureSession({ baseUrl: 'https://api.test', fetch: (async () => new Response('{}', { status })) as typeof fetch });
       expect(await fetchRouteReviews('r1')).toBe('unavailable');
     }
+  });
+
+  it('a stale token never breaks the public read', async () => {
+    const sent: (string | null)[] = [];
+    const f = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(input, init);
+      const path = new URL(req.url).pathname;
+      if (path === '/api/v1/auth/refresh') return new Response('{}', { status: 503 }); // keeps the session
+      sent.push(req.headers.get('Authorization'));
+      if (req.headers.get('Authorization')) {
+        return new Response('{}', { status: 401, headers: { 'WWW-Authenticate': 'Bearer error="invalid_token"' } });
+      }
+      return new Response(JSON.stringify({ graded: false, people: 0, reviews: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    let stored: import('../account/session').StoredSession | null = {
+      accessToken: 'expired', accessExpiresAt: new Date(Date.now() + 600_000).toISOString(), refreshToken: 'r',
+      user: { id: 'u', displayName: 'U', initials: 'U' }
+    };
+    configureSession({
+      baseUrl: 'https://api.test', fetch: f,
+      storage: { load: () => stored, save: (s) => { stored = s; }, clear: () => { stored = null; } }
+    });
+    restoreSession();
+    expect(await fetchRouteReviews('r1')).toEqual({ graded: false, people: 0, reviews: [] });
+    expect(sent).toEqual([null]);
   });
 });

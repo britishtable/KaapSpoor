@@ -1,4 +1,4 @@
-import { api } from '../account/session';
+import { publicApi } from '../account/session';
 import type { components } from '../api/schema';
 import { DIFFICULTY_GRADED, DIFFICULTY_UNGRADED, SAFETY_ANSWERS, NAVIGATION_ANSWERS, WATER_ANSWERS } from '../data/types';
 
@@ -78,7 +78,8 @@ export function answerWords(r: PublicReview): string[] {
 
 /** 'unavailable': no API in this build, or the server says no (404, 5xx). 'offline': no network. */
 export async function fetchRouteReviews(routeId: string): Promise<RouteReviews | 'offline' | 'unavailable'> {
-  const client = api();
+  // A public read: no token, so an expired one can't turn it into a 401.
+  const client = publicApi();
   if (!client) return 'unavailable';
   try {
     const res = await client.GET('/api/v1/routes/{routeId}/reviews', { params: { path: { routeId } } });

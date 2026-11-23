@@ -138,10 +138,10 @@ describe('hikes db', () => {
     expect((await getOutboxFor('a')).map((i) => i.id)).toEqual(['a1']);
   });
 
-  // This tab holds the open connection; a newer version opening in another tab fires
-  // versionchange here, and the blocking handler closes it so that open is not left hanging.
-  // (A tab still running the v3 build has no such handler; this fix helps from v4 on.)
-  it('an open v3 connection in another tab is closed on blocking, so the upgrade completes', async () => {
+  // This tab holds a v4 connection; v5 opening in another tab fires versionchange here, and the
+  // blocking handler closes it so that open is not left hanging. (A tab still running the v3
+  // build has no such handler; this fix helps from v4 on.)
+  it('an open v4 connection is closed when another tab opens v5, so that upgrade completes', async () => {
     await getAllHikes(); // this tab's connection is open
     let blocked = false;
     const newer = openDB('kaapspoor', 5, { blocked() { blocked = true; } });
@@ -153,5 +153,11 @@ describe('hikes db', () => {
     expect(raw!.version).toBe(5);
     expect(blocked).toBe(false);
     raw!.close();
+    // This tab's build is now too old: its next call fails cleanly instead of hanging.
+    const later = await Promise.race([
+      getAllHikes().then(() => 'resolved', (e: Error) => e.name),
+      new Promise<string>((r) => setTimeout(() => r('hung'), 1000))
+    ]);
+    expect(later).toBe('VersionError');
   });
 });

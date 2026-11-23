@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
-import { fileReport, answerReport, pendingOutbox, onOutboxWrite, hydrateOutbox, SignInRequiredError } from './outbox';
-import { getOutboxFor, resetDbForTests } from '$lib/journal/db';
+import { fileReport, answerReport, discardOutboxItem, pendingOutbox, onOutboxWrite, hydrateOutbox, SignInRequiredError } from './outbox';
+import { getAllOutbox, getOutboxFor, resetDbForTests } from '$lib/journal/db';
 import { configureSession, signIn, signOut, type StoredSession, type TokenStorage } from '$lib/account/session';
 import { setClockForTests } from '$lib/journal/store';
 
@@ -87,7 +87,7 @@ describe('outbox', () => {
 		configureSession({ storage: memoryStorage(), baseUrl: 'http://srv' });
 		await expect(fileReport({ routeId: 'r1', category: 'FIRE' })).rejects.toBeInstanceOf(SignInRequiredError);
 		await expect(answerReport('rep-1', 'GONE')).rejects.toBeInstanceOf(SignInRequiredError);
-		expect(await getOutboxFor('')).toEqual([]);
+		expect(await getAllOutbox()).toEqual([]);
 		expect(get(pendingOutbox)).toEqual([]);
 	});
 
@@ -107,6 +107,31 @@ describe('outbox', () => {
 		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
 		await resetDbForTests();
 		await hydrateOutbox();
+		expect(get(pendingOutbox).map((i) => i.id)).toEqual([id]);
+	});
+
+	it("discardOutboxItem removes the signed-in user's item", async () => {
+		await signInOffline('a');
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		await answerReport('rep-1', 'GONE');
+		await discardOutboxItem(id);
+		expect((await getOutboxFor('user-a')).map((i) => i.id)).toEqual(['rep-1:user-a']);
+		expect(get(pendingOutbox).map((i) => i.id)).toEqual(['rep-1:user-a']);
+		await discardOutboxItem('no-such-id'); // a no-op
+		expect(await getOutboxFor('user-a')).toHaveLength(1);
+	});
+
+	it("discardOutboxItem never removes another owner's item, nor anything signed out", async () => {
+		await signInOffline('a');
+		const id = await fileReport({ routeId: 'r1', category: 'FIRE' });
+		await signOut();
+		await discardOutboxItem(id);
+		expect((await getAllOutbox()).map((i) => i.id)).toEqual([id]);
+		await signInOffline('b');
+		await discardOutboxItem(id);
+		expect((await getAllOutbox()).map((i) => i.id)).toEqual([id]);
+		await signOut();
+		await signInOffline('a');
 		expect(get(pendingOutbox).map((i) => i.id)).toEqual([id]);
 	});
 });
