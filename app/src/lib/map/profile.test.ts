@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cumulativeDistanceM, totalDistanceM, totalAscentM, profilePoints, pointAtDistance,
   totalDescentM, reverseCoords,
-  nearestOnLine, ASCENT_THRESHOLD_M, type Point3
+  nearestOnLine, locateOnLine, formatDistance, ASCENT_THRESHOLD_M, type Point3
 } from './profile';
 import { haversineM } from './snap';
 
@@ -200,5 +200,80 @@ describe('nearestOnLine', () => {
   it('clamps to the end of the line', () => {
     const hit = nearestOnLine(flat, [18.41, -34.0])!;
     expect(hit.point).toEqual([18.402, -34.0]);
+  });
+});
+
+// Metres to degrees at latitude -34, so the fixtures can be written in metres.
+const LAT = -34;
+const eastDeg = (m: number) => m / (111_320 * Math.cos((LAT * Math.PI) / 180));
+const northDeg = (m: number) => m / 111_320;
+const atM = (eastM: number, northM = 0): [number, number] => [18.4 + eastDeg(eastM), LAT + northDeg(northM)];
+
+describe('locateOnLine', () => {
+  const km: Point3[] = [atM(0), atM(1000)];
+
+  it('reports distance along and off the line', () => {
+    const hit = locateOnLine(km, atM(300, 20))!;
+    expect(hit.alongM).toBeGreaterThan(298);
+    expect(hit.alongM).toBeLessThan(302);
+    expect(hit.offM).toBeGreaterThan(19);
+    expect(hit.offM).toBeLessThan(21);
+  });
+
+  it('clamps beyond the end to the total', () => {
+    expect(locateOnLine(km, atM(1500))!.alongM).toBe(totalDistanceM(km));
+  });
+
+  it('is null for fewer than two points', () => {
+    expect(locateOnLine([atM(0)], atM(0))).toBeNull();
+    expect(locateOnLine([], atM(0))).toBeNull();
+  });
+
+  describe('out and back', () => {
+    const line: Point3[] = [atM(0), atM(500), atM(500, 10), atM(0, 10)];
+    const p = atM(200, 10);
+
+    it('stays on the walked leg given the previous position', () => {
+      const hit = locateOnLine(line, p, 750)!;
+      expect(hit.alongM).toBeGreaterThan(790);
+      expect(hit.alongM).toBeLessThan(810);
+    });
+
+    it('takes the nearest leg with no previous position', () => {
+      const hit = locateOnLine(line, p)!;
+      expect(hit.alongM).toBeGreaterThan(790);
+      const out = locateOnLine(line, atM(200, 1))!;
+      expect(out.alongM).toBeGreaterThan(198);
+      expect(out.alongM).toBeLessThan(202);
+    });
+
+    it('still jumps when the other leg is clearly nearer', () => {
+      const wide: Point3[] = [atM(0), atM(500), atM(500, 100), atM(0, 100)];
+      const hit = locateOnLine(wide, atM(200, 1), 800)!;
+      expect(hit.alongM).toBeLessThan(210);
+    });
+  });
+
+  it('agrees exactly with totalDistanceM at the last vertex', () => {
+    const line: Point3[] = [atM(0), atM(300, 40), atM(900, -30), atM(1200, 10)];
+    const last = line[line.length - 1];
+    expect(locateOnLine(line, [last[0], last[1]])!.alongM).toBe(totalDistanceM(line));
+  });
+
+  it('mirrors on a reversed line', () => {
+    const line: Point3[] = [atM(0), atM(300, 40), atM(900, -30), atM(1200, 10)];
+    const q = atM(600, 5);
+    const fwd = locateOnLine(line, q)!;
+    const back = locateOnLine(reverseCoords(line), q)!;
+    expect(Math.abs(back.alongM - (totalDistanceM(line) - fwd.alongM))).toBeLessThan(1);
+  });
+});
+
+describe('formatDistance', () => {
+  it('reads metres under a kilometre and kilometres above', () => {
+    expect(formatDistance(0)).toBe('0 m');
+    expect(formatDistance(999.4)).toBe('999 m');
+    expect(formatDistance(1000)).toBe('1.0 km');
+    expect(formatDistance(12345)).toBe('12.3 km');
   });
 });

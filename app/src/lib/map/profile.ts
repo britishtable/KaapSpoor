@@ -127,35 +127,74 @@ export function pointAtDistance(coords: Point3[], distanceM: number): Point {
   return ground(coords[coords.length - 1]);
 }
 
+/** How much farther than the nearest projection a candidate leg may be and still be preferred for continuity. */
+const CONTINUITY_SLACK_M = 25;
+
+type Located = { alongM: number; offM: number; point: [number, number] };
+
 /**
- * The nearest point on any segment of the line to `p`, with its distance in metres, or null for
- * fewer than two points. Each segment is projected in a local flat plane around `p` (metres east
- * and north), which is exact enough over the hundreds of metres a snap cares about; the distance
- * reported is then a true haversine to the snapped point.
+ * Every segment's projection of `p`, each with its distance along the line and its true distance
+ * off it. Each segment is projected in a local flat plane around `p` (metres east and north),
+ * which is exact enough over the hundreds of metres a position cares about; the distance reported
+ * is then a true haversine to the projected point. `alongM` uses cumulativeDistanceM, so it
+ * agrees with the profile and stats, and at the last vertex equals totalDistanceM.
  */
-export function nearestOnLine(
-  coords: Point3[], p: [number, number]
-): { point: [number, number]; distanceM: number } | null {
-  if (coords.length < 2) return null;
+function projectOnSegments(coords: Point3[], p: [number, number]): Located[] {
+  const cumulative = cumulativeDistanceM(coords);
   const mPerLat = 111_320;
   const mPerLon = 111_320 * Math.cos((p[1] * Math.PI) / 180);
-  let best: [number, number] | null = null;
-  let bestSq = Infinity;
+  const out: Located[] = [];
   for (let i = 0; i < coords.length - 1; i++) {
     const ax = (coords[i][0] - p[0]) * mPerLon, ay = (coords[i][1] - p[1]) * mPerLat;
     const bx = (coords[i + 1][0] - p[0]) * mPerLon, by = (coords[i + 1][1] - p[1]) * mPerLat;
     const dx = bx - ax, dy = by - ay;
     const len2 = dx * dx + dy * dy;
     const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
-    const qx = ax + t * dx, qy = ay + t * dy;
-    const d2 = qx * qx + qy * qy;
-    if (d2 < bestSq) {
-      bestSq = d2;
-      best = [
-        coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
-        coords[i][1] + t * (coords[i + 1][1] - coords[i][1])
-      ];
-    }
+    const point: [number, number] = [
+      coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
+      coords[i][1] + t * (coords[i + 1][1] - coords[i][1])
+    ];
+    const alongM = t === 1
+      ? cumulative[i + 1]
+      : cumulative[i] + t * (cumulative[i + 1] - cumulative[i]);
+    out.push({ alongM, offM: haversineM(p, point), point });
   }
-  return best ? { point: best, distanceM: haversineM(p, best) } : null;
+  return out;
+}
+
+/**
+ * Where `p` sits along the line: distance done and distance off, or null for fewer than two points.
+ *
+ * With `prevAlongM`, an out-and-back or looping line keeps the walker on their own leg: among the
+ * projections no more than 25 m farther than the nearest, the one closest to where they were wins.
+ * A leg that is clearly nearer (by more than 25 m) still takes over.
+ */
+export function locateOnLine(
+  coords: Point3[], p: [number, number], prevAlongM?: number | null
+): Located | null {
+  if (coords.length < 2) return null;
+  const hits = projectOnSegments(coords, p);
+  let best = hits[0];
+  for (const h of hits) if (h.offM < best.offM) best = h;
+  if (prevAlongM == null) return best;
+  let chosen = best;
+  for (const h of hits) {
+    if (h.offM > best.offM + CONTINUITY_SLACK_M) continue;
+    if (Math.abs(h.alongM - prevAlongM) < Math.abs(chosen.alongM - prevAlongM)) chosen = h;
+  }
+  return chosen;
+}
+
+/** The nearest point on any segment of the line to `p`, with its distance in metres, or null for fewer than two points. */
+export function nearestOnLine(
+  coords: Point3[], p: [number, number]
+): { point: [number, number]; distanceM: number } | null {
+  const hit = locateOnLine(coords, p);
+  return hit ? { point: hit.point, distanceM: hit.offM } : null;
+}
+
+/** "640 m" under a kilometre, "1.2 km" from there up. The one distance formatter for the app. */
+export function formatDistance(m: number): string {
+  const rounded = Math.round(m);
+  return rounded < 1000 && m < 1000 ? `${rounded} m` : `${(m / 1000).toFixed(1)} km`;
 }
