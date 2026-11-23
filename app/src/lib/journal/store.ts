@@ -1,5 +1,5 @@
 import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
-import type { Hike, JournalPlan, RouteNotes, Visibility } from '../data/types';
+import type { Hike, JournalPlan, Review, RouteNotes, Visibility } from '../data/types';
 import { getAllHikes, getAllRouteNotes, putHike, putRouteNotes, replaceAllData } from './db';
 
 export const hikes = writable<Map<string, Hike>>(new Map());
@@ -11,6 +11,14 @@ export class ActiveHikeError extends Error {
   constructor() {
     super('A hike is already in progress.');
     this.name = 'ActiveHikeError';
+  }
+}
+
+/** A review was refused: the hike is in progress or dated in the future. */
+export class ReviewNotAllowedError extends Error {
+  constructor() {
+    super('A hike can be reviewed once it is finished and not dated in the future.');
+    this.name = 'ReviewNotAllowedError';
   }
 }
 
@@ -50,6 +58,13 @@ function localDate(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** May this hike be reviewed: live, not in progress, not dated after `today` (YYYY-MM-DD). */
+export function canReview(h: Hike, today: string): boolean {
+  if (h.deleted) return false;
+  if (h.startedAt !== null && h.finishedAt === null) return false;
+  return h.date === null || h.date <= today;
 }
 
 // ---- derived ----
@@ -165,6 +180,16 @@ export async function deleteHike(id: string): Promise<void> {
   };
   delete next.plan;
   await localWriteHike(next);
+}
+
+/** Saves (or, with null, removes) the hike's review. */
+export async function setReview(hikeId: string, review: Review | null): Promise<Hike> {
+  const h = requireEditable(hikeId);
+  if (review !== null && !canReview(h, localDate())) throw new ReviewNotAllowedError();
+  const next: Hike = { ...h };
+  if (review) next.review = review;
+  else delete next.review;
+  return localWriteHike(next);
 }
 
 export async function startHike(routeId: string, plan?: JournalPlan): Promise<Hike> {

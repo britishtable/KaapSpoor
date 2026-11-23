@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import {
   hikes, visibleHikes, doneRouteIds, activeHike, hikesForRoute, viewer,
   logHike, updateHike, deleteHike, startHike, finishHike, setRouteNotes,
-  hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
+  setReview, canReview, ReviewNotAllowedError, hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
 } from './store';
 import { getAllHikes } from './db';
 import type { Hike } from '../data/types';
@@ -168,5 +168,42 @@ describe('hike store', () => {
     await hydrate();
     expect(get(hikes).get('s')?.pending).toBe(false);
     expect(get(hikes).get('s')?.updatedAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+});
+
+describe('reviews', () => {
+  const done = (id: string, over: Partial<Hike> = {}) =>
+    hike(id, { date: '2026-05-05', startedAt: '2026-05-05T06:00:00.000Z', finishedAt: '2026-05-05T10:00:00.000Z', ...over });
+
+  it('setReview saves the review and marks the hike pending', async () => {
+    await replaceAll({ hikes: [done('h1')], routeNotes: [] });
+    const out = await setReview('h1', { enjoyment: 4, water: 'SEASONAL' });
+    expect(out.review).toEqual({ enjoyment: 4, water: 'SEASONAL' });
+    expect(out.pending).toBe(true);
+    expect(get(hikes).get('h1')!.review).toEqual({ enjoyment: 4, water: 'SEASONAL' });
+    expect((await getAllHikes())[0].review).toEqual({ enjoyment: 4, water: 'SEASONAL' });
+  });
+
+  it('setReview(null) removes it', async () => {
+    await replaceAll({ hikes: [done('h1', { review: { enjoyment: 2 } })], routeNotes: [] });
+    const out = await setReview('h1', null);
+    expect(out).not.toHaveProperty('review');
+    expect(out.pending).toBe(true);
+  });
+
+  it('setReview on an active hike throws ReviewNotAllowedError', async () => {
+    await replaceAll({ hikes: [done('h1', { finishedAt: null })], routeNotes: [] });
+    await expect(setReview('h1', { enjoyment: 3 })).rejects.toBeInstanceOf(ReviewNotAllowedError);
+  });
+
+  it("setReview on another owner's hike throws LockedHikeError", async () => {
+    await replaceAll({ hikes: [done('h1', { owner: 'u1' })], routeNotes: [] });
+    await expect(setReview('h1', { enjoyment: 3 })).rejects.toBeInstanceOf(LockedHikeError);
+  });
+
+  it('canReview is false for a hike dated tomorrow', () => {
+    expect(canReview(hike('h', { date: '2026-11-24' }), '2026-11-23')).toBe(false);
+    expect(canReview(hike('h', { date: '2026-11-23' }), '2026-11-23')).toBe(true);
+    expect(canReview(hike('h', { date: null }), '2026-11-23')).toBe(true);
   });
 });

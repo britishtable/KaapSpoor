@@ -1,4 +1,4 @@
-import type { Hike, JournalPlan, RouteNotes } from '../data/types';
+import type { Hike, JournalPlan, Review, RouteNotes } from '../data/types';
 
 /** A plan whose legs are absent, null (as a server or an export of one may write them) or ids. */
 export function isPlan(x: unknown): x is JournalPlan {
@@ -18,6 +18,13 @@ export function cleanPlan(p: { approach?: string | null; main?: string | null; e
   if (p.main) plan.main = p.main;
   if (p.exit) plan.exit = p.exit;
   return plan;
+}
+
+/** The review as the app stores it: absent answers omitted, never null (the server may write them so). */
+export function cleanReview(r: { [K in keyof Review]?: Review[K] | null }): Review {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(r)) if (v !== null && v !== undefined) out[k] = v;
+  return out as Review;
 }
 
 /**

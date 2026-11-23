@@ -1,5 +1,9 @@
-import type { Hike, JournalPlan, RouteNotes, Visibility } from '../data/types';
-import { cleanPlan, convertJournal, isPlan } from './convert';
+import {
+  DIFFICULTY_GRADED, DIFFICULTY_UNGRADED, NAVIGATION_ANSWERS, REVIEW_NOTE_MAX, REVIEW_SAFETY_NOTE_MAX,
+  SAFETY_ANSWERS, WATER_ANSWERS,
+  type Hike, type JournalPlan, type Review, type RouteNotes, type Visibility
+} from '../data/types';
+import { cleanPlan, cleanReview, convertJournal, isPlan } from './convert';
 import { now } from './store';
 
 export interface Data { hikes: Hike[]; routeNotes: RouteNotes[] }
@@ -28,6 +32,20 @@ const isStrOrNull = (x: unknown) => x === null || typeof x === 'string';
 /** A calendar date as the app writes it ("2026-07-21"); a hand-edited "21/07/2026" is malformed. */
 const isDateOrNull = (x: unknown) => x === null || (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x));
 
+const oneOf = (list: readonly string[]) => (v: unknown) => v === undefined || v === null || list.includes(v as string);
+const isText = (max: number) => (v: unknown) => v === undefined || v === null || (typeof v === 'string' && v.length <= max);
+const REVIEW_CHECKS: Record<string, (v: unknown) => boolean> = {
+  difficulty: oneOf([...DIFFICULTY_GRADED, ...DIFFICULTY_UNGRADED]),
+  enjoyment: (v) => v === undefined || v === null || (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5),
+  safety: oneOf(SAFETY_ANSWERS), navigation: oneOf(NAVIGATION_ANSWERS), water: oneOf(WATER_ANSWERS),
+  note: isText(REVIEW_NOTE_MAX), safetyNote: isText(REVIEW_SAFETY_NOTE_MAX)
+};
+function isReview(x: unknown): boolean {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
+  const r = x as Record<string, unknown>;
+  return Object.entries(REVIEW_CHECKS).every(([k, ok]) => ok(r[k]));
+}
+
 function toHike(x: unknown): Hike | null {
   if (typeof x !== 'object' || x === null) return null;
   const h = x as Record<string, unknown>;
@@ -37,7 +55,8 @@ function toHike(x: unknown): Hike | null {
     !isVis(h.visibility) || !isVis(h.notesVisibility) ||
     !isStrOrNull(h.startedAt) || !isStrOrNull(h.finishedAt) ||
     typeof h.updatedAt !== 'string' || typeof h.deleted !== 'boolean' ||
-    (h.plan !== undefined && !isPlan(h.plan))
+    (h.plan !== undefined && !isPlan(h.plan)) ||
+    (h.review !== undefined && h.review !== null && !isReview(h.review))
   ) return null;
   const hike: Hike = {
     id: h.id, routeId: h.routeId, date: h.date as string | null, notes: h.notes,
@@ -46,6 +65,13 @@ function toHike(x: unknown): Hike | null {
     updatedAt: h.updatedAt, deleted: h.deleted, owner: null, pending: true
   };
   if (h.plan) hike.plan = cleanPlan(h.plan as JournalPlan);
+  if (h.review) {
+    const review = cleanReview(h.review as Review);
+    // Unknown keys are dropped like any junk field.
+    const known: Record<string, unknown> = {};
+    for (const k of Object.keys(REVIEW_CHECKS)) if (k in review) known[k] = (review as Record<string, unknown>)[k];
+    if (Object.keys(known).length > 0) hike.review = known as Review;
+  }
   return hike;
 }
 

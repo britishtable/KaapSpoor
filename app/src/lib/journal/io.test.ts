@@ -63,6 +63,25 @@ describe('v2 serialize / parse', () => {
     expect(out.plan).toEqual({ main: 'm', reversed: false });
   });
 
+  it('a review round-trips through serialize/parse', () => {
+    const review = { difficulty: 'HARDER' as const, enjoyment: 5, safety: 'NO' as const, safetyNote: 'rockfall', note: 'wow' };
+    const out = parse(serialize({ hikes: [h('1', { review })], routeNotes: [] }));
+    expect(out.hikes[0].review).toEqual(review);
+  });
+
+  it('a review with enjoyment 9 or an unknown answer makes the hike malformed', () => {
+    for (const review of [{ enjoyment: 9 }, { water: 'MUDDY' }, { difficulty: 'IMPOSSIBLE' }, { note: 'x'.repeat(2001) }]) {
+      const raw = JSON.parse(serialize({ hikes: [h('1')], routeNotes: [] }));
+      raw.hikes[0].review = review;
+      expect(() => parse(JSON.stringify(raw))).toThrow('The file contains a malformed hike.');
+    }
+  });
+
+  it('a v2 file without reviews still imports', () => {
+    const out = parse(serialize({ hikes: [h('1')], routeNotes: [] }));
+    expect(out.hikes[0]).not.toHaveProperty('review');
+  });
+
   it('a date not written as YYYY-MM-DD is a malformed hike', () => {
     const raw = JSON.parse(serialize({ hikes: [h('1')], routeNotes: [] }));
     raw.hikes[0].date = '21/07/2026';

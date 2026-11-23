@@ -4,7 +4,7 @@ import type { Hike } from '$lib/data/types';
 import { api, session } from '$lib/account/session';
 import { hikes, visibleHikes, applyServerHike, onLocalWrite, now } from '$lib/journal/store';
 import { getMeta, setMeta } from '$lib/journal/db';
-import { cleanPlan } from '$lib/journal/convert';
+import { cleanPlan, cleanReview } from '$lib/journal/convert';
 
 type ServerHike = components['schemas']['Hike'];
 type HikeWrite = components['schemas']['HikeWrite'];
@@ -41,7 +41,7 @@ function setStatus(me: string, status: Exclude<SyncStatus, 'off'>): void {
 function toWrite(h: Hike): HikeWrite {
 	return {
 		routeId: h.routeId, date: h.date, notes: h.notes, visibility: h.visibility,
-		notesVisibility: h.notesVisibility, plan: h.plan ?? null, startedAt: h.startedAt,
+		notesVisibility: h.notesVisibility, plan: h.plan ?? null, review: h.review ?? null, startedAt: h.startedAt,
 		finishedAt: h.finishedAt, updatedAt: h.updatedAt, deleted: h.deleted
 	};
 }
@@ -59,6 +59,7 @@ function fromServer(s: ServerHike, owner: string): Hike {
 	};
 	// Jackson may write absent legs as null; the device never stores them so.
 	if (s.plan) h.plan = cleanPlan(s.plan);
+	if (s.review) h.review = cleanReview(s.review);
 	return h;
 }
 

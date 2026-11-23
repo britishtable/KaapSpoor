@@ -4,7 +4,7 @@ import { get } from 'svelte/store';
 import 'fake-indexeddb/auto';
 import { syncNow, startSync as realStartSync, syncState } from './sync';
 import { configureSession, signIn, signOut, type TokenStorage, type StoredSession } from '$lib/account/session';
-import { hikes, visibleHikes, replaceAll, logHike, updateHike, setClockForTests } from '$lib/journal/store';
+import { hikes, visibleHikes, replaceAll, logHike, updateHike, setReview, setClockForTests } from '$lib/journal/store';
 import { getMeta, setMeta } from '$lib/journal/db';
 import { serialize, parse, exportableHikes } from '$lib/journal/io';
 import type { Hike } from '$lib/data/types';
@@ -45,7 +45,7 @@ function fakeServer() {
 			id, routeId: w.routeId, date: w.date ?? null, notes: w.notes, visibility: w.visibility,
 			notesVisibility: w.notesVisibility, plan: jacksonPlan(w.plan), startedAt: w.startedAt ?? null,
 			finishedAt: w.finishedAt ?? null, updatedAt: instant(w.updatedAt), deleted: w.deleted,
-			revision: ++revision, review: null
+			revision: ++revision, review: w.review ?? null
 		};
 		rows.set(id, { owner, hike });
 		return hike;
@@ -117,7 +117,7 @@ function local(id: string, over: Partial<Hike> = {}): Hike {
 function write(h: Partial<HikeWrite> = {}): HikeWrite {
 	return {
 		routeId: 'r1', date: '2026-07-21', notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
-		startedAt: null, finishedAt: null, updatedAt: '2026-11-18T10:00:00.000Z', deleted: false, plan: null, ...h
+		startedAt: null, finishedAt: null, updatedAt: '2026-11-18T10:00:00.000Z', deleted: false, plan: null, review: null, ...h
 	};
 }
 
@@ -191,6 +191,44 @@ describe('sync engine', () => {
 		await vi.waitFor(() => expect(get(visibleHikes)[0].pending).toBe(false));
 		expect(server.puts).toHaveLength(1);
 		expect(screen.queryByText('Will send when you have signal')).toBeNull();
+		stop();
+	});
+
+	it('a review written signed out uploads on sign-in', async () => {
+		await replaceAll({ hikes: [local('h1', { date: '2026-07-21' })], routeNotes: [] });
+		const stop = startSync();
+		await setReview('h1', { enjoyment: 4, water: 'RELIABLE' });
+		await signInAs('a');
+		await vi.waitFor(() => expect(server.puts).toHaveLength(1), { timeout: 5000 });
+		expect(server.puts[0].body.review).toEqual({ enjoyment: 4, water: 'RELIABLE' });
+		stop();
+	});
+
+	it("a pulled hike's review is stored without null fields", async () => {
+		await signInAs('a');
+		const row = server.store('user-a', 'p1', write({ updatedAt: '2026-11-18T10:00:00.000Z' }));
+		row.review = { enjoyment: 3, water: null, note: null } as unknown as ServerHike['review'];
+		await syncNow();
+		const h = get(hikes).get('p1')!;
+		expect(h.review).toEqual({ enjoyment: 3 });
+		expect(Object.keys(h.review!)).toEqual(['enjoyment']);
+	});
+
+	it('a review written offline shows pending and sends when online fires', async () => {
+		await signInAs('a');
+		await replaceAll({ hikes: [local('h1', { date: '2026-07-21', pending: false, owner: 'user-a' })], routeNotes: [] });
+		online = false;
+		server.net.down = true;
+		const stop = startSync();
+		await setReview('h1', { safety: 'MOSTLY' });
+		await syncNow();
+		expect(get(hikes).get('h1')!.pending).toBe(true);
+		expect(get(syncState)).toMatchObject({ pendingCount: 1 });
+		online = true;
+		server.net.down = false;
+		window.dispatchEvent(new Event('online'));
+		await vi.waitFor(() => expect(get(hikes).get('h1')!.pending).toBe(false));
+		expect(server.puts.at(-1)!.body.review).toEqual({ safety: 'MOSTLY' });
 		stop();
 	});
 

@@ -1,4 +1,5 @@
 import type { SegmentRole } from './segments';
+import type { components } from '../api/schema';
 
 export interface Coords { lat: number; lon: number; zoom: number; }
 
@@ -136,6 +137,17 @@ export interface JournalEntry {
   plan?: JournalPlan;
 }
 
+/** A hike's structured review. Absent answers are omitted, never null. */
+export type Review = components['schemas']['Review'];
+
+export const DIFFICULTY_GRADED = ['EASIER', 'AS_GRADED', 'HARDER'] as const;
+export const DIFFICULTY_UNGRADED = ['EASY', 'MODERATE', 'HARD'] as const;
+export const SAFETY_ANSWERS = ['YES', 'MOSTLY', 'NO'] as const;
+export const NAVIGATION_ANSWERS = ['OBVIOUS', 'TRICKY_JUNCTIONS', 'GOT_LOST'] as const;
+export const WATER_ANSWERS = ['NONE', 'SEASONAL', 'RELIABLE'] as const;
+export const REVIEW_NOTE_MAX = 2000;
+export const REVIEW_SAFETY_NOTE_MAX = 1000;
+
 export type Visibility = 'PRIVATE' | 'FRIENDS' | 'PUBLIC';
 
 /** One walk of a route. Many per route; the journal's unit from v3 on. */
@@ -147,6 +159,7 @@ export interface Hike {
   visibility: Visibility;
   notesVisibility: Visibility;
   plan?: JournalPlan;
+  review?: Review;
   startedAt: string | null; // ISO instant
   finishedAt: string | null;
   updatedAt: string; // ISO instant, LWW key
