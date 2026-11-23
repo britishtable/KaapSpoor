@@ -1,6 +1,22 @@
 {
   "components" : {
     "schemas" : {
+      "ConfirmationWrite" : {
+        "properties" : {
+          "answer" : {
+            "enum" : [
+              "STILL_THERE",
+              "GONE",
+              "NOT_SURE"
+            ],
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "answer"
+        ],
+        "type" : "object"
+      },
       "Counts" : {
         "properties" : {
           "answered" : {
@@ -1196,6 +1212,47 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MyReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "report-controller"
+        ]
+      }
+    },
+    "/api/v1/reports/{id}/confirmation" : {
+      "put" : {
+        "operationId" : "confirm",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "id",
+            "required" : true,
+            "schema" : {
+              "format" : "uuid",
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmationWrite"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicReport"
                 }
               }
             },

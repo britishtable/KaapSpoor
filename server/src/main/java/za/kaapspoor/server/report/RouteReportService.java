@@ -59,9 +59,7 @@ public class RouteReportService {
             if (v.held()) {
                 continue;
             }
-            PublicReport p = new PublicReport(v.id(), v.category(), v.note(), names.computeIfAbsent(
-                    r.getUserId(), this::displayName), v.observedAt(), v.lastConfirmedAt(), v.expiresAt(),
-                    v.clearedAt(), v.unverified(), v.position());
+            PublicReport p = toPublic(v, names.computeIfAbsent(r.getUserId(), this::displayName));
             if (ReportService.isActive(v, now)) {
                 active.add(p);
             } else {
@@ -76,6 +74,18 @@ public class RouteReportService {
         active.sort(newestFirst);
         history.sort(newestFirst);
         return new RouteReports(active, history.stream().limit(MAX_HISTORY).toList());
+    }
+
+    private static PublicReport toPublic(MyReport v, String displayName) {
+        return new PublicReport(v.id(), v.category(), v.note(), displayName, v.observedAt(), v.lastConfirmedAt(),
+                v.expiresAt(), v.clearedAt(), v.unverified(), v.position());
+    }
+
+    /** Applies an answer (see {@link ReportService#confirm}) and returns the report as the public sees it. */
+    @Transactional
+    public PublicReport confirm(UUID userId, UUID id, ReportDtos.Answer answer) {
+        MyReport v = reportService.confirm(userId, id, answer);
+        return toPublic(v, displayName(reports.findById(id).orElseThrow().getUserId()));
     }
 
     /**

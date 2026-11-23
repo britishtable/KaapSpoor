@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import za.kaapspoor.server.report.ReportDtos.Answer;
 import za.kaapspoor.server.report.ReportDtos.MyReport;
 import za.kaapspoor.server.report.ReportDtos.Position;
 import za.kaapspoor.server.report.ReportDtos.ReportWrite;
@@ -31,6 +32,8 @@ public class ReportService {
     private final RouteRepository routes;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     ReportService(ReportRepository reports, RouteRepository routes, JdbcTemplate jdbc, Clock clock) {
         this.reports = reports;
@@ -60,6 +63,53 @@ public class ReportService {
             jdbc.update("update report set position = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography where id = ?",
                     w.position().lon(), w.position().lat(), id);
         }
+        return view(r, now);
+    }
+
+    /**
+     * Records one person's answer and applies its effect, under a row lock on the report so two
+     * simultaneous GONE answers cannot both miss the clear. A held report is invisible (404) to
+     * everyone, its author included; an expired or cleared one is 409.
+     */
+    @Transactional
+    public MyReport confirm(UUID userId, UUID id, Answer answer) {
+        if (answer == null) {
+            throw new BadRequestException("answer is required.");
+        }
+        if (!lockActiveUser(userId)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        UUID author;
+        try {
+            author = jdbc.queryForObject("select user_id from report where id = ? for update", UUID.class, id);
+        } catch (EmptyResultDataAccessException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such report");
+        }
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        Report r = reports.findById(id).orElseThrow();
+        MyReport before = view(r, now);
+        if (before.held()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such report");
+        }
+        if (!isActive(before, now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This report is no longer active.");
+        }
+        java.sql.Timestamp at = java.sql.Timestamp.from(now);
+        jdbc.update("insert into report_confirmation (report_id, user_id, answer, answered_at) values (?, ?, ?, ?)"
+                + " on conflict (report_id, user_id) do update set answer = excluded.answer,"
+                + " answered_at = excluded.answered_at", id, userId, answer.name(), at);
+        if (answer == Answer.STILL_THERE) {
+            jdbc.update("update report set last_confirmed_at = ? where id = ?", at, id);
+        } else if (answer == Answer.GONE) {
+            Integer others = jdbc.queryForObject("select count(*) from report_confirmation where report_id = ?"
+                    + " and answer = 'GONE' and user_id <> ?", Integer.class, id, author);
+            Integer authorGone = jdbc.queryForObject("select count(*) from report_confirmation where report_id = ?"
+                    + " and answer = 'GONE' and user_id = ?", Integer.class, id, author);
+            if ((others != null && others >= 2) || (authorGone != null && authorGone > 0)) {
+                jdbc.update("update report set cleared_at = ? where id = ?", at, id);
+            }
+        }
+        entityManager.refresh(r); // the SQL updates above bypassed the entity
         return view(r, now);
     }
 

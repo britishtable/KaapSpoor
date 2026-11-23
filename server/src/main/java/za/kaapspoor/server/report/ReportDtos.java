@@ -51,6 +51,10 @@ public final class ReportDtos {
             @Schema(requiredMode = REQUIRED) boolean unverified,
             @Schema(requiredMode = REQUIRED) Position position) {}
 
+    public enum Answer { STILL_THERE, GONE, NOT_SURE }
+
+    public record ConfirmationWrite(@Schema(requiredMode = REQUIRED) Answer answer) {}
+
     public record RouteReports(
             @Schema(requiredMode = REQUIRED) java.util.List<PublicReport> active,
             @Schema(requiredMode = REQUIRED) java.util.List<PublicReport> history) {}
