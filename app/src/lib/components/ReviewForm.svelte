@@ -6,6 +6,7 @@
     REVIEW_NOTE_MAX, REVIEW_SAFETY_NOTE_MAX
   } from '../data/types';
   import type { Review } from '../data/types';
+  import { DIFF_LABELS, SAFETY_LABELS, NAV_LABELS, WATER_LABELS } from '../reviews/reviews';
 
   let { review, graded, gradeLevel, onsave, oncancel }: {
     review: Review | undefined;
@@ -20,15 +21,6 @@
   type Safety = NonNullable<Review['safety']>;
   type Navigation = NonNullable<Review['navigation']>;
   type Water = NonNullable<Review['water']>;
-
-  const DIFF_LABELS: Record<Difficulty, string> = {
-    EASIER: 'Easier', AS_GRADED: 'As graded', HARDER: 'Harder', EASY: 'Easy', MODERATE: 'Moderate', HARD: 'Hard'
-  };
-  const SAFETY_LABELS: Record<Safety, string> = { YES: 'Yes', MOSTLY: 'Mostly', NO: 'No' };
-  const NAV_LABELS: Record<Navigation, string> = {
-    OBVIOUS: 'Obvious', TRICKY_JUNCTIONS: 'Tricky junctions', GOT_LOST: 'Got lost'
-  };
-  const WATER_LABELS: Record<Water, string> = { NONE: 'None', SEASONAL: 'Seasonal', RELIABLE: 'Reliable' };
 
   const opts = <T extends string>(values: readonly T[], labels: Record<T, string>): Opt<T>[] =>
     values.map((value) => ({ value, label: labels[value] }));

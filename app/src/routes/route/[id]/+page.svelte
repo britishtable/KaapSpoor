@@ -2,6 +2,7 @@
   import { base } from '$app/paths';
   import { humanizeArea } from '$lib/data/areas';
   import StatsStrip from '$lib/components/StatsStrip.svelte';
+  import RouteReviews from '$lib/components/RouteReviews.svelte';
   import HikeLog from '$lib/components/HikeLog.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
@@ -141,6 +142,8 @@
     <h2>Related</h2>
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
+
+  <RouteReviews routeId={r.id} />
 
   <HikeLog routeId={r.id} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
     plan={plan.choice.main

@@ -5,6 +5,7 @@
     logHike, updateHike, deleteHike, ActiveHikeError, viewer, isLocked,
     setReview, canReview, localDate, ReviewNotAllowedError, InvalidReviewError, LockedHikeError
   } from '../journal/store';
+  import { DIFFICULTY_WORDS } from '../reviews/reviews';
   import ReviewForm from './ReviewForm.svelte';
   import { syncState } from '../sync/sync';
   import { DIFFICULTY_GRADED, DIFFICULTY_UNGRADED } from '../data/types';
@@ -116,14 +117,10 @@
         : "Couldn't save that on this device. Your answers are still here.";
     }
   }
-  const DIFF_SUMMARY = {
-    EASIER: 'Easier than graded', AS_GRADED: 'As graded', HARDER: 'Harder than graded',
-    EASY: 'Easy', MODERATE: 'Moderate', HARD: 'Hard'
-  } as const;
   function reviewSummary(r: Review): string {
     const parts: string[] = [];
     const scale: readonly string[] = graded ? DIFFICULTY_GRADED : DIFFICULTY_UNGRADED;
-    if (r.difficulty && scale.includes(r.difficulty)) parts.push(DIFF_SUMMARY[r.difficulty]);
+    if (r.difficulty && scale.includes(r.difficulty)) parts.push(DIFFICULTY_WORDS[r.difficulty]);
     if (r.enjoyment !== undefined) parts.push(`${r.enjoyment}/5`);
     return parts.length ? parts.join(' · ') : 'Reviewed';
   }
