@@ -128,7 +128,7 @@
       {/if}
     </svg>
     <figcaption>
-      {(totalM / 1000).toFixed(1)} km{#if climb !== null} · ≈ {climb} m of climb{/if}
+      {(totalM / 1000).toFixed(1)} km{#if climb !== null}{' '}· ≈ {climb} m of climb{/if}
       {#if markerPoint}
         · at {(markerPoint.distanceM / 1000).toFixed(2)} km: {Math.round(markerPoint.elevationM)} m
       {/if}

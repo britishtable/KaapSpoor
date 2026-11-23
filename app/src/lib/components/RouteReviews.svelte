@@ -57,9 +57,10 @@
           {@const when = formatMonth(r.month, r.dateRecorded)}
           {@const words = answerWords(r)}
           <li>
-            <p class="who"><strong>{r.displayName}</strong>{#if when}<span class="muted"> {when}</span>{/if}</p>
+            <!-- Spaces are explicit {' '}: Svelte 5 trims whitespace at an element's edge. -->
+            <p class="who"><strong>{r.displayName}</strong>{#if when}{' '}<span class="muted">{when}</span>{/if}</p>
             {#if words.length}<p class="ans">{words.join(', ')}</p>{/if}
-            {#if r.safetyNote}<p class="text"><span class="muted">What happened: </span>{r.safetyNote}</p>{/if}
+            {#if r.safetyNote}<p class="text"><span class="muted">What happened:</span>{' '}{r.safetyNote}</p>{/if}
             {#if r.note}<p class="text">{r.note}</p>{/if}
           </li>
         {/each}

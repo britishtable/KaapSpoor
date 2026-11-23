@@ -46,6 +46,12 @@ describe('RouteProfile', () => {
     expect(screen.queryByText(/≈ 300 m/)).toBeNull();
   });
 
+  it('keeps the space before the separator in the caption', () => {
+    // Svelte 5 trims the leading space of an {#if} block's text; a browser showed "1.2 km· ≈".
+    const { container } = render(RouteProfile, { coords: climb });
+    expect(container.textContent).toMatch(/\d km · ≈ 300 m of climb/);
+  });
+
   it('rounds the climb to whole metres', () => {
     // Real DEM samples are floats, so the sum of them almost never lands on an
     // integer. This shipped once as "≈ 380.59999999999997 m of climb" and was

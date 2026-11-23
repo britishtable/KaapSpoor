@@ -49,6 +49,16 @@ describe('RouteReviews', () => {
     await screen.findByText('March 2026');
     expect(screen.getByText('Date not recorded')).toBeTruthy();
   });
+  // Svelte 5 trims whitespace at the edge of an element or block, so a space written
+  // inside a <span> vanishes at compile time. Only a browser showed "BongiOctober 2026";
+  // per-piece text queries pass either way, so assert the whole line's textContent.
+  it('separates the name from the month, and the safety label from its note', async () => {
+    ok({ graded: false, people: 1, summary: empty, reviews: [rev(1, { safety: 'MOSTLY', safetyNote: 'One exposed step' })] });
+    const { container } = render(RouteReviews, { routeId: 'r1' });
+    await screen.findByText('Walker 1');
+    expect(container.querySelector('.who')!.textContent).toBe('Walker 1 March 2026');
+    expect([...container.querySelectorAll('.text')].map((p) => p.textContent)).toContain('What happened: One exposed step');
+  });
   it('Show more reveals the rest and counts only what is listed', async () => {
     ok({ graded: false, people: 9, summary: empty, reviews: Array.from({ length: 7 }, (_, i) => rev(i + 1)) });
     render(RouteReviews, { routeId: 'r1' });
