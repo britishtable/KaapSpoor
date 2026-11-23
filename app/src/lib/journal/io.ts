@@ -1,10 +1,10 @@
 import {
-  DIFFICULTY_GRADED, DIFFICULTY_UNGRADED, NAVIGATION_ANSWERS, REVIEW_NOTE_MAX, REVIEW_SAFETY_NOTE_MAX,
+  DIFFICULTY_GRADED, DIFFICULTY_UNGRADED, NAVIGATION_ANSWERS,
   SAFETY_ANSWERS, WATER_ANSWERS,
   type Hike, type JournalPlan, type Review, type RouteNotes, type Visibility
 } from '../data/types';
 import { cleanPlan, cleanReview, convertJournal, isPlan } from './convert';
-import { now } from './store';
+import { canReview, localDate, now, reviewProblem } from './store';
 
 export interface Data { hikes: Hike[]; routeNotes: RouteNotes[] }
 
@@ -33,12 +33,13 @@ const isStrOrNull = (x: unknown) => x === null || typeof x === 'string';
 const isDateOrNull = (x: unknown) => x === null || (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x));
 
 const oneOf = (list: readonly string[]) => (v: unknown) => v === undefined || v === null || list.includes(v as string);
-const isText = (max: number) => (v: unknown) => v === undefined || v === null || (typeof v === 'string' && v.length <= max);
+const isStr = (v: unknown) => v === undefined || v === null || typeof v === 'string';
+const isNum = (v: unknown) => v === undefined || v === null || typeof v === 'number';
+/** Types and enum membership only; ranges, lengths and combinations are reviewProblem's. */
 const REVIEW_CHECKS: Record<string, (v: unknown) => boolean> = {
   difficulty: oneOf([...DIFFICULTY_GRADED, ...DIFFICULTY_UNGRADED]),
-  enjoyment: (v) => v === undefined || v === null || (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5),
-  safety: oneOf(SAFETY_ANSWERS), navigation: oneOf(NAVIGATION_ANSWERS), water: oneOf(WATER_ANSWERS),
-  note: isText(REVIEW_NOTE_MAX), safetyNote: isText(REVIEW_SAFETY_NOTE_MAX)
+  enjoyment: isNum, safety: oneOf(SAFETY_ANSWERS), navigation: oneOf(NAVIGATION_ANSWERS),
+  water: oneOf(WATER_ANSWERS), note: isStr, safetyNote: isStr
 };
 function isReview(x: unknown): boolean {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
@@ -70,7 +71,9 @@ function toHike(x: unknown): Hike | null {
     // Unknown keys are dropped like any junk field.
     const known: Record<string, unknown> = {};
     for (const k of Object.keys(REVIEW_CHECKS)) if (k in review) known[k] = (review as Record<string, unknown>)[k];
-    if (Object.keys(known).length > 0) hike.review = known as Review;
+    hike.review = known as Review;
+    // The same validity the store enforces; a review the server would 400 must not be imported.
+    if (reviewProblem(hike.review) || !canReview(hike, localDate())) return null;
   }
   return hike;
 }

@@ -69,9 +69,16 @@ describe('v2 serialize / parse', () => {
     expect(out.hikes[0].review).toEqual(review);
   });
 
-  it('a review with enjoyment 9 or an unknown answer makes the hike malformed', () => {
-    for (const review of [{ enjoyment: 9 }, { water: 'MUDDY' }, { difficulty: 'IMPOSSIBLE' }, { note: 'x'.repeat(2001) }]) {
-      const raw = JSON.parse(serialize({ hikes: [h('1')], routeNotes: [] }));
+  it('a review the server would refuse makes the hike malformed', () => {
+    const cases: [unknown, Partial<Hike>?][] = [
+      [{ enjoyment: 9 }], [{ water: 'MUDDY' }], [{ difficulty: 'IMPOSSIBLE' }], [{ note: 'x'.repeat(2001) }],
+      [{}], [{ note: '  ' }], [{ safetyNote: 'x' }], [{ enjoyment: 0 }], [{ enjoyment: 2.5 }],
+      [{ safety: 'NO', safetyNote: 'x'.repeat(1001) }], [[]], ['text'],
+      [{ enjoyment: 3 }, { finishedAt: null, startedAt: '2026-07-02T06:00:00.000Z' }],
+      [{ enjoyment: 3 }, { date: '2999-01-01' }]
+    ];
+    for (const [review, over] of cases) {
+      const raw = JSON.parse(serialize({ hikes: [h('1', over)], routeNotes: [] }));
       raw.hikes[0].review = review;
       expect(() => parse(JSON.stringify(raw))).toThrow('The file contains a malformed hike.');
     }

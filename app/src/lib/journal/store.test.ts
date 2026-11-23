@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import {
   hikes, visibleHikes, doneRouteIds, activeHike, hikesForRoute, viewer,
   logHike, updateHike, deleteHike, startHike, finishHike, setRouteNotes,
-  setReview, canReview, ReviewNotAllowedError, hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
+  setReview, canReview, ReviewNotAllowedError, InvalidReviewError, hydrate, replaceAll, onLocalWrite, applyServerHike, setClockForTests, ActiveHikeError, LockedHikeError
 } from './store';
 import { getAllHikes } from './db';
 import type { Hike } from '../data/types';
@@ -199,6 +199,41 @@ describe('reviews', () => {
   it("setReview on another owner's hike throws LockedHikeError", async () => {
     await replaceAll({ hikes: [done('h1', { owner: 'u1' })], routeNotes: [] });
     await expect(setReview('h1', { enjoyment: 3 })).rejects.toBeInstanceOf(LockedHikeError);
+  });
+
+  it('setReview rejects reviews the server would refuse', async () => {
+    await replaceAll({ hikes: [done('h1')], routeNotes: [] });
+    const bad = [
+      {}, { note: '   ' }, { safetyNote: 'rockfall' }, { enjoyment: 0 }, { enjoyment: 6 }, { enjoyment: 2.5 },
+      { note: 'x'.repeat(2001) }, { safety: 'NO' as const, safetyNote: 'x'.repeat(1001) }
+    ];
+    for (const r of bad) await expect(setReview('h1', r)).rejects.toBeInstanceOf(InvalidReviewError);
+    expect(get(hikes).get('h1')).not.toHaveProperty('review');
+    await expect(setReview('h1', { safety: 'NO', safetyNote: 'rockfall' })).resolves.toBeTruthy();
+  });
+
+  it('setReview on a future-dated hike throws ReviewNotAllowedError', async () => {
+    await replaceAll({ hikes: [done('h1', { date: '2999-01-01' })], routeNotes: [] });
+    await expect(setReview('h1', { enjoyment: 3 })).rejects.toBeInstanceOf(ReviewNotAllowedError);
+  });
+
+  it('setReview(null) on an active hike succeeds', async () => {
+    await replaceAll({ hikes: [done('h1', { finishedAt: null, review: { enjoyment: 3 } })], routeNotes: [] });
+    const out = await setReview('h1', null);
+    expect(out).not.toHaveProperty('review');
+  });
+
+  it('updateHike to a future date on a reviewed hike throws and changes nothing', async () => {
+    const h = done('h1', { review: { enjoyment: 3 } });
+    await replaceAll({ hikes: [h], routeNotes: [] });
+    await expect(updateHike('h1', { date: '2999-01-01' })).rejects.toBeInstanceOf(ReviewNotAllowedError);
+    expect(get(hikes).get('h1')).toEqual(h);
+  });
+
+  it('deleteHike leaves no review on the tombstone', async () => {
+    await replaceAll({ hikes: [done('h1', { review: { enjoyment: 3 } })], routeNotes: [] });
+    await deleteHike('h1');
+    expect(get(hikes).get('h1')).not.toHaveProperty('review');
   });
 
   it('canReview is false for a hike dated tomorrow', () => {

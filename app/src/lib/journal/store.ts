@@ -1,5 +1,8 @@
 import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
-import type { Hike, JournalPlan, Review, RouteNotes, Visibility } from '../data/types';
+import {
+  REVIEW_NOTE_MAX, REVIEW_SAFETY_NOTE_MAX,
+  type Hike, type JournalPlan, type Review, type RouteNotes, type Visibility
+} from '../data/types';
 import { getAllHikes, getAllRouteNotes, putHike, putRouteNotes, replaceAllData } from './db';
 
 export const hikes = writable<Map<string, Hike>>(new Map());
@@ -19,6 +22,14 @@ export class ReviewNotAllowedError extends Error {
   constructor() {
     super('A hike can be reviewed once it is finished and not dated in the future.');
     this.name = 'ReviewNotAllowedError';
+  }
+}
+
+/** A review the server would refuse; carries the reason. */
+export class InvalidReviewError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidReviewError';
   }
 }
 
@@ -54,7 +65,7 @@ function updateMap<T>(store: Writable<Map<string, T>>, fn: (m: Map<string, T>) =
   store.update((m) => { const next = new Map(m); fn(next); return next; });
 }
 
-function localDate(): string {
+export function localDate(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -65,6 +76,22 @@ export function canReview(h: Hike, today: string): boolean {
   if (h.deleted) return false;
   if (h.startedAt !== null && h.finishedAt === null) return false;
   return h.date === null || h.date <= today;
+}
+
+/** Why the server would refuse this review, or null. The one definition of a valid review's shape. */
+export function reviewProblem(r: Review): string | null {
+  const answered = r.difficulty !== undefined || r.enjoyment !== undefined || r.safety !== undefined ||
+    r.navigation !== undefined || r.water !== undefined;
+  if (!answered && (r.note === undefined || r.note.trim() === '')) return 'Answer at least one question or write a note.';
+  if (r.safetyNote !== undefined && r.safety === undefined) return 'A safety note needs a safety answer.';
+  if (r.enjoyment !== undefined && (!Number.isInteger(r.enjoyment) || r.enjoyment < 1 || r.enjoyment > 5)) {
+    return 'Enjoyment is 1 to 5.';
+  }
+  if (r.note !== undefined && r.note.length > REVIEW_NOTE_MAX) return `The note is over ${REVIEW_NOTE_MAX} characters.`;
+  if (r.safetyNote !== undefined && r.safetyNote.length > REVIEW_SAFETY_NOTE_MAX) {
+    return `The safety note is over ${REVIEW_SAFETY_NOTE_MAX} characters.`;
+  }
+  return null;
 }
 
 // ---- derived ----
@@ -170,7 +197,10 @@ export async function updateHike(
   id: string,
   patch: Partial<Pick<Hike, 'date' | 'notes' | 'visibility' | 'notesVisibility' | 'plan'>>
 ): Promise<void> {
-  await localWriteHike({ ...requireEditable(id), ...patch });
+  const next = { ...requireEditable(id), ...patch };
+  // Never drop a review silently: refuse the edit that would make the server refuse it.
+  if (next.review && !canReview(next, localDate())) throw new ReviewNotAllowedError();
+  await localWriteHike(next);
 }
 
 /** Final and scrubbed, as on the server: only the route and visibility stay. */
@@ -179,13 +209,18 @@ export async function deleteHike(id: string): Promise<void> {
     ...requireEditable(id), deleted: true, notes: '', date: null, startedAt: null, finishedAt: null
   };
   delete next.plan;
+  delete next.review;
   await localWriteHike(next);
 }
 
 /** Saves (or, with null, removes) the hike's review. */
 export async function setReview(hikeId: string, review: Review | null): Promise<Hike> {
   const h = requireEditable(hikeId);
-  if (review !== null && !canReview(h, localDate())) throw new ReviewNotAllowedError();
+  if (review !== null) {
+    if (!canReview(h, localDate())) throw new ReviewNotAllowedError();
+    const problem = reviewProblem(review);
+    if (problem) throw new InvalidReviewError(problem);
+  }
   const next: Hike = { ...h };
   if (review) next.review = review;
   else delete next.review;
