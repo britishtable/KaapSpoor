@@ -103,9 +103,12 @@ export function merge(
   for (const h of current.hikes) {
     if (mode === 'merge' || locked(h)) hikes.set(h.id, h);
   }
-  for (const h of incoming.hikes) {
-    const local = current.hikes.find((x) => x.id === h.id);
+  for (const incomingHike of incoming.hikes) {
+    const local = current.hikes.find((x) => x.id === incomingHike.id);
     if (local && locked(local)) continue;
+    // Imported while signed in: the hike is the viewer's now. Left unowned, signing out
+    // before it uploads would let the next account to sign in upload it as its own.
+    const h = { ...incomingHike, owner: incomingHike.owner ?? viewer };
     hikes.set(h.id, mode === 'merge' ? newer(hikes.get(h.id), h) : h);
   }
   if (mode === 'replace') return { hikes: [...hikes.values()], routeNotes: [...incoming.routeNotes] };

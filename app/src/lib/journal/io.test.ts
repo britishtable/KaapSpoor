@@ -134,6 +134,17 @@ describe('merge', () => {
     expect(merge(c, inc, 'merge', null).hikes[0].notes).toBe('synced');
   });
 
+  it('signed in: unowned incoming hikes become the viewer\'s, so they never upload to the next account', () => {
+    const inc = { hikes: [h('new', { owner: null, pending: true })], routeNotes: [] };
+    expect(merge({ hikes: [], routeNotes: [] }, inc, 'merge', 'u1').hikes[0].owner).toBe('u1');
+    expect(merge({ hikes: [], routeNotes: [] }, inc, 'replace', 'u1').hikes[0].owner).toBe('u1');
+  });
+
+  it('signed out: unowned incoming hikes stay unowned', () => {
+    const inc = { hikes: [h('new', { owner: null, pending: true })], routeNotes: [] };
+    expect(merge({ hikes: [], routeNotes: [] }, inc, 'merge', null).hikes[0].owner).toBeNull();
+  });
+
   it('does not resurrect a local tombstone, even with a newer live hike', () => {
     const c = { hikes: [h('d', { deleted: true, notes: '' })], routeNotes: [] };
     const inc = { hikes: [h('d', { updatedAt: '2030-01-01T00:00:00.000Z' })], routeNotes: [] };

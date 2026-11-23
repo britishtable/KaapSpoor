@@ -2,12 +2,9 @@
 
 These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026-11-18). Items fixed in the final review's fix round are not listed.
 
-## Open: fix first (before plan 3 builds on hikes)
+## Fixed after merge
 
-- **Import while signed in can leak to the next account.**
-  - **What goes wrong:** settings import stores incoming hikes with `owner: null` (`io.ts` `toHike`, then `store.ts` `replaceAll`). If the user signs out before those hikes upload, they are editable and exportable by anyone holding the phone. The next account to sign in then uploads them as its own.
-  - **Fix:** when signed in, stamp `owner = viewer` on incoming hikes whose owner is null.
-  - **Test:** A imports while offline and signs out; B signs in; B can't see the hikes and sends no PUT for them.
+- **Import while signed in leaked to the next account.** `merge` now stamps `owner = viewer` on incoming hikes with no owner (which also fixes the self re-import that dropped the owner). Sync already never pushes another account's hike.
 
 ## Open: checks not yet run (machine was low on memory)
 
@@ -78,5 +75,4 @@ These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026
 - **No automatic retry.** Nothing retries after a failed run when no `online` event follows.
 - **Late offline text.** "Will send when you have signal" only shows once a run has set the offline status.
 - **Replace-mode import.** It can leave the device behind the server, because the cursor isn't reset.
-- **Self re-import.** Re-importing your own backup while signed in drops the owner. It heals on the next push.
 - **Server checks order.** The server validates before checking for a tombstone, so an invalid edit of a deleted hike gets a 400.
