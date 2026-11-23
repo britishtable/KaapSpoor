@@ -113,6 +113,20 @@ class RouteReportsApiTest {
         return id;
     }
 
+    private UUID fileAt(String token, String category, Instant observedAt) throws Exception {
+        UUID id = UUID.randomUUID();
+        ObjectNode n = json.createObjectNode();
+        n.put("routeId", "r");
+        n.put("category", category);
+        n.put("observedAt", observedAt.truncatedTo(ChronoUnit.MILLIS).toString());
+        mvc.perform(put("/api/v1/reports/" + id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(n)))
+                .andExpect(status().isOk());
+        return id;
+    }
+
     private UUID file(String token, String category) throws Exception {
         return file(token, category, "", null);
     }
@@ -217,23 +231,62 @@ class RouteReportsApiTest {
     @Test
     void historyDropsAfter90Days() throws Exception {
         String a = register("A");
-        file(a, "WILDLIFE"); // expires about 2 d after it was seen
-        clock.advance(2 * 86400 + 3600 + 89 * 86400);
+        file(a, "WILDLIFE");
+        Instant end = Instant.parse(list().get("active").get(0).get("expiresAt").asText());
+        clock.set(end.plus(Duration.ofDays(90)).minusSeconds(1));
         assertEquals(1, list().get("history").size());
-        clock.advance(2 * 86400);
+        clock.set(end.plus(Duration.ofDays(90)));
         assertEquals(0, list().get("history").size());
+    }
+
+    @Test
+    void anOldExpiredReportIsNotListedButAnOldClosureIs() throws Exception {
+        String a = register("A");
+        file(a, "WILDLIFE");
+        UUID closure = file(a, "CLOSURE");
+        clock.advance(200 * 86400L);
+        JsonNode l = list();
+        assertEquals(0, l.get("history").size());
+        assertEquals(1, l.get("active").size());
+        clock.advance(200 * 86400L);
+        assertEquals(closure.toString(), list().get("active").get(0).get("id").asText());
+    }
+
+    @Test
+    void historyListsOnlyReleasedEvenWithAHeldCandidate() throws Exception {
+        String a = register("A");
+        UUID hike = startHike(a);
+        UUID held = file(a, "OBSTRUCTION", "x", hike);
+        jdbc.update("update report set cleared_at = ? where id = ?",
+                java.sql.Timestamp.from(clock.instant()), held);
+        java.util.Set<String> expected = new java.util.HashSet<>();
+        for (int i = 0; i < 50; i++) {
+            expected.add(fileAt(a, "WILDLIFE", clock.instant().minus(Duration.ofDays(10)).plusSeconds(i)).toString());
+        }
+        JsonNode h = list().get("history");
+        assertEquals(50, h.size());
+        for (JsonNode r : h) {
+            assertTrue(expected.contains(r.get("id").asText()));
+            assertFalse(r.get("id").asText().equals(held.toString()));
+        }
+        assertFalse(rawList("r").contains("Alice"));
+        assertEquals(1, mine(a, "r").size());
     }
 
     @Test
     void historyCapsAt50() throws Exception {
         String a = register("A");
+        java.util.List<String> ids = new java.util.ArrayList<>();
         for (int i = 0; i < 55; i++) {
-            file(a, "WILDLIFE");
+            ids.add(file(a, "WILDLIFE").toString());
             clock.advance(1);
         }
         clock.advance(5 * 86400);
         JsonNode h = list().get("history");
         assertEquals(50, h.size());
+        for (String oldest : ids.subList(0, 5)) {
+            for (JsonNode r : h) assertFalse(r.get("id").asText().equals(oldest));
+        }
         for (int i = 1; i < h.size(); i++) {
             assertFalse(Instant.parse(h.get(i).get("observedAt").asText())
                     .isAfter(Instant.parse(h.get(i - 1).get("observedAt").asText())));

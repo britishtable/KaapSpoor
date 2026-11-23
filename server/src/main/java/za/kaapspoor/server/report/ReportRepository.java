@@ -6,7 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ReportRepository extends JpaRepository<Report, UUID> {
 
-    List<Report> findByRouteId(String routeId);
-
     List<Report> findByRouteIdAndUserId(String routeId, UUID userId);
 }

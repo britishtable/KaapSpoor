@@ -75,6 +75,11 @@ public class ReportService {
                 r.getClearedAt(), isUnverified(r));
     }
 
+    /** The one definition of active: not cleared, and either no expiry or one still ahead. */
+    static boolean isActive(MyReport v, Instant now) {
+        return v.clearedAt() == null && (v.expiresAt() == null || v.expiresAt().isAfter(now));
+    }
+
     boolean isHeld(Report r, Instant now) {
         if (r.getHikeId() == null) {
             return false;

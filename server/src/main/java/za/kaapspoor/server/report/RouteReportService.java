@@ -19,8 +19,10 @@ import za.kaapspoor.server.report.ReportDtos.RouteReports;
 
 /**
  * A route's reports. Held and expired are decided only by {@link ReportService#view}; this class
- * reads the route's reports and sorts them by what that says. A route has a few dozen at most,
- * so one view per report is fine for now.
+ * reads the route's reports and sorts them by what that says. A SQL pre-filter only narrows the
+ * candidates (it can let extra reports through, never drop a listable one); it does not decide.
+ * Candidates are bounded by the 90 day history window, but a busy route can still have many, and
+ * each gets one view() call: fine for R1, to be batched later without a second definition.
  */
 @Service
 public class RouteReportService {
@@ -52,7 +54,7 @@ public class RouteReportService {
         Comparator<PublicReport> newestFirst = Comparator.comparing(PublicReport::observedAt).reversed();
         List<PublicReport> active = new java.util.ArrayList<>();
         List<PublicReport> history = new java.util.ArrayList<>();
-        for (Report r : reports.findByRouteId(routeId)) {
+        for (Report r : candidates(routeId, now)) {
             MyReport v = reportService.view(r, now);
             if (v.held()) {
                 continue;
@@ -60,7 +62,7 @@ public class RouteReportService {
             PublicReport p = new PublicReport(v.id(), v.category(), v.note(), names.computeIfAbsent(
                     r.getUserId(), this::displayName), v.observedAt(), v.lastConfirmedAt(), v.expiresAt(),
                     v.clearedAt(), v.unverified(), v.position());
-            if (v.clearedAt() == null && (v.expiresAt() == null || v.expiresAt().isAfter(now))) {
+            if (ReportService.isActive(v, now)) {
                 active.add(p);
             } else {
                 Instant ended = v.clearedAt() == null ? v.expiresAt()
@@ -70,9 +72,27 @@ public class RouteReportService {
                 }
             }
         }
+        // Ordered by observedAt, newest first: the cap keeps the 50 most recently observed.
         active.sort(newestFirst);
         history.sort(newestFirst);
         return new RouteReports(active, history.stream().limit(MAX_HISTORY).toList());
+    }
+
+    /**
+     * A superset of what can be listed: not cleared long ago, and either a category that never
+     * expires or last seen within its longest lifetime plus the history window.
+     */
+    private List<Report> candidates(String routeId, Instant now) {
+        Instant clearedAfter = now.minus(HISTORY_WINDOW);
+        Instant seenAfter = now.minus(ReportCategory.maxFiniteLifetime().plus(HISTORY_WINDOW));
+        String unbounded = ReportCategory.unbounded().stream()
+                .map(c -> "'" + c.name() + "'").collect(java.util.stream.Collectors.joining(", "));
+        List<UUID> ids = jdbc.queryForList("select id from report where route_id = ?"
+                + " and (cleared_at is null or cleared_at > ?)"
+                + " and (" + (unbounded.isEmpty() ? "false" : "category in (" + unbounded + ")")
+                + " or coalesce(last_confirmed_at, observed_at) > ?)",
+                UUID.class, routeId, java.sql.Timestamp.from(clearedAfter), java.sql.Timestamp.from(seenAfter));
+        return reports.findAllById(ids);
     }
 
     /** The caller's own reports on a route that are still held back from the public. */

@@ -24,4 +24,15 @@ public enum ReportCategory {
     public Optional<Duration> lifetime() {
         return days < 0 ? Optional.empty() : Optional.of(Duration.ofDays(days));
     }
+
+    /** The longest finite lifetime of any category. */
+    public static Duration maxFiniteLifetime() {
+        return java.util.Arrays.stream(values()).flatMap(c -> c.lifetime().stream())
+                .max(Duration::compareTo).orElse(Duration.ZERO);
+    }
+
+    /** The categories that never expire on their own. */
+    public static java.util.List<ReportCategory> unbounded() {
+        return java.util.Arrays.stream(values()).filter(c -> c.lifetime().isEmpty()).toList();
+    }
 }
