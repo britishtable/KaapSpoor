@@ -6,16 +6,18 @@ These items were carried out of the plan 2 build (branch `r1-hikes`, merged 2026
 
 - **Import while signed in leaked to the next account.** `merge` now stamps `owner = viewer` on incoming hikes with no owner (which also fixes the self re-import that dropped the owner). Sync already never pushes another account's hike.
 
-## Open: checks not yet run (machine was low on memory)
+## Checks
 
-- **Subpath e2e:** run `npx playwright test --config=playwright.subpath.config.ts`. The root config passed 27/27 before the final fix round.
+- **Run 2026-11-23 at 93d6a12:** subpath e2e 27 passed, 1 skipped (a data-conditional skip); `./mvnw verify` 73/73. Docker Desktop must be running first, or 71 tests error on Testcontainers.
+
+## Open: check not yet run
+
 - **Manual live-server check (plan 2, Task 7 Step 5):**
   1. Run the server locally with `VITE_API_BASE_URL` set.
   2. Create an account and log a hike.
   3. Check `GET /api/v1/hikes`.
   4. Sign in from a second browser profile; the hike arrives.
   5. Repeat with a plan-bearing hike, and include export, then import.
-- `./mvnw verify` on the merged tree. It last passed at 205cf4a (73 tests).
 
 ## Deferred minors
 
