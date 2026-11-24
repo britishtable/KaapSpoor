@@ -37,7 +37,9 @@
     return fix && r.position ? haversineM([fix.lon, fix.lat], [r.position.lon, r.position.lat]) : Infinity;
   }
   function mayAsk(r: PublicReport, withinM: number): boolean {
-    return me !== null && fix !== null && fix.accuracy <= ROUGH_FIX_M
+    // Not safety incidents: "Still there?" is no question for someone standing where one happened.
+    // The report stays in the list below, to read and to answer from anywhere.
+    return me !== null && fix !== null && fix.accuracy <= ROUGH_FIX_M && r.category !== 'SAFETY'
       && distanceM(r) <= withinM && !own.has(r.id) && !settled.has(key(me, r.id));
   }
 

@@ -1,5 +1,5 @@
 import { render, fireEvent, screen } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // LocatorMap constructs a real maplibre-gl Map in onMount. Rather than rely on
 // jsdom's absent WebGL2 context (which the component already tolerates for
@@ -11,6 +11,9 @@ const constructed: Array<{ zoom: number }> = [];
 const calls: Array<{ name: string; args: unknown[] }> = [];
 /** What queryRenderedFeatures answers: the report pins under a tap. */
 const rendered: { features: Array<{ properties: Record<string, unknown> }> } = { features: [] };
+
+/** Where the map says a point is on screen, in px; the live-position tests give the map a size. */
+const projected: { at: (p: [number, number]) => { x: number; y: number } } = { at: () => ({ x: 0, y: 0 }) };
 
 vi.mock('maplibre-gl', () => {
   class Map {
@@ -58,6 +61,9 @@ vi.mock('maplibre-gl', () => {
     queryRenderedFeatures(...args: unknown[]) {
       calls.push({ name: 'queryRenderedFeatures', args });
       return rendered.features;
+    }
+    project(p: [number, number]) {
+      return projected.at(p);
     }
     unproject([x, y]: [number, number]) {
       return { lng: 18 + x / 1000, lat: -34 - y / 1000 };
@@ -562,7 +568,7 @@ describe('LocatorMap live position', () => {
     expect(cleared.features).toEqual([]);
   });
 
-  it('brings the dot into view when it appears, and does not follow it after', async () => {
+  it('brings the dot into view when it appears, and does not follow it within the view', async () => {
     const props = { coords, title: 'T', routeId: 'a--b--c' };
     const { rerender } = render(LocatorMap, { ...props, position: null });
     expect(fits()).toHaveLength(0);
@@ -572,6 +578,50 @@ describe('LocatorMap live position', () => {
     expect([w, s, e, n]).toEqual([18.4, -33.95, 18.5, -33.95]); // the route pin and the dot
     await rerender({ ...props, position: at(18.6, -33.95) });
     expect(fits()).toHaveLength(1);
+  });
+
+  describe('when the dot walks off the map', () => {
+    // A 300 x 200 map: 100 px per 0.01 degrees east of the route pin, which sits at x = 100.
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300);
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
+      projected.at = ([lon]) => ({ x: 100 + (lon - 18.4) * 10_000, y: 100 });
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+      projected.at = () => ({ x: 0, y: 0 });
+    });
+    const props = { coords, title: 'T', routeId: 'a--b--c' };
+
+    it('frames it again when it leaves the view, or is cut by its edge', async () => {
+      const { rerender } = render(LocatorMap, { ...props, position: at(18.401, -33.95) });
+      expect(fits()).toHaveLength(1); // it appeared
+      await rerender({ ...props, position: at(18.41, -33.95) }); // x = 200: in view
+      expect(fits()).toHaveLength(1);
+      await rerender({ ...props, position: at(18.4196, -33.95) }); // x = 296: cut by the edge
+      expect(fits()).toHaveLength(2);
+      expect(fits()[1]).toEqual([[18.4, -33.95], [18.4196, -33.95]]);
+      await rerender({ ...props, position: at(18.39, -33.95) }); // x = 0
+      expect(fits()).toHaveLength(3);
+    });
+
+    it('never moves the map while a report spot is being picked, and catches up after', async () => {
+      const onpick = vi.fn();
+      const { rerender } = render(LocatorMap, { ...props, position: at(18.401, -33.95) });
+      await rerender({ ...props, position: at(18.45, -33.95), onpick });
+      expect(fits()).toHaveLength(1);
+      await rerender({ ...props, position: at(18.45, -33.95), onpick: undefined });
+      expect(fits()).toHaveLength(2);
+    });
+
+    it('a dot that first appears during a pick waits too', async () => {
+      const onpick = vi.fn();
+      const { rerender } = render(LocatorMap, { ...props, position: null, onpick });
+      await rerender({ ...props, position: at(18.401, -33.95), onpick });
+      expect(fits()).toHaveLength(0);
+      await rerender({ ...props, position: at(18.401, -33.95), onpick: undefined });
+      expect(fits()).toHaveLength(1);
+    });
   });
 
   it('a line that lands after the dot is framed together with it', async () => {

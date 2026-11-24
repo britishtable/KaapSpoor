@@ -70,6 +70,15 @@ describe('NearReportPrompt', () => {
     expect(question()).toBeNull();
   });
 
+  it('never asks a hiker standing there about a safety incident, and asks about the next nearest', () => {
+    const safety = pub('s', north(20), { category: 'SAFETY' });
+    const { unmount } = render(NearReportPrompt, { ...base(), active: [safety] });
+    expect(question()).toBeNull();
+    unmount();
+    render(NearReportPrompt, { ...base(), active: [safety, pub('a', north(50))] });
+    expect(question()).toContain('Obstruction');
+  });
+
   it('not for a report with no position', () => {
     render(NearReportPrompt, { ...base(), active: [pub('a', null)] });
     expect(question()).toBeNull();

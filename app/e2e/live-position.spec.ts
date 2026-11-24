@@ -52,6 +52,16 @@ test.describe('live position', () => {
       geo.clearWatch = (id) => { w.__watching--; clear(id); };
     });
   });
+  /** How many position dots the map is showing, once it has stopped moving. */
+  const dots = (page: Page) =>
+    page.evaluate(() => {
+      const el = document.querySelector('[data-testid="locator-map"]') as HTMLElement & {
+        __maplibreMap?: import('maplibre-gl').Map;
+      };
+      const map = el.__maplibreMap;
+      if (!map?.getLayer('position') || map.isMoving()) return 0;
+      return map.queryRenderedFeatures(undefined, { layers: ['position'] }).length;
+    });
   const watching = (page: Page) =>
     page.evaluate(() => (window as unknown as { __watching: number }).__watching);
 
@@ -64,22 +74,15 @@ test.describe('live position', () => {
     await expect(page.getByText('On route', { exact: true })).toBeVisible();
     await expect(page.getByTestId('live-distances')).toHaveText(/^\S+ k?m done · \S+ k?m to go$/);
 
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() => {
-            const el = document.querySelector('[data-testid="locator-map"]') as HTMLElement & {
-              __maplibreMap?: import('maplibre-gl').Map;
-            };
-            const map = el.__maplibreMap;
-            return map?.getLayer('position') ? map.queryRenderedFeatures(undefined, { layers: ['position'] }).length : 0;
-          }),
-        { timeout: 20_000 }
-      )
-      .toBeGreaterThan(0);
+    await expect.poll(() => dots(page), { timeout: 20_000 }).toBeGreaterThan(0);
 
     await context.setGeolocation(at(target!.off));
     await expect(page.getByText(/^Off route by \S+ k?m$/)).toBeVisible();
+
+    // Walked right off the map, which can't be panned: the map brings the dot back into view.
+    await context.setGeolocation(at([target!.on[0], target!.on[1] + 0.05]));
+    await expect(page.getByText(/^Off route by [45]\.\d km$/)).toBeVisible();
+    await expect.poll(() => dots(page), { timeout: 20_000 }).toBeGreaterThan(0);
   });
 
   test('leaving the route page stops the watch', async ({ context, page }) => {

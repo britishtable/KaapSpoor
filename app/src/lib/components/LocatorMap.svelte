@@ -194,13 +194,28 @@
     });
   });
 
-  // Brings the dot into view when it appears. Not on every fix after that: the map does not
-  // follow. But it cannot be panned either, so a dot that appears off-screen must be fetched.
-  let placed = $derived(position !== null);
+  // Brings the dot into view when it appears and whenever it walks off the map, which cannot be
+  // panned to find it. Within the view the map stays still: it does not follow. It never moves
+  // during a pick, where it would change the ground under a finger; it catches up after.
+  let framedDot = false;
   $effect(() => {
-    if (!placed || !pinsReady) return;
+    const p = position;
+    if (!p) framedDot = false;
+    if (!p || !pinsReady || onpick) return;
+    if (framedDot && inView(p)) return;
+    framedDot = true;
     untrack(() => frame(Math.max(13, coords.zoom)));
   });
+
+  /** Whole dot on the map, not cut by its edge. A map with no size yet cannot tell, and says yes. */
+  const EDGE_PX = 12;
+  function inView(p: { lon: number; lat: number }): boolean {
+    const w = container?.clientWidth ?? 0;
+    const h = container?.clientHeight ?? 0;
+    if (!map || !w || !h) return true;
+    const { x, y } = map.project([p.lon, p.lat]);
+    return x >= EDGE_PX && x <= w - EDGE_PX && y >= EDGE_PX && y <= h - EDGE_PX;
+  }
 
   /** Frames the route (its line, else its circle, else its pin), and the dot when there is one. */
   function frame(maxZoom: number): void {

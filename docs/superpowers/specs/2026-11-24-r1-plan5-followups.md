@@ -29,13 +29,11 @@ while on route.
   arrive, how accurate they are and what they cost in battery are all untested.
 - **A real tab switch or screen lock.** The visibility event was simulated.
 
-## Decisions for the product owner
+## Decided by the product owner, 2026-11-24
 
-- **A dot that walks off the map.** The map doesn't follow, as planned, and it can't be panned
-  either. An off-route hiker can leave its frame, which is when they most need it. Turning live
-  position off and on reframes it.
-- **"Safety incident, 50 m from you. Still there?"** The prompt asks about safety reports as it does
-  about any other. That may be the wrong thing to say to somebody standing there.
+- **A dot that walks off the map.** The map frames the route and the dot again. It still doesn't
+  follow the dot within the view, and it never moves while a report spot is being picked.
+- **Safety incidents.** The near-report question skips them. They can still be answered in the list.
 
 ## Decisions made during the build (for review)
 
@@ -55,7 +53,7 @@ while on route.
 - Distances read "600 m done", from the one formatter, not the plan's "0.6 km done".
 - `LivePosition` has no `hasLine` prop, because the status already says whether there is a line.
 - Start hike turns the GPS on only where the route has a map.
-- The map frames the route and the dot each time the dot appears, not only the first time.
+- The map frames the route and the dot each time the dot appears or leaves the view.
 - The dot is a white-cored bull's-eye, because water report pins are plain blue circles.
 - `position/tracker.ts` chains fixes. The chain survives a hidden tab, and restarts when the line changes.
 
