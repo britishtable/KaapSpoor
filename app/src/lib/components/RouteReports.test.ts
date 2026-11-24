@@ -322,10 +322,12 @@ describe('RouteReports', () => {
 
   it('hands its active reports to the page, never held or pending ones', async () => {
     const onactive = vi.fn();
-    h.load.mockResolvedValue(view({ active: [pub('a')], mineHeld: [held('h1', { position: { lon: 18.4, lat: -34 } })] }));
+    h.load.mockResolvedValue(view({ active: [pub('a')], mineIds: ['a'], mineHeld: [held('h1', { position: { lon: 18.4, lat: -34 } })] }));
     h.outbox!.set([queued('q1')]);
     render(RouteReports, { routeId: 'r1', onactive });
-    await waitFor(() => expect(onactive).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'a' })]));
+    await waitFor(() => expect(onactive).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'a' })], expect.any(Set)));
+    // With the reader's own ids, for the near-report prompt: that must never ask about these.
+    expect(onactive.mock.calls.at(-1)![1]).toEqual(new Set(['a', 'h1', 'q1']));
     expect(onactive.mock.calls.every(([list]) => (list as PublicReport[]).every((r) => r.id === 'a'))).toBe(true);
   });
 

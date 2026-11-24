@@ -9,6 +9,7 @@
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
   import LivePosition from '$lib/components/LivePosition.svelte';
+  import NearReportPrompt from '$lib/components/NearReportPrompt.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
   import RoutePlan from '$lib/components/RoutePlan.svelte';
   import { isPoint3 } from '$lib/map/profile';
@@ -108,6 +109,7 @@
   let reporting: { open: () => Promise<void> } | undefined = $state();
   // The public, active reports only, as RouteReports hands them over: a pin is public.
   let pins = $state<PublicReport[]>([]);
+  let ownReports = $state<Set<string>>(new Set());
   let reportList: { show: (id: string) => Promise<void> } | undefined = $state();
 
   // ---- live position ----
@@ -183,6 +185,7 @@
     {/key}
     </div>
     <LivePosition {status} on={$livePosition.on} problem={$livePosition.problem} ontoggle={toggleLive} />
+    {#key r.id}<NearReportPrompt fix={$livePosition.fix} active={pins} own={ownReports} />{/key}
   {/if}
   <RoutePlan {plan} onchange={choose} />
   {#if r.hasLine}
@@ -200,7 +203,7 @@
     <ul>{#each r.related as rel}<li><a href="{base}/route/{rel.id}">{rel.title}</a></li>{/each}</ul>
   {/if}
 
-  <RouteReports bind:this={reportList} routeId={r.id} onactive={(list) => (pins = list)} />
+  <RouteReports bind:this={reportList} routeId={r.id} onactive={(list, own) => { pins = list; ownReports = own; }} />
 
   <RouteReviews routeId={r.id} />
 

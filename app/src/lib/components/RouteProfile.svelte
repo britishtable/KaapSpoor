@@ -132,8 +132,8 @@
         <!-- The map's own bull's-eye, on a drop line to the axis. -->
         <g data-testid="profile-here">
           <line class="here-line" x1={here.x} y1={here.y} x2={here.x} y2={PAD.top + plotH} />
-          <circle class="here" cx={here.x} cy={here.y} r="7" />
-          <circle class="here-core" cx={here.x} cy={here.y} r="2.5" />
+          <circle class="here" cx={here.x} cy={here.y} r="10" />
+          <circle class="here-core" cx={here.x} cy={here.y} r="3.5" />
         </g>
       {/if}
       {#if markerPoint}
@@ -196,7 +196,7 @@
     stroke-width: 2;
   }
   .here-line { stroke: var(--ks-here); stroke-width: 2; }
-  .here { fill: #1d4ed8; stroke: #fff; stroke-width: 2; }
+  .here { fill: #1d4ed8; stroke: #fff; stroke-width: 3; }
   .here-core { fill: #fff; }
   .tick {
     font-size: 10px;

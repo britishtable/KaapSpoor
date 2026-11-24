@@ -12,8 +12,11 @@
 
   let { routeId, onactive }: {
     routeId: string;
-    /** The public, active reports, for the map's pins. Never the reader's held or unsent ones. */
-    onactive?: (reports: PublicReport[]) => void;
+    /**
+     * The public, active reports, for the map's pins: never the reader's held or unsent ones. With
+     * the ids of every report that is the reader's own, so nobody is asked about theirs.
+     */
+    onactive?: (reports: PublicReport[], own: Set<string>) => void;
   } = $props();
 
   let result = $state<RouteReportsView | 'offline' | 'unavailable' | null>(null);
@@ -62,8 +65,6 @@
   let loaded = $derived(typeof result === 'object' && result !== null ? result : null);
   let shown = $derived(result !== null && result !== 'unavailable');
 
-  $effect(() => { onactive?.(loaded?.active ?? []); });
-
   /** Reports and answers this reader has waiting on this device, live from the queue. */
   let listed = $derived(new Set([
     ...(loaded?.active ?? []), ...(loaded?.history ?? []), ...(loaded?.mineHeld ?? [])
@@ -76,6 +77,8 @@
     ...(loaded?.mineIds ?? []), ...(loaded?.mineHeld ?? []).map((r) => r.id),
     ...$pendingOutbox.flatMap((i) => (i.kind === 'report' ? [i.id] : []))
   ]));
+  $effect(() => { onactive?.(loaded?.active ?? [], own); });
+
   let answersQueued = $derived(new Map(
     $pendingOutbox.flatMap((i) => (i.kind === 'confirmation' ? [[i.reportId, i] as const] : []))
   ));
