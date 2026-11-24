@@ -40,7 +40,8 @@ function beginWatch(): void {
 		},
 		(problem) => {
 			if (mine !== generation) return;
-			store.update((s) => ({ ...s, problem }));
+			// A watch that is over leaves no position behind: "On route" beside "Location is off" is a lie.
+			store.update((s) => ({ ...s, problem, fix: problem === 'unavailable' ? s.fix : null }));
 			if (problem !== 'unavailable') {
 				errored = true;
 				endWatch();
@@ -83,7 +84,7 @@ export function startLive(): symbol {
 	return token;
 }
 
-/** Stops only if `token` is the current owner. No token forces a stop (tests). */
+/** Stops only if `token` is the current owner. No token always stops: the hiker's own stop (the button, Finish hike), and tests. */
 export function stopLive(token?: symbol): void {
 	if (token !== undefined && token !== owner) return;
 	owner = null;

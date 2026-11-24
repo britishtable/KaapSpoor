@@ -3,11 +3,14 @@
   /* Text colours that keep WCAG AA (>= 4.5:1) on the light and the dark canvas. */
   --ks-error: #b91c1c;
   --ks-accent-text: #c2410c;
+  /* The hiker's own position, on the profile and the live control. */
+  --ks-here: #1d4ed8;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --ks-error: #f87171;
     --ks-accent-text: #fb923c;
+    --ks-here: #93c5fd;
   }
 }
 body {

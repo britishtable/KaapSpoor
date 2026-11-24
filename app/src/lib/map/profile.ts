@@ -109,6 +109,18 @@ export function profilePoints(coords: Point3[]): { distanceM: number; elevationM
   return out;
 }
 
+/** Height at a distance along the line, interpolated between profilePoints; null when there are none. */
+export function elevationAt(points: { distanceM: number; elevationM: number }[], distanceM: number): number | null {
+  if (!points.length) return null;
+  const i = points.findIndex((p) => p.distanceM >= distanceM);
+  if (i === 0) return points[0].elevationM;
+  if (i === -1) return points[points.length - 1].elevationM;
+  const a = points[i - 1];
+  const b = points[i];
+  const t = (distanceM - a.distanceM) / (b.distanceM - a.distanceM || 1);
+  return a.elevationM + t * (b.elevationM - a.elevationM);
+}
+
 export function pointAtDistance(coords: Point3[], distanceM: number): Point {
   if (!coords.length) return [0, 0];
   const cumulative = cumulativeDistanceM(coords);

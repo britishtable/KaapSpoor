@@ -16,9 +16,12 @@
   import { ANSWERS, CATEGORY_COLOURS, CATEGORY_LABELS } from '../reports/labels';
   import { formatAge } from '../reports/age';
   import type { Answer, PublicReport } from '../reports/types';
+  import { startLive, stopLive } from '../position/live';
 
-  let { routeId, plan, graded = false, gradeLevel = null, onreport }: {
+  let { routeId, plan, graded = false, gradeLevel = null, hasLocation = false, onreport }: {
     routeId: string; plan?: JournalPlan; graded?: boolean; gradeLevel?: string | null;
+    /** The page shows this route on a map. Without one, Start hike must not run the GPS unseen. */
+    hasLocation?: boolean;
     /** Opens the page's report form; the form itself lives on the page, beside the map it can pick from. */
     onreport?: () => void;
   } = $props();
@@ -57,12 +60,29 @@
     return timeFmt.format(new Date(iso)).replace(/\s/g, '').replace('.', ':');
   }
 
+  // ---- live position ----
+  // Start turns it on and Finish turns it off. Leaving this route, even while the start is still
+  // being saved, must leave no GPS running behind it.
+  let here = $derived(routeId);
+  let liveToken: symbol | undefined;
+  let visit = 0;
+  $effect(() => {
+    void here;
+    return () => {
+      visit++;
+      if (liveToken) stopLive(liveToken);
+      liveToken = undefined;
+    };
+  });
+
   async function start(): Promise<void> {
     error = '';
     finished = false;
     finishedId = null;
     try {
+      const v = visit;
       await startHike(routeId, plan);
+      if (hasLocation && v === visit) liveToken = startLive();
     } catch (e) {
       error = e instanceof ActiveHikeError ? "You're already on a hike." : "Couldn't start the hike on this device.";
     }
@@ -74,7 +94,9 @@
       const id = active.id;
       // Asked only if the hike began today or yesterday, as for a logged hike.
       const began = active.startedAt ? localDate(new Date(active.startedAt)) : null;
+      const v = visit;
       await finishHike(id);
+      if (v === visit) stopLive();
       finishedId = id;
       finished = true;
       if (recent(began)) void askStillThere();

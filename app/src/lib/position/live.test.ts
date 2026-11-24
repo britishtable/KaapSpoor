@@ -89,6 +89,15 @@ describe('livePosition', () => {
 		expect(watches).toBe(3);
 	});
 
+	it('denied mid-watch clears the fix; unavailable keeps it', () => {
+		startLive();
+		onFix(fix);
+		onError('unavailable');
+		expect(get(livePosition).fix).toEqual(fix);
+		onError('denied');
+		expect(get(livePosition).fix).toBeNull();
+	});
+
 	it('insecure stops watching and keeps the problem', () => {
 		startLive();
 		onError('insecure');

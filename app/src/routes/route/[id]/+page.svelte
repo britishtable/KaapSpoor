@@ -8,12 +8,16 @@
   import RouteReporting from '$lib/components/RouteReporting.svelte';
   import LocatorMap from '$lib/components/LocatorMap.svelte';
   import ProvenanceNote from '$lib/components/ProvenanceNote.svelte';
+  import LivePosition from '$lib/components/LivePosition.svelte';
   import RouteProfile from '$lib/components/RouteProfile.svelte';
   import RoutePlan from '$lib/components/RoutePlan.svelte';
   import { isPoint3 } from '$lib/map/profile';
   import { isRole } from '$lib/data/segments';
   import { resolvePlan, assemble, type PlanChoice, type PlanSegment } from '$lib/data/plan';
   import { encodePlan, decodePlan } from '$lib/data/plan-params';
+  import { livePosition, startLive, stopLive } from '$lib/position/live';
+  import { createTracker } from '$lib/position/tracker';
+  import type { RouteStatus } from '$lib/position/route-status';
   import { setPlanSegments } from '$lib/map/selection';
   import { summariseGrade } from '$lib/data/grade';
   import type { PublicReport } from '$lib/reports/types';
@@ -106,6 +110,34 @@
   let pins = $state<PublicReport[]>([]);
   let reportList: { show: (id: string) => Promise<void> } | undefined = $state();
 
+  // ---- live position ----
+  const track = createTracker();
+  let status = $state<RouteStatus | null>(null);
+  // Writes status and never reads it: the previous fix lives in the tracker, not in reactive state.
+  $effect(() => {
+    status = track($livePosition, lineCoords, r.coords, Date.now());
+  });
+  let measured = $derived(status?.kind === 'rough' ? status.prevGood : status);
+  let positionM = $derived(
+    measured && (measured.kind === 'on' || measured.kind === 'off') ? measured.alongM : null
+  );
+
+  // Leaving this route stops the GPS, whether the page goes or SvelteKit reuses it for another
+  // route. `here` changes only with the id, so a refreshed load of the same route stops nothing.
+  let here = $derived(r.id);
+  let liveToken: symbol | undefined;
+  $effect(() => {
+    void here;
+    return () => {
+      if (liveToken) stopLive(liveToken);
+      liveToken = undefined;
+    };
+  });
+  function toggleLive(): void {
+    if ($livePosition.on) stopLive();
+    else liveToken = startLive();
+  }
+
   function choose(choice: PlanChoice): void {
     // State AND address bar, together, so the two can never disagree about
     // what is on screen. replaceState rather than pushState: a dropdown is an
@@ -146,13 +178,15 @@
       {spot}
       reports={pins}
       onreport={(id) => reportList?.show(id)}
+      position={$livePosition.fix}
     />
     {/key}
     </div>
+    <LivePosition {status} on={$livePosition.on} problem={$livePosition.problem} ontoggle={toggleLive} />
   {/if}
   <RoutePlan {plan} onchange={choose} />
   {#if r.hasLine}
-    <RouteProfile coords={lineCoords} onscrub={(d) => (scrubDistanceM = d)} />
+    <RouteProfile coords={lineCoords} onscrub={(d) => (scrubDistanceM = d)} {positionM} />
   {/if}
   <ProvenanceNote route={r} />
 
@@ -176,7 +210,7 @@
       onmapview={() => mapEl?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })} />
   {/key}
 
-  <HikeLog routeId={r.id} onreport={() => reporting?.open()} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
+  <HikeLog routeId={r.id} hasLocation={r.coords !== null} onreport={() => reporting?.open()} graded={r.graded} gradeLevel={summariseGrade(r.grade).level}
     plan={plan.choice.main
       ? {
           approach: plan.choice.approach ?? undefined,

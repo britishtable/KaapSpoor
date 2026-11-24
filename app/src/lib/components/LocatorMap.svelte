@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { base } from '$app/paths';
   // maplibre-gl v6 has no default export — import the protocol helpers by name.
   import {
@@ -17,7 +17,7 @@
     ROUTE_LINE_SOURCE, routeLineFilter, activeSegmentFilter, lineBounds,
     ARROW_IMAGE, arrowImage
   } from '$lib/map/route-lines';
-  import { uncertaintyPaint, uncertaintyBounds } from '$lib/map/pins';
+  import { uncertaintyPaint, uncertaintyBounds, uncertaintyRadiusExpression } from '$lib/map/pins';
   import { pointAtDistance, type Point3 } from '$lib/map/profile';
   import type { Coords } from '$lib/data/types';
   import { selection } from '$lib/map/selection';
@@ -52,7 +52,9 @@
     /** Public, active reports to pin. Never pass held or unsent ones: a pin is public. */
     reports = [],
     /** Called with a report's id when its pin is tapped (outside pick mode). */
-    onreport = undefined
+    onreport = undefined,
+    /** Where the hiker is, with the fix's own accuracy in metres, or null. */
+    position = null
   }: {
     coords: Coords;
     title: string;
@@ -65,6 +67,7 @@
     spot?: [number, number] | null;
     reports?: PublicReport[];
     onreport?: (id: string) => void;
+    position?: { lon: number; lat: number; accuracy: number } | null;
   } = $props();
   let container: HTMLDivElement;
   let map: MapLibreMap | undefined;
@@ -74,6 +77,8 @@
   /** The style has loaded and the report pins' source exists. */
   let pinsReady = $state(false);
 
+  const POSITION = 'position';
+  const HERE = '#1d4ed8';
   const REPORTS = 'reports';
   /** How far from a pin's centre, in px, a tap still counts as on it: a fingertip, not a pixel. */
   const PIN_SLOP = 14;
@@ -172,13 +177,59 @@
     );
   });
 
+  $effect(() => {
+    const p = position;
+    if (!pinsReady || !map) return;
+    const source = map.getSource(POSITION) as import('maplibre-gl').GeoJSONSource | undefined;
+    source?.setData({
+      type: 'FeatureCollection',
+      features: p
+        ? [{
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+            // The name the shared metres-to-pixels radius expression reads.
+            properties: { coordsAccuracyM: p.accuracy }
+          }]
+        : []
+    });
+  });
+
+  // Brings the dot into view when it appears. Not on every fix after that: the map does not
+  // follow. But it cannot be panned either, so a dot that appears off-screen must be fetched.
+  let placed = $derived(position !== null);
+  $effect(() => {
+    if (!placed || !pinsReady) return;
+    untrack(() => frame(Math.max(13, coords.zoom)));
+  });
+
+  /** Frames the route (its line, else its circle, else its pin), and the dot when there is one. */
+  function frame(maxZoom: number): void {
+    if (!map) return;
+    const bounds =
+      (hasLine && lineCoords.length ? lineBounds({ type: 'LineString', coordinates: lineCoords }) : null) ??
+      (accuracyM
+        ? uncertaintyBounds(coords.lon, coords.lat, accuracyM)
+        : ([[coords.lon, coords.lat], [coords.lon, coords.lat]] as [[number, number], [number, number]]));
+    if (!position) {
+      map.fitBounds(bounds, { padding: 24, maxZoom });
+      return;
+    }
+    const [[w, s], [e, n]] = bounds;
+    map.fitBounds(
+      [
+        [Math.min(w, position.lon), Math.min(s, position.lat)],
+        [Math.max(e, position.lon), Math.max(n, position.lat)]
+      ],
+      { padding: 24, maxZoom }
+    );
+  }
+
   // Frames the SAME line the profile plots and the scrub marker rides,
   // whenever it arrives -- the page resolves it asynchronously, so this
   // fires once mapLoaded flips true and again if lineCoords itself changes.
   $effect(() => {
     if (!mapLoaded || !map || !hasLine || !lineCoords.length) return;
-    const bounds = lineBounds({ type: 'LineString', coordinates: lineCoords });
-    if (bounds) map.fitBounds(bounds, { padding: 24, maxZoom: 15 });
+    untrack(() => frame(15));
   });
 
   // Lights the plan the reader has chosen on the picker beside this map,
@@ -315,6 +366,34 @@
             'circle-stroke-color': '#ffffff',
             'circle-stroke-width': 2
           }
+        });
+        // The hiker, above everything: a halo of the fix's real size on the ground, and a
+        // white-cored bull's-eye, since a plain blue dot is what a water report looks like.
+        map.addSource(POSITION, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({
+          id: 'position-halo',
+          type: 'circle',
+          source: POSITION,
+          paint: {
+            'circle-radius': uncertaintyRadiusExpression(),
+            'circle-color': HERE,
+            'circle-opacity': 0.15,
+            'circle-stroke-color': HERE,
+            'circle-stroke-width': 1,
+            'circle-stroke-opacity': 0.6
+          }
+        });
+        map.addLayer({
+          id: POSITION,
+          type: 'circle',
+          source: POSITION,
+          paint: { 'circle-radius': 9, 'circle-color': HERE, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2.5 }
+        });
+        map.addLayer({
+          id: 'position-core',
+          type: 'circle',
+          source: POSITION,
+          paint: { 'circle-radius': 3.5, 'circle-color': '#ffffff' }
         });
         pinsReady = true;
       } catch (err) {

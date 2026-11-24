@@ -12,12 +12,18 @@
    * (the same terracotta accent as the route pins, the same ink as the
    * line-icon halo).
    */
-  import { profilePoints, totalAscentM, totalDistanceM, type Point3 } from '$lib/map/profile';
+  import { elevationAt, profilePoints, totalAscentM, totalDistanceM, type Point3 } from '$lib/map/profile';
 
   let {
     coords,
-    onscrub
-  }: { coords: Point3[]; onscrub?: (distanceM: number | null) => void } = $props();
+    onscrub,
+    /** Where the hiker is, in metres along the line, or null. Not the scrub marker: that follows a finger. */
+    positionM = null
+  }: {
+    coords: Point3[];
+    onscrub?: (distanceM: number | null) => void;
+    positionM?: number | null;
+  } = $props();
 
   const WIDTH = 640;
   const HEIGHT = 140;
@@ -91,6 +97,12 @@
     }
     return nearest;
   });
+
+  let here = $derived.by(() => {
+    if (positionM === null) return null;
+    const elevationM = elevationAt(points, positionM);
+    return elevationM === null ? null : { x: x(positionM), y: y(elevationM) };
+  });
 </script>
 
 {#if points.length}
@@ -116,6 +128,14 @@
       <path class="line" data-testid="profile-line" d={line} />
       <text class="tick" x="2" y={y(highest) + 4}>{Math.round(highest)}</text>
       <text class="tick" x="2" y={y(lowest) + 4}>{Math.round(lowest)}</text>
+      {#if here}
+        <!-- The map's own bull's-eye, on a drop line to the axis. -->
+        <g data-testid="profile-here">
+          <line class="here-line" x1={here.x} y1={here.y} x2={here.x} y2={PAD.top + plotH} />
+          <circle class="here" cx={here.x} cy={here.y} r="7" />
+          <circle class="here-core" cx={here.x} cy={here.y} r="2.5" />
+        </g>
+      {/if}
       {#if markerPoint}
         <line
           class="guide"
@@ -175,6 +195,9 @@
     stroke: #f7f3ec;
     stroke-width: 2;
   }
+  .here-line { stroke: var(--ks-here); stroke-width: 2; }
+  .here { fill: #1d4ed8; stroke: #fff; stroke-width: 2; }
+  .here-core { fill: #fff; }
   .tick {
     font-size: 10px;
     fill: currentColor;

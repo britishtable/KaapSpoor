@@ -20,6 +20,8 @@ import {
   activeHike, visibleHikes, routeNotes, replaceAll, logHike, startHike, setClockForTests, viewer
 } from '../journal/store';
 import type { Hike } from '../data/types';
+import { livePosition, setSource, startLive, stopLive } from '../position/live';
+import { webSource } from '../position/source';
 
 const stored = (id: string, over: Partial<Hike> = {}): Hike => ({
   id, routeId: 'r1', date: '2026-07-21', notes: '', visibility: 'PRIVATE', notesVisibility: 'PRIVATE',
@@ -501,5 +503,69 @@ describe('HikeLog: Still there?', () => {
     await finishAHike();
     await screen.findByText('Hike finished. Nice one.');
     expect(rep.load).not.toHaveBeenCalled();
+  });
+});
+
+describe('HikeLog and live position', () => {
+  let watches = 0;
+  let stops = 0;
+  beforeEach(() => {
+    watches = 0;
+    stops = 0;
+    setSource({ watch: () => { watches++; return () => { stops++; }; } });
+  });
+  afterEach(() => { stopLive(); setSource(webSource); });
+
+  it('Start hike starts live position and Finish stops it', async () => {
+    render(HikeLog, { routeId: 'r1', hasLocation: true });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Finish hike' }));
+    await screen.findByText('Hike finished. Nice one.');
+    expect(watches).toBe(1);
+    expect(stops).toBe(1);
+    expect(get(livePosition).on).toBe(false);
+  });
+
+  it('Finish also stops a live position the page turned on', async () => {
+    await startHike('r1');
+    render(HikeLog, { routeId: 'r1', hasLocation: true });
+    startLive();
+    await fireEvent.click(screen.getByRole('button', { name: 'Finish hike' }));
+    await screen.findByText('Hike finished. Nice one.');
+    expect(get(livePosition).on).toBe(false);
+  });
+
+  it('a route with no map position never starts the GPS', async () => {
+    render(HikeLog, { routeId: 'r1', hasLocation: false });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await screen.findByRole('button', { name: 'Finish hike' });
+    expect(watches).toBe(0);
+  });
+
+  it('leaving the page stops a live position Start hike turned on', async () => {
+    const { unmount } = render(HikeLog, { routeId: 'r1', hasLocation: true });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await screen.findByRole('button', { name: 'Finish hike' });
+    await waitFor(() => expect(get(livePosition).on).toBe(true));
+    unmount();
+    expect(get(livePosition).on).toBe(false);
+    expect(stops).toBe(1);
+  });
+
+  it('moving to another route stops it too', async () => {
+    const { rerender } = render(HikeLog, { routeId: 'r1', hasLocation: true });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await waitFor(() => expect(get(livePosition).on).toBe(true));
+    await rerender({ routeId: 'r2', hasLocation: true });
+    expect(get(livePosition).on).toBe(false);
+  });
+
+  it('leaving while the start is still saving never turns the GPS on', async () => {
+    const { unmount } = render(HikeLog, { routeId: 'r1', hasLocation: true });
+    void fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    unmount();
+    await waitFor(() => expect(get(activeHike)?.routeId).toBe('r1'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(watches).toBe(0);
   });
 });

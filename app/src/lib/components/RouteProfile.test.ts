@@ -131,4 +131,27 @@ describe('RouteProfile', () => {
     fireEvent.keyDown(svg, { key: 'ArrowLeft' }); // back down to total/40
     expect(onscrub).toHaveBeenLastCalledWith(total / 40);
   });
+
+  it('positionM draws the you-are-here marker, separate from the scrub marker', async () => {
+    const onscrub = vi.fn();
+    const { container, rerender } = render(RouteProfile, { coords: climb, positionM: null, onscrub });
+    expect(container.querySelector('[data-testid="profile-here"]')).toBeNull();
+    await rerender({ coords: climb, positionM: totalDistanceM(climb) / 2, onscrub });
+    const here = container.querySelector('[data-testid="profile-here"]')!;
+    // Half way along a 598-wide plot starting at 34, interpolated rather than snapped to a vertex.
+    expect(Number(here.querySelector('circle')!.getAttribute('cx'))).toBeCloseTo(333, 0);
+    expect(container.querySelector('.marker')).toBeNull();
+    expect(onscrub).not.toHaveBeenCalled();
+    await fireEvent.keyDown(container.querySelector('svg')!, { key: 'ArrowRight' });
+    expect(container.querySelector('.marker')).not.toBeNull();
+    expect(container.querySelector('[data-testid="profile-here"]')).not.toBeNull();
+  });
+
+  it('positionM sits between samples at the interpolated height', () => {
+    const steep: Point3[] = [[18.4, -34.0, 0], [18.41, -34.0, 100]];
+    const { container } = render(RouteProfile, { coords: steep, positionM: totalDistanceM(steep) / 4 });
+    // plotH = 140 - 8 - 18 = 114; a quarter of the climb up: y = 8 + 114 - 28.5 = 93.5.
+    const c = container.querySelector('[data-testid="profile-here"] circle')!;
+    expect(Number(c.getAttribute('cy'))).toBeCloseTo(93.5, 1);
+  });
 });

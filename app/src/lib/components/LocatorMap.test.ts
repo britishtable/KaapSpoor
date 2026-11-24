@@ -533,3 +533,54 @@ describe('LocatorMap report pins', () => {
     expect(onreport).not.toHaveBeenCalled();
   });
 });
+
+describe('LocatorMap live position', () => {
+  const coords = { lat: -33.95, lon: 18.4, zoom: 13 };
+  const at = (lon: number, lat: number, accuracy = 12) => ({ lon, lat, accuracy });
+  const layerIds = () => calls.filter((c) => c.name === 'addLayer').map((c) => (c.args[0] as { id: string }).id);
+  const fits = () => calls.filter((c) => c.name === 'fitBounds').map((c) => c.args[0] as [[number, number], [number, number]]);
+
+  it('position adds the dot and halo layers once and updates their data', async () => {
+    const props = { coords, title: 'T', routeId: 'a--b--c' };
+    const { rerender } = render(LocatorMap, { ...props, position: null });
+    await rerender({ ...props, position: at(18.41, -33.95) });
+    await rerender({ ...props, position: at(18.42, -33.95, 30) });
+    const ids = layerIds();
+    expect(ids.filter((i) => i === 'position-halo')).toHaveLength(1);
+    expect(ids.filter((i) => i === 'position')).toHaveLength(1);
+    // Above the report pins: the hiker's own dot is never hidden under one.
+    expect(ids.indexOf('position-halo')).toBeGreaterThan(ids.indexOf('reports'));
+    expect(ids.indexOf('position')).toBeGreaterThan(ids.indexOf('position-halo'));
+    const data = calls.filter((c) => c.name === 'setData' && c.args[0] === 'position').at(-1)!.args[1] as {
+      features: Array<{ geometry: { coordinates: number[] }; properties: { coordsAccuracyM: number } }>;
+    };
+    expect(data.features).toHaveLength(1);
+    expect(data.features[0].geometry.coordinates).toEqual([18.42, -33.95]);
+    expect(data.features[0].properties.coordsAccuracyM).toBe(30);
+    await rerender({ ...props, position: null });
+    const cleared = calls.filter((c) => c.name === 'setData' && c.args[0] === 'position').at(-1)!.args[1] as { features: unknown[] };
+    expect(cleared.features).toEqual([]);
+  });
+
+  it('brings the dot into view when it appears, and does not follow it after', async () => {
+    const props = { coords, title: 'T', routeId: 'a--b--c' };
+    const { rerender } = render(LocatorMap, { ...props, position: null });
+    expect(fits()).toHaveLength(0);
+    await rerender({ ...props, position: at(18.5, -33.95) });
+    expect(fits()).toHaveLength(1);
+    const [[w, s], [e, n]] = fits()[0];
+    expect([w, s, e, n]).toEqual([18.4, -33.95, 18.5, -33.95]); // the route pin and the dot
+    await rerender({ ...props, position: at(18.6, -33.95) });
+    expect(fits()).toHaveLength(1);
+  });
+
+  it('a line that lands after the dot is framed together with it', async () => {
+    const lineCoords: [number, number, number][] = [[18.4, -33.95, 100], [18.42, -33.95, 200]];
+    vi.stubGlobal('fetch', async () => ({ ok: true, status: 200, json: async () => ({ type: 'FeatureCollection', features: [] }) }));
+    const props = { coords, title: 'T', routeId: 'a--b--c', hasLine: true };
+    const { rerender } = render(LocatorMap, { ...props, position: at(18.5, -33.95) });
+    await rerender({ ...props, position: at(18.5, -33.95), lineCoords });
+    await vi.waitFor(() => expect(fits().at(-1)).toEqual([[18.4, -33.95], [18.5, -33.95]]));
+    vi.unstubAllGlobals();
+  });
+});

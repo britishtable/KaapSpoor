@@ -1,9 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { totalDistanceM, pointAtDistance, type Point3 } from '$lib/map/profile';
 import { replaceAll } from '$lib/journal/store';
 import type { RouteContent } from '$lib/data/types';
+import { livePosition, setSource, stopLive } from '$lib/position/live';
+import { webSource, type Fix } from '$lib/position/source';
+import { get } from 'svelte/store';
 import Page from './[id]/+page.svelte';
 
 // The route page's LocatorMap constructs a real maplibre-gl Map. Mock it the
@@ -345,5 +348,65 @@ describe('the route page across a route-to-route navigation (M4, M5)', () => {
     window.history.replaceState({}, '', `/route/${ID2}`);
     await rerender({ data: { route } });
     await vi.waitFor(() => expect(screen.queryByLabelText('Approach')).toBeNull());
+  });
+});
+
+describe('route page live position', () => {
+  let onFix: (f: Fix) => void;
+  let watching = 0;
+  const located = { ...route, coords: { lat: -33.97, lon: 18.39, zoom: 16 } };
+  const fix = (lat: number, accuracy = 10): Fix => ({ lon: 18.39, lat, accuracy, at: Date.now() });
+
+  beforeEach(() => {
+    watching = 0;
+    setSource({
+      watch(f) {
+        onFix = f;
+        watching++;
+        return () => { watching--; };
+      }
+    });
+  });
+  afterEach(() => { stopLive(); setSource(webSource); });
+
+  it('shows no control on a route with no map position', () => {
+    render(Page, { data: { route } });
+    expect(screen.queryByRole('button', { name: 'Show where I am' })).toBeNull();
+  });
+
+  it('a route with no drawn line gives the distance to its pin, and the map gets the dot', async () => {
+    render(Page, { data: { route: located } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Show where I am' }));
+    expect(watching).toBe(1);
+    onFix(fix(-33.979)); // 0.009 degrees of latitude: 1.0 km
+    expect((await screen.findByText(/to the route pin/)).textContent).toBe('1.0 km to the route pin, as the crow flies');
+    const dot = calls.filter((c) => c.name === 'setData' && c.args[0] === 'position').at(-1)!.args[1] as { features: unknown[] };
+    expect(dot.features).toHaveLength(1);
+    await fireEvent.click(screen.getByRole('button', { name: 'Stop showing where I am' }));
+    expect(watching).toBe(0);
+  });
+
+  it('the page button also stops a live position Start hike turned on', async () => {
+    render(Page, { data: { route: located } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start hike' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Stop showing where I am' }));
+    expect(watching).toBe(0);
+  });
+
+  it('leaving the page stops the watch', async () => {
+    const { unmount } = render(Page, { data: { route: located } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Show where I am' }));
+    unmount();
+    expect(watching).toBe(0);
+    expect(get(livePosition).on).toBe(false);
+  });
+
+  it('moving to another route stops the watch; a refreshed load of the same route does not', async () => {
+    const { rerender } = render(Page, { data: { route: located } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Show where I am' }));
+    await rerender({ data: { route: { ...located } } });
+    expect(watching).toBe(1);
+    await rerender({ data: { route: { ...located, id: 'other' } } });
+    expect(watching).toBe(0);
   });
 });
