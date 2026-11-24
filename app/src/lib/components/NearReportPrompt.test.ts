@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Writable } from 'svelte/store';
 import type { OutboxItem, PublicReport } from '$lib/reports/types';
 
@@ -38,12 +38,17 @@ const base = () => ({ fix: fix(), active: [pub('a', north(50))], own: new Set<st
 const question = () => screen.queryByTestId('near-question')?.textContent ?? null;
 const tap = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 
+let clock = 0;
 beforeEach(() => {
+  clock = 10_000;
+  vi.spyOn(performance, 'now').mockImplementation(() => clock);
   h.answer.mockReset();
   h.answer.mockImplementation(async (id) => { h.outbox!.update((q) => [...q, queue(id)]); });
   h.outbox!.set([]);
   h.user!.set({ id: 'u1' });
 });
+
+afterEach(() => { vi.restoreAllMocks(); });
 
 describe('NearReportPrompt', () => {
   it('asks about the nearest active report within 100 m', () => {
@@ -87,6 +92,7 @@ describe('NearReportPrompt', () => {
     const { rerender } = render(NearReportPrompt, base());
     await tap('Not now');
     expect(question()).toBeNull();
+    clock += 2000;
     await rerender({ ...base(), fix: fix({ at: 2000 }) });
     expect(question()).toBeNull();
     expect(h.answer).not.toHaveBeenCalled();
@@ -100,6 +106,7 @@ describe('NearReportPrompt', () => {
     expect(screen.getByText('Will send when you have signal')).toBeTruthy();
     h.outbox!.set([]); // sent
     await waitFor(() => expect(screen.queryByText('Will send when you have signal')).toBeNull());
+    clock += 2000;
     await rerender({ ...base(), fix: fix({ at: 2000 }) });
     expect(question()).toBeNull();
   });
@@ -123,8 +130,24 @@ describe('NearReportPrompt', () => {
     const { rerender } = render(NearReportPrompt, { ...base(), active: two });
     await tap('Not now');
     expect(question()).toBeNull();
+    // A fix may land a moment after the tap, and a second tap of a double tap with it.
+    clock += 300;
     await rerender({ ...base(), active: two, fix: fix({ at: 2000 }) });
+    expect(question()).toBeNull();
+    clock += 1000;
+    await rerender({ ...base(), active: two, fix: fix({ at: 3000 }) });
     expect(question()).toContain('80 m from you. Still there?');
+  });
+
+  it('nor right after an answer, when the list reloads under it', async () => {
+    const two = [pub('a', north(50)), pub('b', north(80), { category: 'WATER' })];
+    const { rerender } = render(NearReportPrompt, { ...base(), active: two });
+    await tap('Gone');
+    await waitFor(() => expect(question()).toBeNull());
+    clock += 300;
+    await rerender({ ...base(), active: [...two] });
+    expect(question()).toBeNull();
+    expect(h.answer).toHaveBeenCalledTimes(1);
   });
 
   it('keeps asking about the same report while another becomes nearer', async () => {
@@ -147,6 +170,7 @@ describe('NearReportPrompt', () => {
     const { rerender } = render(NearReportPrompt, base());
     await tap('Not now');
     h.user!.set({ id: 'u2' });
+    clock += 2000;
     await rerender({ ...base(), fix: fix({ at: 2000 }) });
     expect(question()).not.toBeNull();
   });

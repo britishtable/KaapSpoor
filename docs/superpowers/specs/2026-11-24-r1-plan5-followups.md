@@ -37,7 +37,43 @@ while on route.
 - **"Safety incident, 50 m from you. Still there?"** The prompt asks about safety reports as it does
   about any other. That may be the wrong thing to say to somebody standing there.
 
+## Decisions made during the build (for review)
+
+**Geometry (Task 1)**
+- `locateOnLine` considers one candidate per pass of the line. The plan's rule let the position lag
+  up to 25 m.
+- Going back costs three times going on, so someone who really turns back is followed a few fixes late.
+
+**Lifecycle (Task 2)**
+- Permission denied is retried once each time the tab comes back. Only an insecure page stays blocked.
+- Hiding the tab clears the fix, and so does a denied or insecure page. No stale dot is left behind.
+- The newest `startLive` owns the watch, so an old page's cleanup can't stop a new page's.
+- Opening a Related route stops live position, as leaving does.
+
+**Status and display (Tasks 3 and 4)**
+- A rough status carries the last good one, for hysteresis and the greyed distances.
+- Distances read "600 m done", from the one formatter, not the plan's "0.6 km done".
+- `LivePosition` has no `hasLine` prop, because the status already says whether there is a line.
+- Start hike turns the GPS on only where the route has a map.
+- The map frames the route and the dot each time the dot appears, not only the first time.
+- The dot is a white-cored bull's-eye, because water report pins are plain blue circles.
+- `position/tracker.ts` chains fixes. The chain survives a hidden tab, and restarts when the line changes.
+
+**Near-report question (Task 5)**
+- `RouteReports` hands the page the reader's own report ids along with the active reports.
+- A question is kept to 150 m, and no other replaces it within 1 s of a tap. The 1 s rest was added
+  after the live check and is covered by unit tests.
+- An answer given in the report list counts as answered, per account.
+- The distance is rounded to 10 m.
+
+**Process**
+- Tasks 4 and 5 were built inline and self-reviewed. Tasks 1 to 3 each had a separate reviewer.
+
 ## Deferred
+
+- **Task 1 and 2 minors.** The turn-back test has a magic offset, a plateau of equal `offM` keeps its
+  last element, and a second visible event with no hidden one between also retries a denied permission.
+- **Task 3 comment.** The first fix of a session uses the "on" rule, which deserves a comment.
 
 - **Screen readers.** "Off route by N m" is a live region, so it is read out again at every change.
 - **Out-and-back turning point.** `locateOnLine` sees one pass, not two, where two long segments

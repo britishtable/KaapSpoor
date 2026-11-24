@@ -42,14 +42,17 @@
   }
 
   let askedId = $state<string | null>(null);
-  // Chosen when a fix or the list arrives, and at no other time: choosing again the moment one is
-  // answered would put another report's buttons under the same finger.
+  // Chosen when a fix or the list arrives, and never within a second of the last tap: either can
+  // land mid double tap, and would put another report's buttons under the same finger.
+  const REST_MS = 1000;
+  let tappedAt = -Infinity;
   $effect(() => {
     void fix;
     void active;
     untrack(() => {
       const current = active.find((r) => r.id === askedId);
       if (current && mayAsk(current, KEEP_REPORT_M)) return;
+      if (performance.now() - tappedAt < REST_MS) return;
       const near = active.filter((r) => mayAsk(r, NEAR_REPORT_M)).sort((a, b) => distanceM(a) - distanceM(b));
       askedId = near[0]?.id ?? null;
       error = '';
@@ -67,6 +70,7 @@
     if (!me) return;
     const owner = me;
     error = '';
+    tappedAt = performance.now();
     try {
       await answerReport(id, value);
       settled.add(key(owner, id));
@@ -76,6 +80,7 @@
     }
   }
   function notNow(id: string): void {
+    tappedAt = performance.now();
     if (me) settled.add(key(me, id));
   }
 
